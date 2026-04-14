@@ -3,8 +3,9 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
 
-const TOKEN = 'MTQ5MzQxMTU1MTQ3NzEwODc0Ng.Gz8i5A.4aZByEmllctgAFtZ8QwQ6bn7FIOPz0ZwVl5U6E';
-const CHANNEL_ID = '1493399971079393320';
+// 🔐 ENV (for hosting)
+const TOKEN = process.env.TOKEN;
+const CHANNEL_ID = process.env.CHANNEL_ID;
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -12,74 +13,109 @@ const client = new Client({
 
 let sentEvents = new Set();
 
-// 🔴 FETCH NEWS
+// 💥 CRASH PROTECTION
+process.on('unhandledRejection', (err) => {
+  console.log('Unhandled Rejection:', err);
+});
+
+process.on('uncaughtException', (err) => {
+  console.log('Uncaught Exception:', err);
+});
+
+// 🔴 FETCH NEWS (SAFE VERSION)
 async function fetchNews() {
   try {
-    const { data } = await axios.get('https://www.forexfactory.com/calendar');
-    const $ = cheerio.load(data);
+    const { data } = await axios.get('https://www.forexfactory.com/calendar', {
+      timeout: 10000
+    });
 
+    if (!data) return [];
+
+    const $ = cheerio.load(data);
     let events = [];
 
     $('.calendar__row').each((i, el) => {
-      const impact = $(el).find('.impact').attr('title');
-      const currency = $(el).find('.calendar__currency').text().trim();
+      try {
+        const impact = $(el).find('.impact').attr('title');
+        const currency = $(el).find('.calendar__currency').text().trim();
 
-      if (impact && impact.includes('High') && currency === 'USD') {
-        const time = $(el).find('.calendar__time').text().trim();
-        const title = $(el).find('.calendar__event').text().trim();
+        if (impact && impact.includes('High') && currency === 'USD') {
+          const time = $(el).find('.calendar__time').text().trim();
+          const title = $(el).find('.calendar__event').text().trim();
 
-        const id = `${time}-${currency}-${title}`;
+          const id = `${time}-${currency}-${title}`;
 
-        if (!sentEvents.has(id)) {
-          sentEvents.add(id);
-          events.push({ time, currency, title });
+          if (!sentEvents.has(id)) {
+            sentEvents.add(id);
+            events.push({ time, currency, title });
+          }
         }
-      }
+      } catch (e) {}
     });
 
     return events;
   } catch (err) {
-    console.error(err);
+    console.log('Fetch error:', err.message);
     return [];
   }
 }
 
-// 📢 SEND EMBED
+// 📢 SEND EMBED (SAFE)
 async function sendEmbed(event) {
-  const channel = await client.channels.fetch(CHANNEL_ID);
+  try {
+    if (!client.isReady()) return;
 
-  const embed = new EmbedBuilder()
-    .setColor('#ff0000')
-    .setTitle('🚨 HIGH IMPACT NEWS')
-    .addFields(
-      { name: 'Currency', value: event.currency || 'N/A', inline: true },
-      { name: 'Time', value: event.time || 'N/A', inline: true },
-      { name: 'Event', value: event.title || 'N/A' }
-    )
-    .setFooter({ text: 'MindForge Market Feed' })
-    .setTimestamp();
+    const channel = await client.channels.fetch(CHANNEL_ID);
 
-  await channel.send({ embeds: [embed] });
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+      .setColor('#ff0000')
+      .setTitle('🚨 HIGH IMPACT NEWS')
+      .addFields(
+        { name: 'Currency', value: event.currency || 'N/A', inline: true },
+        { name: 'Time', value: event.time || 'N/A', inline: true },
+        { name: 'Event', value: event.title || 'N/A' }
+      )
+      .setFooter({ text: 'MindForge Market Feed' })
+      .setTimestamp();
+
+    await channel.send({ embeds: [embed] });
+
+  } catch (err) {
+    console.log('Send error:', err.message);
+  }
 }
 
-// ⏱️ LOOP (every 3 min)
+// ⏱️ LOOP (SAFE)
 setInterval(async () => {
-  const news = await fetchNews();
+  try {
+    const news = await fetchNews();
 
-  for (let event of news) {
-    await sendEmbed(event);
+    for (const event of news) {
+      await sendEmbed(event);
+    }
+  } catch (err) {
+    console.log('Loop error:', err.message);
   }
 }, 180000);
 
-// 🚀 START BOT
-client.once('clientReady', () => {
-  console.log(`Running as ${client.user.tag}`);
+// 🚀 BOT READY
+client.once('ready', () => {
+  console.log(`Logged in as ${client.user.tag}`);
 });
 
-// 🌐 KEEP ALIVE SERVER
+// 🌐 KEEP ALIVE SERVER (Railway fix)
 const app = express();
-app.get('/', (req, res) => res.send('Bot is alive'));
-app.listen(3000);
+const PORT = process.env.PORT || 3000;
 
-// 🔐 LOGIN (MUST BE OUTSIDE EVERYTHING)
+app.get('/', (req, res) => {
+  res.send('Bot is alive');
+});
+
+app.listen(PORT, () => {
+  console.log('Web server running on port', PORT);
+});
+
+// 🔐 LOGIN
 client.login(TOKEN);
