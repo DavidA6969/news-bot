@@ -66,7 +66,6 @@ async function sendEmbed(event) {
     if (!client.isReady()) return;
 
     const channel = await client.channels.fetch(CHANNEL_ID);
-
     if (!channel) return;
 
     const embed = new EmbedBuilder()
@@ -77,10 +76,14 @@ async function sendEmbed(event) {
         { name: 'Time', value: event.time || 'N/A', inline: true },
         { name: 'Event', value: event.title || 'N/A' }
       )
-      .setFooter({ text: 'MindForge Market Feed' })
+      .setFooter({ text: 'TX_Trades Market Feed' })
       .setTimestamp();
 
-    await channel.send({ embeds: [embed] });
+    await channel.send({
+      content: "@everyone 🚨 HIGH IMPACT NEWS!",
+      embeds: [embed],
+      allowedMentions: { parse: ['everyone'] }
+    });
 
   } catch (err) {
     console.log('Send error:', err.message);
