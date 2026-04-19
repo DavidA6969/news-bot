@@ -9,8 +9,7 @@ const CHANNEL_ID = process.env.CHANNEL_ID;
 
 // 🌐 SOURCES
 const NEWS_URL = "https://www.reuters.com/markets/";
-const TRUMP_X_URL = "https://nitter.net/realDonaldTrump";
-const TRUMP_TRUTH_URL = "https://truthsocial.com/@realDonaldTrump";
+const TRUMP_TRUTH_API = "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -21,12 +20,14 @@ let seenHeadlines = new Set();
 let lastTrumpPost = "";
 let cachedChannel;
 
-// 💥 CRASH PROTECTION
+/* =========================
+   💥 CRASH PROTECTION
+========================= */
 process.on('unhandledRejection', err => console.log('Unhandled:', err));
 process.on('uncaughtException', err => console.log('Uncaught:', err));
 
 /* =========================
-   🧠 MARKET BIAS FUNCTION
+   🧠 MARKET BIAS
 ========================= */
 function getMarketBias(text) {
   const t = text.toLowerCase();
@@ -34,7 +35,7 @@ function getMarketBias(text) {
   const bullish = [
     "rate cut", "stimulus", "growth",
     "soft landing", "cooling inflation",
-    "lower inflation", "bullish"
+    "lower inflation"
   ];
 
   const bearish = [
@@ -66,7 +67,7 @@ function isNYSession() {
 }
 
 /* =========================
-   🔴 FOREX FACTORY NEWS
+   🔴 FOREX FACTORY
 ========================= */
 async function fetchNews() {
   try {
@@ -86,7 +87,7 @@ async function fetchNews() {
 
         if (!sentEvents.has(id)) {
           sentEvents.add(id);
-          events.push({ time, currency, title });
+          events.push({ time, title });
         }
       }
     });
@@ -100,7 +101,7 @@ async function fetchNews() {
 }
 
 /* =========================
-   📰 REUTERS BREAKING NEWS
+   📰 REUTERS
 ========================= */
 async function fetchBreakingNews() {
   try {
@@ -136,42 +137,27 @@ async function fetchBreakingNews() {
 }
 
 /* =========================
-   🐦 TRUMP POSTS
+   🐦 TRUTH SOCIAL (FIXED)
 ========================= */
 async function fetchTrumpTruth() {
   try {
-    const { data } = await axios.get(TRUMP_TRUTH_URL, { timeout: 10000 });
-    const $ = cheerio.load(data);
+    const { data } = await axios.get(TRUMP_TRUTH_API, { timeout: 10000 });
 
-    const post = $("div[data-testid='status']").first().text().trim();
+    if (!data || !data.length) return null;
 
-    if (post && post !== lastTrumpPost) {
-      lastTrumpPost = post;
-      return post;
+    const latest = data[0].content
+      .replace(/<[^>]+>/g, '') // remove HTML
+      .trim();
+
+    if (latest && latest !== lastTrumpPost) {
+      lastTrumpPost = latest;
+      return latest;
     }
 
     return null;
 
-  } catch {
-    return null;
-  }
-}
-
-async function fetchTrumpX() {
-  try {
-    const { data } = await axios.get(TRUMP_X_URL, { timeout: 10000 });
-    const $ = cheerio.load(data);
-
-    const tweet = $(".timeline-item").first().find(".tweet-content").text().trim();
-
-    if (tweet && tweet !== lastTrumpPost) {
-      lastTrumpPost = tweet;
-      return tweet;
-    }
-
-    return null;
-
-  } catch {
+  } catch (err) {
+    console.log("Truth error:", err.message);
     return null;
   }
 }
@@ -223,7 +209,7 @@ async function sendTrump(content) {
 
   const embed = new EmbedBuilder()
     .setColor('#f1c40f')
-    .setTitle('🐦 TRUMP ALERT')
+    .setTitle('🐦 TRUMP TRUTH ALERT')
     .addFields(
       { name: 'Post', value: content.slice(0, 1000) },
       { name: 'Bias', value: bias }
@@ -253,18 +239,16 @@ setInterval(async () => {
   for (const n of news) await sendBreaking(n);
 }, 60000);
 
-// Trump
+// Trump Truth
 setInterval(async () => {
   if (!isNYSession()) return;
 
-  let post = await fetchTrumpTruth();
-  if (!post) post = await fetchTrumpX();
-
+  const post = await fetchTrumpTruth();
   if (post) await sendTrump(post);
 
 }, 60000);
 
-// reset duplicates daily
+// reset memory daily
 setInterval(() => {
   sentEvents.clear();
   seenHeadlines.clear();
@@ -272,11 +256,21 @@ setInterval(() => {
 }, 86400000);
 
 /* =========================
-   🚀 READY
+   🚀 READY + TEST
 ========================= */
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   cachedChannel = await client.channels.fetch(CHANNEL_ID);
+
+  // 🔥 TEST TRUTH SOCIAL ON START
+  const testPost = await fetchTrumpTruth();
+
+  if (testPost) {
+    console.log("✅ TEST SUCCESS");
+    await sendTrump(testPost);
+  } else {
+    console.log("❌ TEST FAILED");
+  }
 });
 
 /* =========================
