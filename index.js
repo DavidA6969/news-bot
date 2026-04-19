@@ -9,7 +9,7 @@ const CHANNEL_ID = process.env.CHANNEL_ID;
 
 // 🌐 SOURCES
 const NEWS_URL = "https://www.reuters.com/markets/";
-const TRUMP_TRUTH_API = "https://truthsocial.com/api/v1/accounts/107780257626128497/statuses";
+const TRUMP_X_RSS = "https://nitter.net/realDonaldTrump/rss";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -32,18 +32,8 @@ process.on('uncaughtException', err => console.log('Uncaught:', err));
 function getMarketBias(text) {
   const t = text.toLowerCase();
 
-  const bullish = [
-    "rate cut", "stimulus", "growth",
-    "soft landing", "cooling inflation",
-    "lower inflation"
-  ];
-
-  const bearish = [
-    "rate hike", "inflation rises",
-    "war", "conflict", "recession",
-    "crisis", "hawkish", "oil spike",
-    "tariffs", "china tensions"
-  ];
+  const bullish = ["rate cut", "stimulus", "growth", "soft landing", "cooling inflation", "lower inflation"];
+  const bearish = ["rate hike", "inflation rises", "war", "conflict", "recession", "crisis", "hawkish", "oil spike", "tariffs", "china tensions"];
 
   let bull = 0;
   let bear = 0;
@@ -114,11 +104,7 @@ async function fetchBreakingNews() {
       const title = $(el).text().trim();
       if (!title) return;
 
-      const keywords = [
-        "fed","inflation","cpi","powell",
-        "war","oil","china","recession",
-        "economy","jobs","bank","crisis"
-      ];
+      const keywords = ["fed","inflation","cpi","powell","war","oil","china","recession","economy","jobs","bank","crisis"];
 
       const important = keywords.some(k => title.toLowerCase().includes(k));
 
@@ -137,27 +123,24 @@ async function fetchBreakingNews() {
 }
 
 /* =========================
-   🐦 TRUTH SOCIAL (FIXED)
+   🐦 TRUMP (FIXED RSS)
 ========================= */
-async function fetchTrumpTruth() {
+async function fetchTrumpX() {
   try {
-    const { data } = await axios.get(TRUMP_TRUTH_API, { timeout: 10000 });
+    const { data } = await axios.get(TRUMP_X_RSS, { timeout: 10000 });
+    const $ = cheerio.load(data, { xmlMode: true });
 
-    if (!data || !data.length) return null;
+    const tweet = $("item").first().find("title").text().trim();
 
-    const latest = data[0].content
-      .replace(/<[^>]+>/g, '') // remove HTML
-      .trim();
-
-    if (latest && latest !== lastTrumpPost) {
-      lastTrumpPost = latest;
-      return latest;
+    if (tweet && tweet !== lastTrumpPost) {
+      lastTrumpPost = tweet;
+      return tweet;
     }
 
     return null;
 
   } catch (err) {
-    console.log("Truth error:", err.message);
+    console.log("Trump RSS error:", err.message);
     return null;
   }
 }
@@ -209,7 +192,7 @@ async function sendTrump(content) {
 
   const embed = new EmbedBuilder()
     .setColor('#f1c40f')
-    .setTitle('🐦 TRUMP TRUTH ALERT')
+    .setTitle('🐦 TRUMP ALERT')
     .addFields(
       { name: 'Post', value: content.slice(0, 1000) },
       { name: 'Bias', value: bias }
@@ -239,37 +222,31 @@ setInterval(async () => {
   for (const n of news) await sendBreaking(n);
 }, 60000);
 
-// Trump Truth
+// Trump X
 setInterval(async () => {
   if (!isNYSession()) return;
 
-  const post = await fetchTrumpTruth();
-  if (post) await sendTrump(post);
+  const tweet = await fetchTrumpX();
+  if (tweet) await sendTrump(tweet);
 
 }, 60000);
 
-// reset memory daily
-setInterval(() => {
-  sentEvents.clear();
-  seenHeadlines.clear();
-  console.log("Reset memory");
-}, 86400000);
-
 /* =========================
-   🚀 READY + TEST
+   🚀 READY TEST
 ========================= */
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
   cachedChannel = await client.channels.fetch(CHANNEL_ID);
 
-  // 🔥 TEST TRUTH SOCIAL ON START
-  const testPost = await fetchTrumpTruth();
+  await cachedChannel.send("🚀 BOT ONLINE TEST");
 
-  if (testPost) {
-    console.log("✅ TEST SUCCESS");
-    await sendTrump(testPost);
+  const testTweet = await fetchTrumpX();
+
+  if (testTweet) {
+    console.log("✅ TRUMP RSS WORKING");
+    await sendTrump(testTweet);
   } else {
-    console.log("❌ TEST FAILED");
+    console.log("❌ TRUMP RSS FAILED");
   }
 });
 
