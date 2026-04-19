@@ -183,6 +183,16 @@ client.once('ready', async () => {
   } else {
     console.log("⚠️ No post detected (login wall or load delay)");
   }
+
+  client.once('ready', async () => {
+  console.log(`Logged in as ${client.user.tag}`);
+
+  cachedChannel = await client.channels.fetch(CHANNEL_ID);
+
+  console.log("TESTING TRUMP FETCH...");
+
+  const post = await fetchTrumpTruth();
+  console.log("LATEST TRUMP POST:", post);
 });
 
 /* =========================
