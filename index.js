@@ -136,23 +136,42 @@ async function fetchNews() {
 /* =========================
    📢 DISCORD SEND
 ========================= */
-async function sendTrump(post) {
-  const bias = getMarketBias(post.text);
+async function fetchTrumpTruth() {
+  try {
+    if (!page) await initBrowser();
 
-  const embed = new EmbedBuilder()
-    .setColor('#f1c40f')
-    .setTitle('🐦 TRUTH SOCIAL ALERT')
-    .setDescription(post.text.slice(0, 2000))
-    .addFields({ name: 'Bias', value: bias })
-    .setImage('attachment://truth.png')
-    .setTimestamp();
+    await page.goto("https://truthsocial.com/@realDonaldTrump", {
+      waitUntil: "domcontentloaded",
+      timeout: 60000
+    });
 
-  await cachedChannel.send({
-    content: "@everyone 🐦 TRUMP POST",
-    embeds: [embed],
-    files: [{ attachment: post.image, name: "truth.png" }],
-    allowedMentions: { parse: ['everyone'] }
-  });
+    // wait for posts to actually render
+    await page.waitForTimeout(8000);
+
+    // grab all visible text from main feed
+    const posts = await page.$$eval("article", els =>
+      els.map(el => el.innerText.trim()).filter(Boolean)
+    );
+
+    const latest = posts[0];
+
+    if (!latest) return null;
+
+    if (latest === lastTrumpPost) return null;
+
+    lastTrumpPost = latest;
+
+    const screenshot = await page.locator("article").first().screenshot();
+
+    return {
+      text: latest,
+      image: screenshot
+    };
+
+  } catch (err) {
+    console.log("Truth error:", err.message);
+    return null;
+  }
 }
 
 /* =========================
