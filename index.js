@@ -1,16 +1,12 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const { chromium } = require('playwright');
-const axios = require('axios');
-const cheerio = require('cheerio');
 const express = require('express');
 
 // 🔐 ENV
 const TOKEN = process.env.TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
-// 🌐 SOURCES
-const NEWS_URL = "https://www.reuters.com/markets/";
-
+// 🌐 CLIENT
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
@@ -21,7 +17,7 @@ let page;
 let lastTrumpPost = "";
 
 /* =========================
-   💥 CRASH PROTECTION
+   💥 ERROR HANDLING
 ========================= */
 process.on('unhandledRejection', err => console.log('Unhandled:', err));
 process.on('uncaughtException', err => console.log('Uncaught:', err));
@@ -47,94 +43,21 @@ function getMarketBias(text) {
 }
 
 /* =========================
-   🐦 INIT BROWSER (24/7 CORE)
+   🐦 INIT BROWSER
 ========================= */
 async function initBrowser() {
   browser = await chromium.launch({
     headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox'
-    ]
+    args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
 
   page = await browser.newPage();
 
-  await page.goto("https://truthsocial.com/@realDonaldTrump", {
-    waitUntil: "networkidle",
-    timeout: 60000
-  });
-
-  console.log("🌐 Truth Social browser started");
+  console.log("🌐 Browser started");
 }
 
 /* =========================
-   🐦 FETCH TRUMP (LIVE PAGE)
-========================= */
-async function fetchTrumpTruth() {
-  try {
-    if (!page) await initBrowser();
-
-    await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(5000);
-
-    const postText = await page.locator("article").first().innerText();
-
-    const screenshot = await page.locator("article").first().screenshot();
-
-    if (!postText || postText === lastTrumpPost) return null;
-
-    lastTrumpPost = postText;
-
-    return {
-      text: postText,
-      image: screenshot
-    };
-
-  } catch (err) {
-    console.log("Browser error → restarting:", err.message);
-
-    try {
-      await browser.close();
-    } catch {}
-
-    browser = null;
-    page = null;
-
-    return null;
-  }
-}
-
-/* =========================
-   📰 NEWS (REUTERS LIGHT SCRAPE)
-========================= */
-async function fetchNews() {
-  try {
-    const { data } = await axios.get(NEWS_URL, { timeout: 10000 });
-    const $ = cheerio.load(data);
-
-    let news = [];
-
-    $("a[data-testid='Heading']").each((i, el) => {
-      const title = $(el).text().trim();
-
-      const keywords = ["fed","inflation","war","oil","china","recession","economy"];
-
-      if (keywords.some(k => title.toLowerCase().includes(k))) {
-        news.push(title);
-      }
-    });
-
-    return news;
-
-  } catch (err) {
-    console.log("News error:", err.message);
-    return [];
-  }
-}
-
-/* =========================
-   📢 DISCORD SEND
+   🐦 FETCH TRUMP POST
 ========================= */
 async function fetchTrumpTruth() {
   try {
@@ -145,26 +68,63 @@ async function fetchTrumpTruth() {
       timeout: 60000
     });
 
-    await page.waitForTimeout(10000);
+    await page.waitForTimeout(8000);
 
-    const html = await page.content();
+    const posts = await page.$$eval("article", els =>
+      els.map(el => el.innerText.trim()).filter(Boolean)
+    );
 
-    console.log("HTML SNAPSHOT:");
-    console.log(html.slice(0, 2000));
+    const latest = posts[0];
 
-    return null;
+    if (!latest || latest === lastTrumpPost) return null;
+
+    lastTrumpPost = latest;
+
+    const screenshot = await page.locator("article").first().screenshot();
+
+    return {
+      text: latest,
+      image: screenshot
+    };
 
   } catch (err) {
-    console.log("Error:", err.message);
+    console.log("Truth error:", err.message);
     return null;
   }
 }
+
 /* =========================
-   🔁 LOOPS (24/7 SAFE)
+   📢 SEND DISCORD MESSAGE
+========================= */
+async function sendTrump(post) {
+  const bias = getMarketBias(post.text);
+
+  const embed = new EmbedBuilder()
+    .setColor('#f1c40f')
+    .setTitle('🐦 TRUMP POST ALERT')
+    .addFields(
+      { name: 'Post', value: post.text.slice(0, 1000) },
+      { name: 'Bias', value: bias }
+    )
+    .setTimestamp();
+
+  await cachedChannel.send({
+    content: "@everyone 🐦 NEW TRUMP POST",
+    embeds: [embed],
+    allowedMentions: { parse: ['everyone'] }
+  });
+}
+
+/* =========================
+   🔁 LOOP (24/7)
 ========================= */
 setInterval(async () => {
   const post = await fetchTrumpTruth();
-  if (post) await sendTrump(post);
+
+  if (post) {
+    console.log("NEW POST:", post.text);
+    await sendTrump(post);
+  }
 }, 60000);
 
 /* =========================
@@ -175,26 +135,22 @@ client.once('ready', async () => {
 
   cachedChannel = await client.channels.fetch(CHANNEL_ID);
 
-  await cachedChannel.send("🚀 24/7 TRUTH SOCIAL BOT ONLINE");
+  await cachedChannel.send("🚀 24/7 TRUMP BOT ONLINE");
 
   await initBrowser();
 
-  console.log("🧪 Testing Truth Social scraper...");
-
   const test = await fetchTrumpTruth();
 
-  console.log("RAW RESULT:", test);
-
-  if (test && test.text) {
-    console.log("✅ Browser scraping working");
+  if (test) {
+    console.log("✅ Scraper working");
     await sendTrump(test);
   } else {
-    console.log("⚠️ No post detected (login wall, selector issue, or delay)");
+    console.log("⚠️ No post detected yet");
   }
 });
 
 /* =========================
-   🌐 KEEP ALIVE
+   🌐 KEEP ALIVE (RAILWAY)
 ========================= */
 const app = express();
 app.get('/', (req, res) => res.send('Bot running'));
