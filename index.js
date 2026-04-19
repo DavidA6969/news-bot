@@ -166,33 +166,22 @@ setInterval(async () => {
 /* =========================
    🚀 READY
 ========================= */
-client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+console.log("🧪 Testing Truth Social scraper...");
 
-  cachedChannel = await client.channels.fetch(CHANNEL_ID);
+const test = await fetchTrumpTruth();
 
-  await cachedChannel.send("🚀 24/7 TRUTH SOCIAL BOT ONLINE");
+console.log("RAW RESULT:", test);
 
-  await initBrowser();
+if (test && test.text) {
+  console.log("✅ Browser scraping working");
 
-  const test = await fetchTrumpTruth();
-
-  if (test) {
-    console.log("✅ Browser scraping working");
-    await sendTrump(test);
-  } else {
-    console.log("⚠️ No post detected (login wall or load delay)");
+  // send to Discord
+  await sendTrump(test);
+} else {
+  console.log("⚠️ No post detected (login wall, selector issue, or delay)");
+}
   }
 
-  client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
-
-  cachedChannel = await client.channels.fetch(CHANNEL_ID);
-
-  console.log("TESTING TRUMP FETCH...");
-
-  const post = await fetchTrumpTruth();
-  console.log("LATEST TRUMP POST:", post);
 });
 
 /* =========================
