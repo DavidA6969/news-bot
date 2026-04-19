@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
+     "postinstall": "npx playwright install chromium"
   },
   "dependencies": {
     "discord.js": "^14.0.0",
