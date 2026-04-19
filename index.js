@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
+const { chromium } = require('playwright');
 const axios = require('axios');
 const cheerio = require('cheerio');
 const express = require('express');
@@ -9,16 +10,15 @@ const CHANNEL_ID = process.env.CHANNEL_ID;
 
 // 🌐 SOURCES
 const NEWS_URL = "https://www.reuters.com/markets/";
-const TRUMP_X_RSS = "https://nitter.net/realDonaldTrump/rss";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-let sentEvents = new Set();
-let seenHeadlines = new Set();
-let lastTrumpPost = "";
 let cachedChannel;
+let browser;
+let page;
+let lastTrumpPost = "";
 
 /* =========================
    💥 CRASH PROTECTION
@@ -32,8 +32,8 @@ process.on('uncaughtException', err => console.log('Uncaught:', err));
 function getMarketBias(text) {
   const t = text.toLowerCase();
 
-  const bullish = ["rate cut", "stimulus", "growth", "soft landing", "cooling inflation", "lower inflation"];
-  const bearish = ["rate hike", "inflation rises", "war", "conflict", "recession", "crisis", "hawkish", "oil spike", "tariffs", "china tensions"];
+  const bullish = ["rate cut", "stimulus", "growth", "cooling inflation", "soft landing"];
+  const bearish = ["rate hike", "inflation", "war", "recession", "oil spike", "china"];
 
   let bull = 0;
   let bear = 0;
@@ -47,53 +47,68 @@ function getMarketBias(text) {
 }
 
 /* =========================
-   🕒 NY SESSION FILTER
+   🐦 INIT BROWSER (24/7 CORE)
 ========================= */
-function isNYSession() {
-  const now = new Date();
-  const ny = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const minutes = ny.getHours() * 60 + ny.getMinutes();
-  return minutes >= (9 * 60 + 30) && minutes <= (17 * 60);
+async function initBrowser() {
+  browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox'
+    ]
+  });
+
+  page = await browser.newPage();
+
+  await page.goto("https://truthsocial.com/@realDonaldTrump", {
+    waitUntil: "networkidle",
+    timeout: 60000
+  });
+
+  console.log("🌐 Truth Social browser started");
 }
 
 /* =========================
-   🔴 FOREX FACTORY
+   🐦 FETCH TRUMP (LIVE PAGE)
 ========================= */
-async function fetchNews() {
+async function fetchTrumpTruth() {
   try {
-    const { data } = await axios.get('https://www.forexfactory.com/calendar', { timeout: 10000 });
-    const $ = cheerio.load(data);
-    let events = [];
+    if (!page) await initBrowser();
 
-    $('.calendar__row').each((i, el) => {
-      const impact = $(el).find('.impact').attr('title');
-      const currency = $(el).find('.calendar__currency').text().trim();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(5000);
 
-      if (impact?.includes('High') && currency === 'USD') {
-        const time = $(el).find('.calendar__time').text().trim();
-        const title = $(el).find('.calendar__event').text().trim();
+    const postText = await page.locator("article").first().innerText();
 
-        const id = `${time}-${title}`;
+    const screenshot = await page.locator("article").first().screenshot();
 
-        if (!sentEvents.has(id)) {
-          sentEvents.add(id);
-          events.push({ time, title });
-        }
-      }
-    });
+    if (!postText || postText === lastTrumpPost) return null;
 
-    return events;
+    lastTrumpPost = postText;
+
+    return {
+      text: postText,
+      image: screenshot
+    };
 
   } catch (err) {
-    console.log('FF error:', err.message);
-    return [];
+    console.log("Browser error → restarting:", err.message);
+
+    try {
+      await browser.close();
+    } catch {}
+
+    browser = null;
+    page = null;
+
+    return null;
   }
 }
 
 /* =========================
-   📰 REUTERS
+   📰 NEWS (REUTERS LIGHT SCRAPE)
 ========================= */
-async function fetchBreakingNews() {
+async function fetchNews() {
   try {
     const { data } = await axios.get(NEWS_URL, { timeout: 10000 });
     const $ = cheerio.load(data);
@@ -102,14 +117,10 @@ async function fetchBreakingNews() {
 
     $("a[data-testid='Heading']").each((i, el) => {
       const title = $(el).text().trim();
-      if (!title) return;
 
-      const keywords = ["fed","inflation","cpi","powell","war","oil","china","recession","economy","jobs","bank","crisis"];
+      const keywords = ["fed","inflation","war","oil","china","recession","economy"];
 
-      const important = keywords.some(k => title.toLowerCase().includes(k));
-
-      if (important && !seenHeadlines.has(title)) {
-        seenHeadlines.add(title);
+      if (keywords.some(k => title.toLowerCase().includes(k))) {
         news.push(title);
       }
     });
@@ -117,136 +128,60 @@ async function fetchBreakingNews() {
     return news;
 
   } catch (err) {
-    console.log("Reuters error:", err.message);
+    console.log("News error:", err.message);
     return [];
   }
 }
 
 /* =========================
-   🐦 TRUMP (FIXED RSS)
+   📢 DISCORD SEND
 ========================= */
-async function fetchTrumpX() {
-  try {
-    const { data } = await axios.get(TRUMP_X_RSS, { timeout: 10000 });
-    const $ = cheerio.load(data, { xmlMode: true });
-
-    const tweet = $("item").first().find("title").text().trim();
-
-    if (tweet && tweet !== lastTrumpPost) {
-      lastTrumpPost = tweet;
-      return tweet;
-    }
-
-    return null;
-
-  } catch (err) {
-    console.log("Trump RSS error:", err.message);
-    return null;
-  }
-}
-
-/* =========================
-   📢 SEND FUNCTIONS
-========================= */
-async function sendFF(event) {
-  const bias = getMarketBias(event.title);
-
-  const embed = new EmbedBuilder()
-    .setColor('#ff0000')
-    .setTitle('🚨 HIGH IMPACT NEWS')
-    .addFields(
-      { name: 'Event', value: event.title },
-      { name: 'Time', value: event.time, inline: true },
-      { name: 'Bias', value: bias, inline: true }
-    )
-    .setTimestamp();
-
-  await cachedChannel.send({
-    content: "@everyone 🚨 HIGH IMPACT NEWS",
-    embeds: [embed],
-    allowedMentions: { parse: ['everyone'] }
-  });
-}
-
-async function sendBreaking(title) {
-  const bias = getMarketBias(title);
-
-  const embed = new EmbedBuilder()
-    .setColor('#00bcd4')
-    .setTitle('📰 BREAKING NEWS')
-    .addFields(
-      { name: 'Headline', value: title },
-      { name: 'Bias', value: bias }
-    )
-    .setTimestamp();
-
-  await cachedChannel.send({
-    content: "@everyone 📰 MARKET NEWS",
-    embeds: [embed],
-    allowedMentions: { parse: ['everyone'] }
-  });
-}
-
-async function sendTrump(content) {
-  const bias = getMarketBias(content);
+async function sendTrump(post) {
+  const bias = getMarketBias(post.text);
 
   const embed = new EmbedBuilder()
     .setColor('#f1c40f')
-    .setTitle('🐦 TRUMP ALERT')
-    .addFields(
-      { name: 'Post', value: content.slice(0, 1000) },
-      { name: 'Bias', value: bias }
-    )
+    .setTitle('🐦 TRUTH SOCIAL ALERT')
+    .setDescription(post.text.slice(0, 2000))
+    .addFields({ name: 'Bias', value: bias })
+    .setImage('attachment://truth.png')
     .setTimestamp();
 
   await cachedChannel.send({
     content: "@everyone 🐦 TRUMP POST",
     embeds: [embed],
+    files: [{ attachment: post.image, name: "truth.png" }],
     allowedMentions: { parse: ['everyone'] }
   });
 }
 
 /* =========================
-   ⏱️ LOOPS
+   🔁 LOOPS (24/7 SAFE)
 ========================= */
-
-// ForexFactory
 setInterval(async () => {
-  const news = await fetchNews();
-  for (const e of news) await sendFF(e);
-}, 180000);
-
-// Reuters
-setInterval(async () => {
-  const news = await fetchBreakingNews();
-  for (const n of news) await sendBreaking(n);
-}, 60000);
-
-// Trump X
-setInterval(async () => {
-  if (!isNYSession()) return;
-
-  const tweet = await fetchTrumpX();
-  if (tweet) await sendTrump(tweet);
-
+  const post = await fetchTrumpTruth();
+  if (post) await sendTrump(post);
 }, 60000);
 
 /* =========================
-   🚀 READY TEST
+   🚀 READY
 ========================= */
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
+
   cachedChannel = await client.channels.fetch(CHANNEL_ID);
 
-  await cachedChannel.send("🚀 BOT ONLINE TEST");
+  await cachedChannel.send("🚀 24/7 TRUTH SOCIAL BOT ONLINE");
 
-  const testTweet = await fetchTrumpX();
+  await initBrowser();
 
-  if (testTweet) {
-    console.log("✅ TRUMP RSS WORKING");
-    await sendTrump(testTweet);
+  const test = await fetchTrumpTruth();
+
+  if (test) {
+    console.log("✅ Browser scraping working");
+    await sendTrump(test);
   } else {
-    console.log("❌ TRUMP RSS FAILED");
+    console.log("⚠️ No post detected (login wall or load delay)");
   }
 });
 
