@@ -6,7 +6,9 @@ const express = require('express');
 const TOKEN = process.env.TOKEN;
 const CHANNEL_ID = process.env.CHANNEL_ID;
 
-// 🌐 CLIENT
+// 🌐 SOURCE (STABLE)
+const X_URL = "https://x.com/TruthTrumpPost";
+
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
@@ -14,22 +16,22 @@ const client = new Client({
 let cachedChannel;
 let browser;
 let page;
-let lastTrumpPost = "";
+let lastPost = "";
 
 /* =========================
-   💥 ERROR HANDLING
+   ERROR HANDLING
 ========================= */
 process.on('unhandledRejection', err => console.log('Unhandled:', err));
 process.on('uncaughtException', err => console.log('Uncaught:', err));
 
 /* =========================
-   🧠 MARKET BIAS
+   BIAS ENGINE
 ========================= */
 function getMarketBias(text) {
   const t = text.toLowerCase();
 
-  const bullish = ["rate cut", "stimulus", "growth", "cooling inflation", "soft landing"];
-  const bearish = ["rate hike", "inflation", "war", "recession", "oil spike", "china"];
+  const bullish = ["growth", "cut", "stimulus", "deal", "strong", "record"];
+  const bearish = ["war", "recession", "inflation", "crisis", "ban", "tariff"];
 
   let bull = 0;
   let bear = 0;
@@ -43,7 +45,7 @@ function getMarketBias(text) {
 }
 
 /* =========================
-   🐦 INIT BROWSER
+   INIT BROWSER
 ========================= */
 async function initBrowser() {
   browser = await chromium.launch({
@@ -57,28 +59,29 @@ async function initBrowser() {
 }
 
 /* =========================
-   🐦 FETCH TRUMP POST
+   FETCH LATEST POST (X)
 ========================= */
-async function fetchTrumpTruth() {
+async function fetchLatestPost() {
   try {
     if (!page) await initBrowser();
 
-    await page.goto("https://truthsocial.com/@realDonaldTrump", {
+    await page.goto(X_URL, {
       waitUntil: "domcontentloaded",
       timeout: 60000
     });
 
     await page.waitForTimeout(8000);
 
-    const posts = await page.$$eval("article", els =>
-      els.map(el => el.innerText.trim()).filter(Boolean)
+    // X posts are inside article + lang div
+    const posts = await page.$$eval("article div[lang]", els =>
+      els.map(e => e.innerText.trim()).filter(Boolean)
     );
 
     const latest = posts[0];
 
-    if (!latest || latest === lastTrumpPost) return null;
+    if (!latest || latest === lastPost) return null;
 
-    lastTrumpPost = latest;
+    lastPost = latest;
 
     const screenshot = await page.locator("article").first().screenshot();
 
@@ -88,20 +91,20 @@ async function fetchTrumpTruth() {
     };
 
   } catch (err) {
-    console.log("Truth error:", err.message);
+    console.log("Scraper error:", err.message);
     return null;
   }
 }
 
 /* =========================
-   📢 SEND DISCORD MESSAGE
+   SEND TO DISCORD
 ========================= */
-async function sendTrump(post) {
+async function sendPost(post) {
   const bias = getMarketBias(post.text);
 
   const embed = new EmbedBuilder()
-    .setColor('#f1c40f')
-    .setTitle('🐦 TRUMP POST ALERT')
+    .setColor('#1DA1F2')
+    .setTitle('🐦 TRUMP RELATED POST ALERT')
     .addFields(
       { name: 'Post', value: post.text.slice(0, 1000) },
       { name: 'Bias', value: bias }
@@ -109,54 +112,54 @@ async function sendTrump(post) {
     .setTimestamp();
 
   await cachedChannel.send({
-    content: "@everyone 🐦 NEW TRUMP POST",
+    content: "@everyone 🐦 NEW POLITICAL POST DETECTED",
     embeds: [embed],
     allowedMentions: { parse: ['everyone'] }
   });
 }
 
 /* =========================
-   🔁 LOOP (24/7)
+   LOOP (24/7)
 ========================= */
 setInterval(async () => {
-  const post = await fetchTrumpTruth();
+  const post = await fetchLatestPost();
 
   if (post) {
     console.log("NEW POST:", post.text);
-    await sendTrump(post);
+    await sendPost(post);
   }
 }, 60000);
 
 /* =========================
-   🚀 READY
+   READY
 ========================= */
 client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   cachedChannel = await client.channels.fetch(CHANNEL_ID);
 
-  await cachedChannel.send("🚀 24/7 TRUMP BOT ONLINE");
+  await cachedChannel.send("🚀 TRUMP POST BOT ONLINE (X TRACKING)");
 
   await initBrowser();
 
-  const test = await fetchTrumpTruth();
+  const test = await fetchLatestPost();
 
   if (test) {
-    console.log("✅ Scraper working");
-    await sendTrump(test);
+    console.log("✅ Working");
+    await sendPost(test);
   } else {
     console.log("⚠️ No post detected yet");
   }
 });
 
 /* =========================
-   🌐 KEEP ALIVE (RAILWAY)
+   KEEP ALIVE
 ========================= */
 const app = express();
 app.get('/', (req, res) => res.send('Bot running'));
 app.listen(process.env.PORT || 3000);
 
 /* =========================
-   🔐 LOGIN
+   LOGIN
 ========================= */
 client.login(TOKEN);
