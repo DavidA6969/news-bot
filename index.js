@@ -65,29 +65,27 @@ async function fetchLatestPost() {
   try {
     if (!page) await initBrowser();
 
-    await page.goto(X_URL, {
+    await page.goto("https://x.com/TruthTrumpPost", {
       waitUntil: "networkidle",
       timeout: 60000
     });
 
     await page.waitForTimeout(12000);
 
-    const posts = await page.$$eval("article", els =>
-      els.map(e => e.innerText.trim()).filter(t => t.length > 20)
-    );
+    // grab first visible post
+    const postLocator = page.locator("article").first();
 
-    const latest = posts[0];
+    const text = await postLocator.innerText();
 
-    console.log("DEBUG POSTS:", posts.slice(0, 3));
+    if (!text || text === lastPost) return null;
 
-    if (!latest) return null;
+    lastPost = text;
 
-    if (latest === lastPost) return null;
-
-    lastPost = latest;
+    const screenshot = await postLocator.screenshot();
 
     return {
-      text: latest
+      text,
+      image: screenshot
     };
 
   } catch (err) {
