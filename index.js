@@ -145,35 +145,20 @@ async function fetchTrumpTruth() {
       timeout: 60000
     });
 
-    // wait for posts to actually render
-    await page.waitForTimeout(8000);
+    await page.waitForTimeout(10000);
 
-    // grab all visible text from main feed
-    const posts = await page.$$eval("article", els =>
-      els.map(el => el.innerText.trim()).filter(Boolean)
-    );
+    const html = await page.content();
 
-    const latest = posts[0];
+    console.log("HTML SNAPSHOT:");
+    console.log(html.slice(0, 2000));
 
-    if (!latest) return null;
-
-    if (latest === lastTrumpPost) return null;
-
-    lastTrumpPost = latest;
-
-    const screenshot = await page.locator("article").first().screenshot();
-
-    return {
-      text: latest,
-      image: screenshot
-    };
+    return null;
 
   } catch (err) {
-    console.log("Truth error:", err.message);
+    console.log("Error:", err.message);
     return null;
   }
 }
-
 /* =========================
    🔁 LOOPS (24/7 SAFE)
 ========================= */
