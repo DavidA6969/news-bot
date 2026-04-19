@@ -66,28 +66,28 @@ async function fetchLatestPost() {
     if (!page) await initBrowser();
 
     await page.goto(X_URL, {
-      waitUntil: "domcontentloaded",
+      waitUntil: "networkidle",
       timeout: 60000
     });
 
-    await page.waitForTimeout(8000);
+    await page.waitForTimeout(12000);
 
-    // X posts are inside article + lang div
-    const posts = await page.$$eval("article div[lang]", els =>
-      els.map(e => e.innerText.trim()).filter(Boolean)
+    const posts = await page.$$eval("article", els =>
+      els.map(e => e.innerText.trim()).filter(t => t.length > 20)
     );
 
     const latest = posts[0];
 
-    if (!latest || latest === lastPost) return null;
+    console.log("DEBUG POSTS:", posts.slice(0, 3));
+
+    if (!latest) return null;
+
+    if (latest === lastPost) return null;
 
     lastPost = latest;
 
-    const screenshot = await page.locator("article").first().screenshot();
-
     return {
-      text: latest,
-      image: screenshot
+      text: latest
     };
 
   } catch (err) {
