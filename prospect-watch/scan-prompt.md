@@ -12,39 +12,43 @@ This session runs unattended. Nobody can answer a permission prompt. Never
 pass out_dir on an Artifact call and never write outside your scratchpad.
 Read database documents inline. If something blocks, stop and report it.
 
-## What this environment can and cannot reach
+## How to find candidates
 
-Do not plan around fetching Google Maps. The network policy blocks
-google.com, maps.google.com, yelp.ca, yellowpages.ca and bbb.org outright.
-WebFetch on any of them fails.
+### If GOOGLE_MAPS_API_KEY is set, search Google Maps
 
-What works is WebSearch. Its results summarise Google and Yelp data and
-surface the directory and social pages a business actually has. That is the
-tool to use. Do not cite YellowPages as a source and do not use it as a
-starting point; the previous version of this scan did, and it produced
-entries for businesses that could not be confirmed to exist.
+This is the preferred path. Run the scanner, which asks Google Maps for
+each trade in each city and keeps only places that are marked OPERATIONAL,
+have no website of their own on file, and carry a review from the last
+three months:
 
-You cannot see individual Google review dates. Do not claim to. Judge
-recency from the signals you can actually see, listed below.
+    node prospect-watch/maps-scan.js --all --months 3 --out /tmp/cand.json
 
-## 1. Load what is already on the list
+It prints a one-line tally to stderr and writes candidates to the file.
+Each candidate already carries name, address, phone, rating, review count,
+the date of its newest review, its Maps URL, and any platform-only link
+Google had. The filtering is done. Your job is only to write the note and
+the angle for the ones worth calling, and to drop any whose identity looks
+wrong.
 
-  Artifact action="read_db" db_op="list" collection="prospects"
-    query={"limit": 1000}
+If the script exits 2 the key is missing; if it exits 3 the key was
+rejected or out of quota. Either way say so in your report and fall back to
+the path below rather than stopping.
 
-Page with query.cursor until no next_cursor. Note every id and name. Also
-read meta/scan.
+### If there is no key, search the web instead
 
-## 2. Find candidates
+Google Maps cannot be browsed from here without the API. The network policy
+blocks google.com, maps.google.com, yelp.ca, yellowpages.ca and bbb.org, so
+WebFetch on any of them fails. WebSearch still works and its results
+summarise Google and Yelp data.
 
-Search the way a customer would, per city and per trade: construction and
-renovation, personal care, auto repair and body work, skilled trades, food
-service, professional and financial services.
+On this path you cannot see review dates. Do not claim them. Use the
+recency signals in the bar below instead. Do not use YellowPages as a
+starting point; the first version of this scan did, and it filed businesses
+that could not be confirmed to exist.
 
-Query in the form that surfaces Google's own data, for example
-"barber shop Airdrie AB reviews" or "concrete contractor Red Deer".
-Then search each promising name directly with its street or city to pull up
-everything attached to it.
+Search per city and per trade the way a customer would, for example
+"barber shop Airdrie AB reviews", then search each promising name with its
+street to pull up everything attached to it.
 
 ## 3. The bar for adding a business
 
@@ -56,8 +60,9 @@ it closed. If any source says permanently closed, drop it even when others
 disagree. A single directory listing with nothing else is not enough; that
 is how dead businesses get onto a list.
 
-**Recently active.** At least one signal that someone has dealt with this
-business lately: a Yelp or directory page updated within the last six
+**Recently active.** On the Maps path this is already enforced: the
+scanner drops anything without a review in the window. On the search path,
+find at least one signal that someone has dealt with this business lately: a Yelp or directory page updated within the last six
 months, a review count that a platform describes as current, an active job
 posting, a current municipal business licence, a recent news or magazine
 mention, or a live booking page with real availability.

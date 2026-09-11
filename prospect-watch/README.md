@@ -48,9 +48,25 @@ bbb.org. Web search still reaches summaries of Google and Yelp data, which
 is what the scan uses. Individual Google review dates are not available, so
 the scan must not claim them; the recency signals above stand in.
 
-Google's Places API host (maps.googleapis.com) IS reachable and would give
-review timestamps, open/closed status and whether Google holds a website on
-file. It needs an API key that nobody has supplied.
+Google's Places API host (maps.googleapis.com) IS reachable, and that is
+the one way to search Maps from here. `maps-scan.js` uses it: it asks Maps
+for each trade in each city, then keeps only places marked OPERATIONAL with
+no website of their own on file and a review inside the recency window.
+
+    GOOGLE_MAPS_API_KEY=... node prospect-watch/maps-scan.js --all --months 3
+    node prospect-watch/maps-scan.js --self-test   # filter checks, no key needed
+
+Set `GOOGLE_MAPS_API_KEY` in the environment's variables and the weekly scan
+switches to this path on its own. Without it the scan falls back to web
+search, which cannot see review dates, so the recency rule is not enforced.
+
+Doing the filtering in a script rather than in the model is deliberate.
+Google already knows whether a place has a website and when it was last
+reviewed, so there is nothing to infer, and a weekly run costs a fraction of
+what an improvised search does.
+
+The filters are covered by fixture tests (`--self-test`). The live API calls
+are NOT tested, because no key has been available to test them against.
 
 ## The weekly scan
 
