@@ -450,6 +450,71 @@ body.modal-open{overflow:hidden}
   padding:2px 6px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
 }
 
+/* ---------- instant quote calculator ---------- */
+.calc-grid{display:grid;gap:clamp(20px,3vw,28px);grid-template-columns:1.15fr .85fr;align-items:start}
+.calc-options{display:flex;flex-direction:column;gap:20px}
+.calc-panel{
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+  border:1px solid var(--line);border-radius:var(--radius);
+  padding:clamp(22px,3vw,30px);
+}
+.calc-label{
+  font-family:var(--font-display);font-weight:600;font-size:.76rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:0 0 14px;
+}
+.calc-choices,.calc-addons{display:flex;flex-direction:column;gap:10px}
+.calc-choice,.calc-addon{
+  position:relative;display:flex;align-items:center;gap:14px;
+  padding:13px 15px;border-radius:13px;
+  border:1px solid var(--line);background:var(--panel);
+  cursor:pointer;transition:border-color .2s var(--ease),background .2s var(--ease);
+}
+.calc-choice input,.calc-addon input{position:absolute;opacity:0;width:1px;height:1px;overflow:hidden}
+.calc-choice:hover,.calc-addon:hover{background:var(--panel-2)}
+.calc-choice:has(input:checked),.calc-addon:has(input:checked){
+  border-color:var(--accent);background:var(--accent-soft);
+}
+.calc-choice:has(input:focus-visible),.calc-addon:has(input:focus-visible){
+  outline:2px solid var(--accent);outline-offset:2px;
+}
+.calc-choice-icon{
+  flex:none;width:38px;height:38px;border-radius:10px;pointer-events:none;
+  display:grid;place-items:center;background:var(--panel);color:var(--ink-2);
+  transition:background .2s var(--ease),color .2s var(--ease);
+}
+.calc-choice-icon svg{width:18px;height:18px}
+.calc-choice:has(input:checked) .calc-choice-icon{background:var(--accent);color:#04202b}
+.calc-choice-text,.calc-addon-text{display:flex;flex-direction:column;gap:2px;align-items:flex-start;pointer-events:none}
+.calc-choice-text strong,.calc-addon-text strong{font-family:var(--font-display);font-weight:600;font-size:.92rem;color:var(--ink)}
+.calc-choice-text span,.calc-addon-text span{font-size:.8rem;color:var(--ink-2);line-height:1.4}
+.calc-addon-check{
+  flex:none;width:20px;height:20px;border-radius:6px;margin-top:1px;pointer-events:none;
+  border:1.5px solid var(--line-strong);display:grid;place-items:center;color:#04202b;
+  background:transparent;transition:background .2s var(--ease),border-color .2s var(--ease);
+}
+.calc-addon-check svg{width:12px;height:12px;opacity:0;transition:opacity .15s var(--ease)}
+.calc-addon:has(input:checked) .calc-addon-check{background:var(--accent);border-color:var(--accent)}
+.calc-addon:has(input:checked) .calc-addon-check svg{opacity:1}
+.calc-result{text-align:center;display:flex;flex-direction:column;align-items:center;position:sticky;top:96px}
+.calc-result-label{
+  font-family:var(--font-display);font-weight:600;font-size:.76rem;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-2);margin:0 0 10px;
+}
+.calc-price{
+  font-family:var(--font-display);font-weight:700;font-size:clamp(2.3rem,4.6vw,3.1rem);
+  color:var(--accent);letter-spacing:-.02em;margin:0;line-height:1;
+  font-variant-numeric:tabular-nums;
+}
+@keyframes calcBump{0%{transform:scale(1)}35%{transform:scale(1.07)}100%{transform:scale(1)}}
+.calc-price.bump{animation:calcBump .35s var(--ease)}
+.calc-price-note{color:var(--ink-2);font-size:.88rem;margin:10px 0 26px}
+.calc-result .btn{width:100%}
+.calc-fine{font-size:.76rem;color:var(--ink-3);margin:16px 0 0;line-height:1.5}
+@media (max-width:900px){
+  .calc-grid{grid-template-columns:1fr}
+  .calc-result{position:static}
+}
+
 /* ---------- pricing (merged into the examples cards) ---------- */
 .scope-range{
   font-family:var(--font-display);font-weight:700;font-size:.72rem;
@@ -634,8 +699,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <nav class="nav-links" id="menu" aria-label="Sections">
       <a href="#services">Services</a>
-      <a href="#process">Process</a>
       <a href="#examples">Pricing</a>
+      <a href="#process">Process</a>
       <a href="#why">Why me</a>
       <a href="#contact">Contact</a>
       <a class="btn btn-primary" href="#contact">Start Your Project</a>
@@ -674,73 +739,67 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   </div>
 </section>
 
-<!-- ============ SERVICES ============ -->
+<!-- ============ INSTANT QUOTE CALCULATOR ============ -->
 <section id="services">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="eyebrow">Services</p>
-      <h2>Three ways I can help</h2>
-      <p class="lede">Every project ships fast, loads fast, and reads well on a phone. Pick the one that fits where you are right now.</p>
+      <p class="eyebrow">Instant quote</p>
+      <h2>What would your site cost?</h2>
+      <p class="lede">Pick a size and any add-ons below — the price updates as you go. It's a starting point for the conversation, not a final bill.</p>
     </div>
 
-    <div class="grid-3">
-      <article class="card reveal">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4.5 14.5l5 5M12 3c4 0 9 5 9 9-2.5 4.2-6 7-9 7.5l-2-2 1-3-3 1-2-2C7 10 8 4 12 3z"/><circle cx="14.5" cy="9.5" r="1.6"/></svg></div>
-        <h3>Landing pages</h3>
-        <p>A single focused page built to convert: clear offer, strong call to action, and copy laid out so visitors know what to do next.</p>
-        <ul class="tags"><li>1–3 days</li><li>Conversion-first</li><li>Analytics ready</li></ul>
-      </article>
-
-      <article class="card reveal">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M2.5 9h19M7 13h7M7 16.5h4"/></svg></div>
-        <h3>Business websites</h3>
-        <p>A complete multi-page site: services, about, pricing and contact. Structured for search engines and easy for you to keep updated.</p>
-        <ul class="tags"><li>4–8 pages</li><li>SEO basics</li><li>Contact forms</li></ul>
-      </article>
-
-      <article class="card reveal">
-        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 01-14.6 5.9M3.5 12A8.5 8.5 0 0118.1 6.1"/><path d="M18.5 2.5v4h-4M5.5 21.5v-4h4"/></svg></div>
-        <h3>Redesigns</h3>
-        <p>Already online but dated or slow? I rebuild what you have into something modern and quick, keeping the content that already works.</p>
-        <ul class="tags"><li>Speed fixes</li><li>Mobile repair</li><li>Fresh visuals</li></ul>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ============ PROCESS (collapsible) ============ -->
-<section id="process">
-  <div class="wrap">
-    <button class="disclosure-toggle reveal" type="button" id="processToggle" aria-expanded="false" aria-controls="processBody">
-      <span class="disclosure-toggle-text">
-        <span class="eyebrow">How it works</span>
-        <span class="disclosure-heading">See how a project runs, start to finish</span>
-      </span>
-      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
-    </button>
-
-    <div class="disclosure-wrap" id="processBody">
-      <div class="disclosure-inner">
-        <div class="disclosure-inner-pad">
-          <p class="lede">No long discovery phases or surprise invoices. You always know what happens next.</p>
-
-          <div class="steps">
-            <article class="step reveal">
-              <div class="node">01</div>
-              <h3>Plan</h3>
-              <p>A short call to cover your goals, audience and content. You get a fixed quote and a launch date before any work starts.</p>
-            </article>
-            <article class="step reveal">
-              <div class="node">02</div>
-              <h3>Build</h3>
-              <p>I design and build the site, then share a live preview link. You give feedback in one round, I refine until it feels right.</p>
-            </article>
-            <article class="step reveal">
-              <div class="node">03</div>
-              <h3>Launch</h3>
-              <p>I connect your domain, test everything on real devices, and hand over the site with a short guide for making edits.</p>
-            </article>
+    <div class="calc reveal">
+      <div class="calc-grid">
+        <div class="calc-options">
+          <div class="calc-panel">
+            <p class="calc-label">Site size</p>
+            <div class="calc-choices">
+              <label class="calc-choice">
+                <input type="radio" name="calc-tier" value="landing" checked>
+                <span class="calc-choice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M4.5 14.5l5 5M12 3c4 0 9 5 9 9-2.5 4.2-6 7-9 7.5l-2-2 1-3-3 1-2-2C7 10 8 4 12 3z"/><circle cx="14.5" cy="9.5" r="1.6"/></svg></span>
+                <span class="calc-choice-text"><strong>Landing page</strong><span>1 page</span></span>
+              </label>
+              <label class="calc-choice">
+                <input type="radio" name="calc-tier" value="business">
+                <span class="calc-choice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="2.5" y="4" width="19" height="16" rx="2.5"/><path d="M2.5 9h19M7 13h7M7 16.5h4"/></svg></span>
+                <span class="calc-choice-text"><strong>Business site</strong><span>4–8 pages</span></span>
+              </label>
+              <label class="calc-choice">
+                <input type="radio" name="calc-tier" value="redesign">
+                <span class="calc-choice-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M20.5 12a8.5 8.5 0 01-14.6 5.9M3.5 12A8.5 8.5 0 0118.1 6.1"/><path d="M18.5 2.5v4h-4M5.5 21.5v-4h4"/></svg></span>
+                <span class="calc-choice-text"><strong>Redesign</strong><span>Existing site</span></span>
+              </label>
+            </div>
           </div>
+
+          <div class="calc-panel">
+            <p class="calc-label">Add-ons</p>
+            <div class="calc-addons">
+              <label class="calc-addon">
+                <input type="checkbox" data-addon>
+                <span class="calc-addon-check"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>
+                <span class="calc-addon-text"><strong>Contact form</strong><span>A working form that emails you submissions.</span></span>
+              </label>
+              <label class="calc-addon">
+                <input type="checkbox" data-addon>
+                <span class="calc-addon-check"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>
+                <span class="calc-addon-text"><strong>Booking / reservation CTA</strong><span>A prominent button for appointments or tables.</span></span>
+              </label>
+              <label class="calc-addon">
+                <input type="checkbox" data-addon>
+                <span class="calc-addon-check"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M3 8.5l3 3 7-7"/></svg></span>
+                <span class="calc-addon-text"><strong>SEO basics</strong><span>Meta tags, sitemap, and search-friendly structure.</span></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="calc-panel calc-result">
+          <p class="calc-result-label">Estimated price</p>
+          <p class="calc-price" id="calcPrice">$300</p>
+          <p class="calc-price-note" id="calcPriceNote">Landing page &middot; no add-ons</p>
+          <a class="btn btn-primary btn-lg" href="#contact" id="calcCta">Get this exact quote</a>
+          <p class="calc-fine">This pre-fills the contact form with your selections. Ranges are a starting point — the final price depends on content, features and timeline.</p>
         </div>
       </div>
     </div>
@@ -801,6 +860,45 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <div class="scope-cta reveal">
       <a class="btn btn-ghost" href="#contact">Not sure which fits? Let&rsquo;s talk it through</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PROCESS (collapsible) ============ -->
+<section id="process">
+  <div class="wrap">
+    <button class="disclosure-toggle reveal" type="button" id="processToggle" aria-expanded="false" aria-controls="processBody">
+      <span class="disclosure-toggle-text">
+        <span class="eyebrow">How it works</span>
+        <span class="disclosure-heading">See how a project runs, start to finish</span>
+      </span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
+
+    <div class="disclosure-wrap" id="processBody">
+      <div class="disclosure-inner">
+        <div class="disclosure-inner-pad">
+          <p class="lede">No long discovery phases or surprise invoices. You always know what happens next.</p>
+
+          <div class="steps">
+            <article class="step reveal">
+              <div class="node">01</div>
+              <h3>Plan</h3>
+              <p>A short call to cover your goals, audience and content. You get a fixed quote and a launch date before any work starts.</p>
+            </article>
+            <article class="step reveal">
+              <div class="node">02</div>
+              <h3>Build</h3>
+              <p>I design and build the site, then share a live preview link. You give feedback in one round, I refine until it feels right.</p>
+            </article>
+            <article class="step reveal">
+              <div class="node">03</div>
+              <h3>Launch</h3>
+              <p>I connect your domain, test everything on real devices, and hand over the site with a short guide for making edits.</p>
+            </article>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -921,8 +1019,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       </div>
       <nav aria-label="Footer">
         <a href="#services">Services</a>
-        <a href="#process">Process</a>
         <a href="#examples">Pricing</a>
+        <a href="#process">Process</a>
         <a href="#why">Why me</a>
         <a href="#contact">Contact</a>
       </nav>
@@ -1173,6 +1271,81 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   }
   window.addEventListener('hashchange', syncViewToHash);
   syncViewToHash();
+
+  /* ================= instant quote calculator =================
+     Each add-on moves the price a third of the way from the tier's low
+     end toward its high end, so picking all of them always lands
+     exactly on the stated high end -- the estimate never wanders
+     outside the ranges regardless of which add-ons are picked.
+  ================================================== */
+  var CALC_TIERS = {
+    landing:  { low: 300, high: 600,  label: 'Landing page' },
+    business: { low: 800, high: 1800, label: 'Business site' },
+    redesign: { low: 600, high: 1500, label: 'Redesign' }
+  };
+  var calcTierInputs = document.querySelectorAll('input[name="calc-tier"]');
+  var calcAddonInputs = document.querySelectorAll('.calc-addons input[data-addon]');
+  var calcPriceEl = document.getElementById('calcPrice');
+  var calcNoteEl = document.getElementById('calcPriceNote');
+  var calcCta = document.getElementById('calcCta');
+
+  function calcSelectedTier() {
+    var checked = document.querySelector('input[name="calc-tier"]:checked');
+    return checked ? checked.value : 'landing';
+  }
+  function calcCheckedAddons() {
+    return Array.prototype.filter.call(calcAddonInputs, function (el) { return el.checked; });
+  }
+  function calcPrice(tierKey, addonCount) {
+    var t = CALC_TIERS[tierKey];
+    var frac = addonCount / calcAddonInputs.length;
+    return Math.round((t.low + (t.high - t.low) * frac) / 10) * 10;
+  }
+
+  function updateCalc() {
+    var tierKey = calcSelectedTier();
+    var addons = calcCheckedAddons();
+    var price = calcPrice(tierKey, addons.length);
+
+    calcPriceEl.textContent = '$' + price.toLocaleString();
+    calcPriceEl.classList.remove('bump');
+    void calcPriceEl.offsetWidth; // restart the animation even if it just ran
+    calcPriceEl.classList.add('bump');
+
+    var addonWord = addons.length === 1 ? 'add-on' : 'add-ons';
+    calcNoteEl.textContent = CALC_TIERS[tierKey].label + ' · '
+      + (addons.length ? addons.length + ' ' + addonWord : 'no add-ons');
+  }
+  calcTierInputs.forEach(function (el) { el.addEventListener('change', updateCalc); });
+  calcAddonInputs.forEach(function (el) { el.addEventListener('change', updateCalc); });
+  updateCalc();
+
+  calcCta.addEventListener('click', function (e) {
+    e.preventDefault();
+    var tierKey = calcSelectedTier();
+    var addons = calcCheckedAddons();
+    var addonNames = addons.map(function (el) {
+      return el.closest('.calc-addon').querySelector('strong').textContent;
+    });
+    var price = calcPrice(tierKey, addons.length);
+
+    var messageEl = document.getElementById('message');
+    if (messageEl && !messageEl.value.trim()) {
+      messageEl.value =
+        'Project type: ' + CALC_TIERS[tierKey].label + '\n' +
+        'Add-ons: ' + (addonNames.length ? addonNames.join(', ') : 'none selected') + '\n' +
+        'Estimated price: $' + price.toLocaleString() + '\n\n';
+    }
+    location.hash = 'contact';
+    // 'hashchange' is dispatched asynchronously, so don't wait on it --
+    // switch the view directly, right now, so the name field is already
+    // visible (and thus focusable) below rather than racing the event.
+    syncViewToHash();
+    requestAnimationFrame(function () {
+      var nameEl = document.getElementById('name');
+      if (nameEl) nameEl.focus();
+    });
+  });
 
   /* ================= collapsible "How it works" ================= */
   var processToggle = document.getElementById('processToggle');
