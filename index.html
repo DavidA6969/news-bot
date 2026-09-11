@@ -242,16 +242,29 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 .step h3{margin-bottom:9px}
 .step p{color:var(--ink-2);margin:0;font-size:.97rem;max-width:34ch;margin-inline:auto}
 
-/* ---------- portfolio ---------- */
-.shot{
+/* ---------- examples ---------- */
+.preview{
   aspect-ratio:16/10;border-radius:13px;margin:-4px 0 20px;position:relative;overflow:hidden;
-  border:1px solid var(--line);background:#080d1a;
+  border:1px solid var(--line);background:#0a0e18;
 }
-.shot img{
-  width:100%;height:100%;object-fit:cover;display:block;
+.preview iframe{
+  --s:.39; /* fallback scale until JS measures the real card width; kept as a
+              custom property (not a plain inline transform) so the :hover
+              rule below can still win the cascade after JS sets it */
+  width:800px;height:500px;border:0;position:absolute;top:0;left:0;
+  transform-origin:top left;pointer-events:none;
+  transform:scale(var(--s));
   transition:transform .5s var(--ease);
 }
-.card:hover .shot img{transform:scale(1.035)}
+.card:hover .preview iframe{transform:scale(calc(var(--s) * 1.04))}
+.preview .frame-label{
+  position:absolute;left:12px;bottom:12px;z-index:1;
+  font-family:var(--font-display);font-weight:600;font-size:.68rem;
+  letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.72);
+  background:rgba(5,7,15,.55);backdrop-filter:blur(6px);
+  padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);
+  pointer-events:none;
+}
 .note{font-size:.82rem;color:var(--ink-3);margin:16px 0 0}
 .note code{
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;
@@ -370,7 +383,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     <nav class="nav-links" id="menu" aria-label="Sections">
       <a href="#services">Services</a>
       <a href="#process">Process</a>
-      <a href="#work">Work</a>
+      <a href="#examples">Examples</a>
       <a href="#why">Why me</a>
       <a href="#contact">Contact</a>
       <a class="btn btn-primary" href="#contact">Start Your Project</a>
@@ -473,38 +486,47 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 </section>
 
 <!-- ============ WORK ============ -->
-<section id="work">
+<section id="examples">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="eyebrow">Selected work</p>
-      <h2>Recent projects</h2>
-      <p class="lede">Placeholders for now — swap in a screenshot, a project name and a one-line result as soon as your first builds are live.</p>
+      <p class="eyebrow">Examples</p>
+      <h2>A few directions to start from</h2>
+      <p class="lede">Not client work yet, just three quick style options so you can see the range before we talk. Tell me which one feels closest to your brand, and we'll build from there.</p>
     </div>
 
     <div class="grid-3">
       <article class="card reveal">
-        <div class="shot"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20400%20250%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient%20id%3D%22bg1%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%0A%20%20%3Cstop%20offset%3D%220%22%20stop-color%3D%22%230c1424%22%2F%3E%0A%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23060911%22%2F%3E%0A%3C%2FlinearGradient%3E%0A%20%20%3CradialGradient%20id%3D%22glow1%22%20cx%3D%2250%25%22%20cy%3D%2246%25%22%20r%3D%2255%25%22%3E%0A%20%20%20%20%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2338e1ff%22%20stop-opacity%3D%220.22%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2338e1ff%22%20stop-opacity%3D%220%22%2F%3E%0A%20%20%3C%2FradialGradient%3E%0A%3C%2Fdefs%3E%0A%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22url%28%23bg1%29%22%2F%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%2222%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.035%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2214%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2225%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2236%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Crect%20x%3D%2254%22%20y%3D%226%22%20width%3D%22130%22%20height%3D%2210%22%20rx%3D%225%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.06%22%2F%3E%0A%3Crect%20x%3D%2220%22%20y%3D%2222%22%20width%3D%22360%22%20height%3D%22228%22%20fill%3D%22url%28%23glow1%29%22%2F%3E%0A%3Crect%20x%3D%22176%22%20y%3D%2276%22%20width%3D%2248%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%2338e1ff%22%20opacity%3D%220.55%22%2F%3E%0A%3Crect%20x%3D%22118%22%20y%3D%2292%22%20width%3D%22164%22%20height%3D%2216%22%20rx%3D%225%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.92%22%2F%3E%0A%3Crect%20x%3D%22140%22%20y%3D%22114%22%20width%3D%22120%22%20height%3D%2216%22%20rx%3D%225%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.92%22%2F%3E%0A%3Crect%20x%3D%22146%22%20y%3D%22140%22%20width%3D%22108%22%20height%3D%229%22%20rx%3D%224%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.6%22%2F%3E%0A%3Crect%20x%3D%22168%22%20y%3D%22166%22%20width%3D%2264%22%20height%3D%2222%22%20rx%3D%2211%22%20fill%3D%22%2338e1ff%22%2F%3E%0A%3Crect%20x%3D%22184%22%20y%3D%22174%22%20width%3D%2232%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%2304202b%22%20opacity%3D%220.75%22%2F%3E%0A%3Ccircle%20cx%3D%22150%22%20cy%3D%22213%22%20r%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3Ccircle%20cx%3D%22200%22%20cy%3D%22213%22%20r%3D%223%22%20fill%3D%22%2338e1ff%22%20opacity%3D%220.7%22%2F%3E%0A%3Ccircle%20cx%3D%22250%22%20cy%3D%22213%22%20r%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3C%2Fsvg%3E" alt="Placeholder mockup of a landing page project — swap for a real screenshot" loading="lazy" width="400" height="250"></div>
-        <h3>[Project One]</h3>
-        <p>One or two lines on what the client needed and what you delivered. Mention a result if you have one.</p>
-        <ul class="tags"><li>Landing page</li><li>1 week</li></ul>
+        <div class="preview">
+          <span class="frame-label">Restaurant &amp; caf&#233;</span>
+          <iframe data-example="ember" loading="lazy" title="Example: a dark, editorial one-page site for a restaurant" aria-hidden="true" tabindex="-1"></iframe>
+        </div>
+        <h3>Dark &amp; editorial</h3>
+        <p>Moody, image-led, built around a menu or a seasonal offering. Good fit for restaurants, bars and anywhere the food or room is the draw.</p>
+        <ul class="tags"><li>Serif display</li><li>Reservation CTA</li></ul>
       </article>
 
       <article class="card reveal">
-        <div class="shot"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20400%20250%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient%20id%3D%22bg2%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%0A%20%20%3Cstop%20offset%3D%220%22%20stop-color%3D%22%230c1424%22%2F%3E%0A%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23060911%22%2F%3E%0A%3C%2FlinearGradient%3E%3C%2Fdefs%3E%0A%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22url%28%23bg2%29%22%2F%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%2222%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.035%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2214%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2225%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2236%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Crect%20x%3D%2254%22%20y%3D%226%22%20width%3D%22130%22%20height%3D%2210%22%20rx%3D%225%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.06%22%2F%3E%0A%3Crect%20x%3D%220%22%20y%3D%2222%22%20width%3D%2292%22%20height%3D%22228%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.025%22%2F%3E%0A%0A%3Crect%20x%3D%2216%22%20y%3D%2248%22%20width%3D%2250%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.14%22%2F%3E%0A%3Crect%20x%3D%2216%22%20y%3D%2280%22%20width%3D%2262%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%2338e1ff%22%20opacity%3D%220.8%22%2F%3E%0A%3Crect%20x%3D%2216%22%20y%3D%22112%22%20width%3D%2250%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.14%22%2F%3E%0A%3Crect%20x%3D%2216%22%20y%3D%22144%22%20width%3D%2250%22%20height%3D%229%22%20rx%3D%224.5%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.14%22%2F%3E%0A%0A%3Crect%20x%3D%22112%22%20y%3D%2240%22%20width%3D%22120%22%20height%3D%2285%22%20rx%3D%229%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.045%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.09%22%2F%3E%0A%3Ccircle%20cx%3D%22130%22%20cy%3D%2260%22%20r%3D%227%22%20fill%3D%22%2338e1ff%22%20opacity%3D%220.85%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%2280%22%20width%3D%2270%22%20height%3D%227%22%20rx%3D%223.5%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.7%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%2294%22%20width%3D%2292%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.45%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%22104%22%20width%3D%2260%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3Crect%20x%3D%22248%22%20y%3D%2240%22%20width%3D%22120%22%20height%3D%2285%22%20rx%3D%229%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.045%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.09%22%2F%3E%0A%3Ccircle%20cx%3D%22266%22%20cy%3D%2260%22%20r%3D%227%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.5%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%2280%22%20width%3D%2270%22%20height%3D%227%22%20rx%3D%223.5%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.7%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%2294%22%20width%3D%2292%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.45%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%22104%22%20width%3D%2260%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3Crect%20x%3D%22112%22%20y%3D%22138%22%20width%3D%22120%22%20height%3D%2285%22%20rx%3D%229%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.045%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.09%22%2F%3E%0A%3Ccircle%20cx%3D%22130%22%20cy%3D%22158%22%20r%3D%227%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.5%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%22178%22%20width%3D%2270%22%20height%3D%227%22%20rx%3D%223.5%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.7%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%22192%22%20width%3D%2292%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.45%22%2F%3E%0A%3Crect%20x%3D%22126%22%20y%3D%22202%22%20width%3D%2260%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3Crect%20x%3D%22248%22%20y%3D%22138%22%20width%3D%22120%22%20height%3D%2285%22%20rx%3D%229%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.045%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.09%22%2F%3E%0A%3Ccircle%20cx%3D%22266%22%20cy%3D%22158%22%20r%3D%227%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.5%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%22178%22%20width%3D%2270%22%20height%3D%227%22%20rx%3D%223.5%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.7%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%22192%22%20width%3D%2292%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.45%22%2F%3E%0A%3Crect%20x%3D%22262%22%20y%3D%22202%22%20width%3D%2260%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.3%22%2F%3E%0A%3C%2Fsvg%3E" alt="Placeholder mockup of a business website project — swap for a real screenshot" loading="lazy" width="400" height="250"></div>
-        <h3>[Project Two]</h3>
-        <p>One or two lines on what the client needed and what you delivered. Mention a result if you have one.</p>
-        <ul class="tags"><li>Business site</li><li>5 pages</li></ul>
+        <div class="preview">
+          <span class="frame-label">Boutique &amp; salon</span>
+          <iframe data-example="aster" loading="lazy" title="Example: a light, refined one-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
+        </div>
+        <h3>Light &amp; refined</h3>
+        <p>Quiet, spacious, a little formal. Good fit for salons, studios and boutiques where the booking itself should feel considered.</p>
+        <ul class="tags"><li>Soft neutral palette</li><li>Booking CTA</li></ul>
       </article>
 
       <article class="card reveal">
-        <div class="shot"><img src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20400%20250%22%3E%0A%3Cdefs%3E%0A%3ClinearGradient%20id%3D%22bg3%22%20x1%3D%220%22%20y1%3D%220%22%20x2%3D%220%22%20y2%3D%221%22%3E%0A%20%20%3Cstop%20offset%3D%220%22%20stop-color%3D%22%230c1424%22%2F%3E%0A%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%23060911%22%2F%3E%0A%3C%2FlinearGradient%3E%0A%20%20%3CradialGradient%20id%3D%22glow3%22%20cx%3D%2278%25%22%20cy%3D%2255%25%22%20r%3D%2245%25%22%3E%0A%20%20%20%20%3Cstop%20offset%3D%220%22%20stop-color%3D%22%2338e1ff%22%20stop-opacity%3D%220.16%22%2F%3E%0A%20%20%20%20%3Cstop%20offset%3D%221%22%20stop-color%3D%22%2338e1ff%22%20stop-opacity%3D%220%22%2F%3E%0A%20%20%3C%2FradialGradient%3E%0A%3C%2Fdefs%3E%0A%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%22250%22%20fill%3D%22url%28%23bg3%29%22%2F%3E%0A%20%20%3Crect%20width%3D%22400%22%20height%3D%2222%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.035%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2214%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2225%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Ccircle%20cx%3D%2236%22%20cy%3D%2211%22%20r%3D%223%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.35%22%2F%3E%0A%20%20%3Crect%20x%3D%2254%22%20y%3D%226%22%20width%3D%22130%22%20height%3D%2210%22%20rx%3D%225%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.06%22%2F%3E%0A%3Crect%20x%3D%22210%22%20y%3D%2222%22%20width%3D%22190%22%20height%3D%22228%22%20fill%3D%22url%28%23glow3%29%22%2F%3E%0A%0A%3Crect%20x%3D%2214%22%20y%3D%2234%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%2244%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%2256%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%2265%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Crect%20x%3D%22102%22%20y%3D%2234%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%2244%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%2256%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%2265%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%2292%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22102%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22114%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22123%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Crect%20x%3D%22102%22%20y%3D%2292%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22102%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22114%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22123%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Crect%20x%3D%2214%22%20y%3D%22150%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22160%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22172%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%2222%22%20y%3D%22181%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Crect%20x%3D%22102%22%20y%3D%22150%22%20width%3D%2278%22%20height%3D%2246%22%20rx%3D%224%22%20fill%3D%22%238a93a8%22%20opacity%3D%220.16%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22160%22%20width%3D%2240%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.35%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22172%22%20width%3D%2256%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.22%22%2F%3E%0A%3Crect%20x%3D%22110%22%20y%3D%22181%22%20width%3D%2230%22%20height%3D%225%22%20rx%3D%222.5%22%20fill%3D%22%23c3c9d6%22%20opacity%3D%220.18%22%2F%3E%0A%3Cline%20x1%3D%22200%22%20y1%3D%2230%22%20x2%3D%22200%22%20y2%3D%22242%22%20stroke%3D%22%23ffffff%22%20stroke-opacity%3D%220.2%22%20stroke-width%3D%221.5%22%20stroke-dasharray%3D%224%205%22%2F%3E%0A%3Cpath%20d%3D%22M194%20136%20l12%20-7%20v14%20z%22%20fill%3D%22%2338e1ff%22%2F%3E%0A%3Crect%20x%3D%22230%22%20y%3D%2252%22%20width%3D%22140%22%20height%3D%2214%22%20rx%3D%225%22%20fill%3D%22%23eef3fb%22%20opacity%3D%220.92%22%2F%3E%0A%3Crect%20x%3D%22230%22%20y%3D%2274%22%20width%3D%2296%22%20height%3D%229%22%20rx%3D%224%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.55%22%2F%3E%0A%3Crect%20x%3D%22230%22%20y%3D%22112%22%20width%3D%22140%22%20height%3D%2260%22%20rx%3D%2210%22%20fill%3D%22%23ffffff%22%20opacity%3D%220.05%22%20stroke%3D%22%2338e1ff%22%20stroke-opacity%3D%220.28%22%2F%3E%0A%3Crect%20x%3D%22246%22%20y%3D%22128%22%20width%3D%2260%22%20height%3D%228%22%20rx%3D%224%22%20fill%3D%22%2338e1ff%22%20opacity%3D%220.6%22%2F%3E%0A%3Crect%20x%3D%22246%22%20y%3D%22144%22%20width%3D%22100%22%20height%3D%226%22%20rx%3D%223%22%20fill%3D%22%23a7b2c6%22%20opacity%3D%220.4%22%2F%3E%0A%3Crect%20x%3D%22230%22%20y%3D%22188%22%20width%3D%2272%22%20height%3D%2222%22%20rx%3D%2211%22%20fill%3D%22%2338e1ff%22%2F%3E%0A%3C%2Fsvg%3E" alt="Placeholder mockup of a redesign project — swap for a real screenshot" loading="lazy" width="400" height="250"></div>
-        <h3>[Project Three]</h3>
-        <p>One or two lines on what the client needed and what you delivered. Mention a result if you have one.</p>
-        <ul class="tags"><li>Redesign</li><li>Mobile fix</li></ul>
+        <div class="preview">
+          <span class="frame-label">Consulting &amp; SaaS</span>
+          <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward one-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
+        </div>
+        <h3>Clean &amp; corporate</h3>
+        <p>Direct, credible, built to make a case fast. Good fit for consultants, agencies and small software teams selling to other businesses.</p>
+        <ul class="tags"><li>Data-forward</li><li>Proof-point stats</li></ul>
       </article>
     </div>
 
-    <p class="note reveal">Placeholder mockups for now — swap each <code>&lt;img src&gt;</code> above for a real screenshot once a project ships.</p>
+    <p class="note reveal">More directions available on request &mdash; these three are just a starting point for the conversation.</p>
   </div>
 </section>
 
@@ -607,7 +629,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <nav aria-label="Footer">
         <a href="#services">Services</a>
         <a href="#process">Process</a>
-        <a href="#work">Work</a>
+        <a href="#examples">Examples</a>
         <a href="#why">Why me</a>
         <a href="#contact">Contact</a>
       </nav>
@@ -765,6 +787,100 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     }, { rootMargin: '-45% 0px -50% 0px' });
     sections.forEach(function (s) { if (s) spy.observe(s); });
   }
+
+  /* ================= example previews =================
+     Each card in the Examples section holds an <iframe> with an empty
+     srcdoc in the markup. We fill it here with a real, self-contained
+     mini page (own <style>, no external requests) so what the visitor
+     sees is an actual rendered site, not a picture of one. The iframe is
+     drawn at a fixed 800x500 design size and scaled down with a CSS
+     custom property so it fits whatever width the card ends up at,
+     including on resize.
+  ================================================== */
+  var EXAMPLES = {
+    ember: '<!doctype html><html><head><meta charset="utf-8"><style>' +
+      '*{box-sizing:border-box;margin:0}' +
+      'html,body{width:800px;height:500px;overflow:hidden}' +
+      'body{background:#1c1512;color:#f3ece2;font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;display:flex;flex-direction:column}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:28px 44px;font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#c9bdae;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      'nav{display:flex;gap:28px;font-size:12px}' +
+      'main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 60px}' +
+      'h1{font-size:56px;font-weight:400;line-height:1.05;letter-spacing:-.01em;margin-bottom:18px}' +
+      'p.sub{font-family:system-ui,sans-serif;font-size:15px;color:#c9bdae;max-width:480px;line-height:1.6;margin-bottom:30px}' +
+      'a.cta{font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.06em;background:#d97a42;color:#1c1512;padding:13px 30px;border-radius:3px;text-decoration:none;font-weight:600}' +
+      'footer{display:flex;justify-content:center;gap:40px;padding:22px;font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a7563;border-top:1px solid rgba(255,255,255,.08)}' +
+      '</style></head><body>' +
+      '<header><span>Marrow</span><nav><span>Menu</span><span>Hours</span><span>Reserve</span></nav></header>' +
+      '<main><h1>Wood-fired,<br>always.</h1>' +
+      '<p class="sub">Dinner Tuesday through Sunday, 5 to 10pm. Walk-ins welcome after 8, or reserve ahead.</p>' +
+      '<a class="cta" href="#" tabindex="-1">Reserve a table</a></main>' +
+      '<footer><span>Seasonal menu</span><span>Full bar</span><span>Private dining</span></footer>' +
+      '</body></html>',
+
+    aster: '<!doctype html><html><head><meta charset="utf-8"><style>' +
+      '*{box-sizing:border-box;margin:0}' +
+      'html,body{width:800px;height:500px;overflow:hidden}' +
+      'body{background:#ece5de;color:#2b2420;font-family:"Century Gothic","Avenir Next",system-ui,sans-serif;display:flex;flex-direction:column}' +
+      'header{display:flex;align-items:center;justify-content:center;padding:30px;font-size:13px;letter-spacing:.32em;text-transform:uppercase}' +
+      'main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 70px}' +
+      'h1{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;font-size:46px;line-height:1.18;color:#2b2420;margin-bottom:16px}' +
+      'p.sub{font-size:14px;color:#5c5248;max-width:420px;line-height:1.7;margin-bottom:26px;letter-spacing:.01em}' +
+      'a.cta{font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:#6c3a54;color:#f6eef2;padding:14px 34px;border-radius:999px;text-decoration:none;font-weight:600}' +
+      '.tags{display:flex;gap:14px;margin-top:34px}' +
+      '.tags span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(43,36,32,.25);border-radius:999px;padding:6px 16px;color:#5c5248}' +
+      'footer{padding:20px;text-align:center;font-size:11px;letter-spacing:.1em;color:#8a7f73;text-transform:uppercase}' +
+      '</style></head><body>' +
+      '<header>Aster Studio</header>' +
+      '<main><h1>Hair &amp; skin,<br>done quietly well.</h1>' +
+      '<p class="sub">A private studio in the Arts District. By appointment, one client at a time.</p>' +
+      '<a class="cta" href="#" tabindex="-1">Book a visit</a>' +
+      '<div class="tags"><span>Color</span><span>Cut</span><span>Facial</span></div></main>' +
+      '<footer>Tuesday&ndash;Saturday, by appointment</footer>' +
+      '</body></html>',
+
+    northbeam: '<!doctype html><html><head><meta charset="utf-8"><style>' +
+      '*{box-sizing:border-box;margin:0}' +
+      'html,body{width:800px;height:500px;overflow:hidden}' +
+      'body{background:#f6f7f8;color:#14181d;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:26px 44px;border-bottom:1px solid rgba(20,24,29,.08)}' +
+      '.word{font-weight:700;font-size:15px;letter-spacing:-.01em}' +
+      '.tag{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#0f6e6a;border:1px solid rgba(15,110,106,.3);border-radius:4px;padding:3px 8px}' +
+      'main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 44px}' +
+      'h1{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:480px;margin-bottom:14px}' +
+      'p.sub{font-size:14.5px;color:#4b535c;max-width:420px;line-height:1.65;margin-bottom:26px}' +
+      'a.cta{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.01em;background:#0f6e6a;color:#f6f7f8;padding:12px 26px;border-radius:5px;text-decoration:none;margin-bottom:38px}' +
+      '.stats{display:flex;gap:34px}' +
+      '.stat b{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:26px;color:#0f6e6a;font-weight:600}' +
+      '.stat span{font-size:11.5px;color:#5c646d;letter-spacing:.02em}' +
+      'footer{padding:18px 44px;border-top:1px solid rgba(20,24,29,.08);font-size:11.5px;color:#7a828b}' +
+      '</style></head><body>' +
+      '<header><span class="word">Northbeam</span><span class="tag">OPS CONSULTING</span></header>' +
+      '<main><h1>Fewer handoffs.<br>Faster ops.</h1>' +
+      '<p class="sub">We rebuild the systems behind your busiest process, end to end, in six weeks or less.</p>' +
+      '<a class="cta" href="#" tabindex="-1">See the approach</a>' +
+      '<div class="stats"><div class="stat"><b>6 wks</b><span>Typical rollout</span></div>' +
+      '<div class="stat"><b>3</b><span>Systems replaced, on average</span></div></div></main>' +
+      '<footer>A four-person team. No subcontractors.</footer>' +
+      '</body></html>'
+  };
+
+  var previewFrames = Array.prototype.slice.call(document.querySelectorAll('.preview iframe'));
+  previewFrames.forEach(function (f) {
+    var key = f.getAttribute('data-example');
+    if (EXAMPLES[key]) f.srcdoc = EXAMPLES[key];
+  });
+
+  function scalePreviews() {
+    previewFrames.forEach(function (f) {
+      var box = f.parentElement.getBoundingClientRect();
+      if (box.width > 0) f.style.setProperty('--s', box.width / 800);
+    });
+  }
+  scalePreviews();
+  window.addEventListener('resize', function () {
+    clearTimeout(scalePreviews._t);
+    scalePreviews._t = setTimeout(scalePreviews, 120);
+  });
 
   /* ================= card glow follows cursor ================= */
   document.querySelectorAll('.card').forEach(function (card) {
