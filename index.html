@@ -757,7 +757,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <p class="scope-range">3 pages</p>
         <h3>Bold, with big photos</h3>
         <p>A small website with three pages: the front page, your menu, and a page where people book a table. Dark and photo-led, so the food does the selling. Good for restaurants, cafés and bars.</p>
-        <ul class="tags"><li>&ldquo;Book a table&rdquo; button</li></ul>
+        <ul class="tags"><li>&ldquo;Book a table&rdquo; button</li><li>Customer reviews</li></ul>
       </article>
 
       <article class="card reveal">
@@ -769,7 +769,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <p class="scope-range">5 pages</p>
         <h3>Calm and simple</h3>
         <p>Five pages: the front page, what you offer, about you, a booking page, and how to find you. Light and uncluttered, with plenty of breathing room. Good for salons, studios and small shops.</p>
-        <ul class="tags"><li>&ldquo;Book a visit&rdquo; button</li></ul>
+        <ul class="tags"><li>&ldquo;Book a visit&rdquo; button</li><li>Customer reviews</li></ul>
       </article>
 
       <article class="card reveal">
@@ -781,7 +781,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <p class="scope-range">6 pages</p>
         <h3>Detailed and businesslike</h3>
         <p>A bigger website, six pages: the front page, how you work, what you offer, past projects, a place to post updates, and contact. Room to explain things properly. Good for consultants and small software companies.</p>
-        <ul class="tags"><li>Shows your numbers</li></ul>
+        <ul class="tags"><li>Shows your numbers</li><li>Client reviews</li></ul>
       </article>
     </div>
 
@@ -1193,14 +1193,21 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       'nav a.active{opacity:1;border-bottom-color:#d97a42}' +
       '.page{display:none}' +
       '.page.active{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 60px}' +
-      'h1{font-size:56px;font-weight:400;line-height:1.05;letter-spacing:-.01em;margin-bottom:18px}' +
+      'h1{font-size:52px;font-weight:400;line-height:1.05;letter-spacing:-.01em;margin-bottom:12px}' +
       'h1.small{font-size:38px;margin-bottom:20px}' +
-      'p.sub{font-family:system-ui,sans-serif;font-size:15px;color:#c9bdae;max-width:480px;line-height:1.6;margin-bottom:30px}' +
+      'p.sub{font-family:system-ui,sans-serif;font-size:14px;color:#c9bdae;max-width:480px;line-height:1.55;margin-bottom:18px}' +
       'a.cta{font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.06em;background:#d97a42;color:#1c1512;padding:13px 30px;border-radius:3px;text-decoration:none;font-weight:600}' +
       '.menu-list{display:flex;flex-direction:column;gap:4px;width:100%;max-width:400px;margin:0 0 28px;text-align:left}' +
       '.menu-item{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.08)}' +
       '.menu-item b{font-family:system-ui,sans-serif;font-weight:600;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:#f3ece2}' +
       '.menu-item span{font-family:system-ui,sans-serif;font-size:11.5px;color:#c9bdae;text-align:right}' +
+      '.rating{display:flex;align-items:center;gap:9px;margin-bottom:10px;font-family:system-ui,sans-serif;font-size:11.5px;color:#c9bdae}' +
+      '.stars{letter-spacing:2px;color:#e8a76a;font-size:13px}' +
+      '.revs{display:flex;gap:12px;margin-top:16px;width:100%;max-width:560px}' +
+      '.rev{flex:1;text-align:left;padding:10px 13px;border:1px solid rgba(255,255,255,.09);border-radius:5px;background:rgba(255,255,255,.03)}' +
+      '.rev .stars{font-size:11px;display:block;margin-bottom:6px}' +
+      '.rev q{display:block;font-family:system-ui,sans-serif;font-style:normal;font-size:11px;line-height:1.45;color:#f3ece2;margin-bottom:5px}' +
+      '.rev cite{font-family:system-ui,sans-serif;font-style:normal;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#8a7563}' +
       'footer{display:flex;justify-content:center;gap:40px;padding:22px;font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a7563;border-top:1px solid rgba(255,255,255,.08)}' +
       '</style></head><body>' +
       '<header><span>Marrow</span><nav>' +
@@ -1209,9 +1216,14 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<a href="#" data-page="reserve">Reserve</a>' +
       '</nav></header>' +
       '<div class="page active" data-page="home">' +
+      '<div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span>4.8 out of 5 &middot; 214 reviews</span></div>' +
       '<h1>Wood-fired,<br>always.</h1>' +
       '<p class="sub">Dinner Tuesday through Sunday, 5 to 10pm. Walk-ins welcome after 8, or reserve ahead.</p>' +
       '<a class="cta" href="#" data-page="reserve" tabindex="-1">Reserve a table</a>' +
+      '<div class="revs">' +
+      '<div class="rev"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><q>The short rib is worth the wait. Best meal we have had all year.</q><cite>Dana R.</cite></div>' +
+      '<div class="rev"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><q>Warm room, unhurried service, and the bread alone is worth the trip.</q><cite>Marcus T.</cite></div>' +
+      '</div>' +
       '</div>' +
       '<div class="page" data-page="menu">' +
       '<h1 class="small">Menu</h1>' +
@@ -1253,10 +1265,16 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       'a.cta{font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:#6c3a54;color:#f6eef2;padding:14px 34px;border-radius:999px;text-decoration:none;font-weight:600}' +
       '.tags{display:flex;gap:14px;margin-top:34px}' +
       '.tags span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(43,36,32,.25);border-radius:999px;padding:6px 16px;color:#5c5248}' +
-      '.svc-list{display:flex;flex-direction:column;gap:12px;width:100%;max-width:380px;margin:0 0 26px;text-align:left}' +
+      '.svc-list{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;margin:0 0 18px;text-align:left}' +
       '.svc{display:flex;flex-direction:column;gap:3px;padding:13px 18px;border:1px solid rgba(43,36,32,.18);border-radius:10px;background:rgba(255,255,255,.4)}' +
       '.svc b{font-size:12.5px;letter-spacing:.04em;text-transform:uppercase}' +
       '.svc span{font-size:12px;color:#5c5248;line-height:1.5}' +
+      '.rating{display:flex;align-items:center;gap:8px;margin-top:22px;font-size:11.5px;color:#5c5248}' +
+      '.stars{letter-spacing:2px;color:#6c3a54;font-size:12px}' +
+      '.rev{margin-top:8px;max-width:430px}' +
+      '.rev .stars{display:block;margin-bottom:12px;font-size:13px;letter-spacing:3px}' +
+      '.rev q{display:block;font-family:Georgia,"Times New Roman",serif;font-style:italic;font-size:17px;line-height:1.55;color:#2b2420;margin-bottom:10px}' +
+      '.rev cite{font-style:normal;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#8a7f73}' +
       'footer{padding:18px;text-align:center;font-size:11px;letter-spacing:.1em;color:#8a7f73;text-transform:uppercase}' +
       '</style></head><body>' +
       '<header><span>Aster Studio</span><nav>' +
@@ -1271,6 +1289,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<p class="sub">A private studio in the Arts District. By appointment, one client at a time.</p>' +
       '<a class="cta" href="#" data-page="book" tabindex="-1">Book a visit</a>' +
       '<div class="tags"><span>Color</span><span>Cut</span><span>Facial</span></div>' +
+      '<div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span>4.9 out of 5 &middot; 86 reviews</span></div>' +
       '</div>' +
       '<div class="page" data-page="services">' +
       '<h1 class="small">Services</h1>' +
@@ -1284,6 +1303,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<div class="page" data-page="about">' +
       '<h1 class="small">About</h1>' +
       '<p class="sub">Trained in Paris and New York, now working from a single quiet room. No chains and no upsells &mdash; just the appointment you booked.</p>' +
+      '<div class="rev"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><q>She actually listened to what I wanted, then told me honestly what would suit me better.</q><cite>Priya N.</cite></div>' +
       '</div>' +
       '<div class="page" data-page="book">' +
       '<h1 class="small">Book</h1>' +
@@ -1334,6 +1354,12 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '.svc b{display:block;font-size:12.5px;margin-bottom:3px}' +
       '.svc span{font-size:11.5px;color:#4b535c;line-height:1.5}' +
       '.fine{font-size:11px;color:#7a828b;margin-top:6px}' +
+      '.rating{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:11.5px;color:#5c646d}' +
+      '.stars{letter-spacing:2px;color:#0f6e6a;font-size:12px}' +
+      '.revs{display:flex;flex-direction:column;gap:8px;max-width:460px;margin-top:2px}' +
+      '.rev{padding:10px 14px;border:1px solid rgba(20,24,29,.08);border-left:2px solid #0f6e6a;border-radius:6px;background:#fff}' +
+      '.rev q{display:block;font-size:12px;line-height:1.5;color:#14181d;margin-bottom:5px}' +
+      '.rev cite{font-style:normal;font-size:11px;color:#5c646d}' +
       'footer{padding:14px 40px;border-top:1px solid rgba(20,24,29,.08);font-size:11px;color:#7a828b}' +
       '</style></head><body>' +
       '<header><div class="brand"><span class="word">Northbeam</span><span class="tag">OPS CONSULTING</span></div>' +
@@ -1351,6 +1377,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<a class="cta" href="#" data-page="approach" tabindex="-1">See the approach</a>' +
       '<div class="stats"><div class="stat"><b>6 wks</b><span>Typical rollout</span></div>' +
       '<div class="stat"><b>3</b><span>Systems replaced, on average</span></div></div>' +
+      '<div class="rating"><span class="stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span>4.9 out of 5 from 32 client reviews</span></div>' +
       '</div>' +
       '<div class="page" data-page="approach">' +
       '<h1 class="small">How we work</h1>' +
@@ -1374,6 +1401,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<div class="svc-list">' +
       '<div class="svc"><b>Operations rebuild</b><span>A 40-person logistics team, six weeks, one shared system instead of four.</span></div>' +
       '<div class="svc"><b>Onboarding redesign</b><span>Cut new-hire ramp time from six weeks down to two.</span></div>' +
+      '</div>' +
+      '<div class="revs">' +
+      '<div class="rev"><q>They found the bottleneck in a week. We had been arguing about it for a year.</q><cite>Operations Director, logistics</cite></div>' +
+      '<div class="rev"><q>No slide decks, no filler. They shipped the thing and trained the team on it.</q><cite>Founder, software company</cite></div>' +
       '</div>' +
       '</div>' +
       '<div class="page" data-page="blog">' +
