@@ -7,6 +7,17 @@
 <meta name="description" content="Tycho Tech builds landing pages and websites for small businesses, startups and local shops. Fast turnaround, modern design, honest pricing.">
 <meta name="theme-color" content="#05070f">
 
+<!-- Set the saved theme before first paint, so there's no flash of the
+     wrong theme on load. Kept tiny and synchronous on purpose. -->
+<script>
+(function () {
+  try {
+    var t = localStorage.getItem('tycho-theme');
+    if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* private/blocked storage -- falls back to the default dark theme */ }
+})();
+</script>
+
 <!-- ===================================================================
      SWAP THESE PLACEHOLDERS FOR YOUR REAL DETAILS
      Search the file for each bracketed item and replace it:
@@ -44,6 +55,24 @@
   --ease:cubic-bezier(.22,.8,.3,1);
   --font-display:"Space Grotesk",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
   --font-body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+/* Light theme: same accent, everything else flipped. Dark stays the
+   default (bare :root above) so nothing changes unless this attribute
+   is explicitly set -- by the toggle, or the early script restoring a
+   saved choice. */
+:root[data-theme="light"]{
+  --bg:#f5f4f0;
+  --bg-2:#ebe9e4;
+  --panel:rgba(20,22,30,.04);
+  --panel-2:rgba(20,22,30,.07);
+  --line:rgba(20,22,30,.12);
+  --line-strong:rgba(20,22,30,.22);
+  --ink:#171b24;
+  --ink-2:#4b5563;
+  --ink-3:#6b7280;
+  /* --accent, --accent-deep and --accent-soft are deliberately not
+     redefined here -- the cyan stays the same in both themes. */
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -103,7 +132,7 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;letter-spacing:-.01em;font-size:1.06rem}
 .logo .mark{width:22px;height:22px;color:var(--accent);filter:drop-shadow(0 0 10px rgba(56,225,255,.55));flex:none}
 .logo .dim{color:var(--ink-2);font-weight:500}
-.nav-links{display:flex;align-items:center;gap:4px;margin-left:auto}
+.nav-links{display:flex;align-items:center;gap:4px}
 .nav-links a:not(.btn){
   position:relative;padding:9px 13px;border-radius:9px;font-size:.92rem;color:var(--ink-2);
   transition:color .2s var(--ease),background .2s var(--ease);
@@ -115,8 +144,19 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:2px;
 }
 .nav .btn{margin-left:10px}
+.theme-toggle{
+  display:flex;margin-left:auto;flex:none;width:42px;height:42px;border-radius:11px;
+  background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  align-items:center;justify-content:center;cursor:pointer;
+  transition:background .2s var(--ease),color .2s var(--ease);
+}
+.theme-toggle:hover{background:var(--panel-2)}
+.theme-toggle svg{width:18px;height:18px}
+.theme-toggle .icon-sun{display:none}
+[data-theme="light"] .theme-toggle .icon-sun{display:block}
+[data-theme="light"] .theme-toggle .icon-moon{display:none}
 .burger{
-  display:none;margin-left:auto;width:42px;height:42px;border-radius:11px;
+  display:none;width:42px;height:42px;border-radius:11px;
   background:var(--panel);border:1px solid var(--line);color:var(--ink);
   align-items:center;justify-content:center;cursor:pointer;
 }
@@ -235,10 +275,10 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   background:radial-gradient(circle at 50% 38%,#0f1d33,#070c17);
   border:1px solid rgba(56,225,255,.4);
   font-family:var(--font-display);font-weight:700;font-size:.9rem;color:var(--accent);
-  box-shadow:0 0 0 6px rgba(5,7,15,1),0 0 28px -4px rgba(56,225,255,.55);
+  box-shadow:0 0 0 6px var(--bg),0 0 28px -4px rgba(56,225,255,.55);
   transition:box-shadow .4s var(--ease),transform .4s var(--ease);
 }
-.step:hover .node{transform:scale(1.07);box-shadow:0 0 0 6px rgba(5,7,15,1),0 0 40px -2px rgba(56,225,255,.85)}
+.step:hover .node{transform:scale(1.07);box-shadow:0 0 0 6px var(--bg),0 0 40px -2px rgba(56,225,255,.85)}
 .step h3{margin-bottom:9px}
 .step p{color:var(--ink-2);margin:0;font-size:.97rem;max-width:34ch;margin-inline:auto}
 
@@ -505,6 +545,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     transform:translateY(-12px);opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .28s var(--ease),transform .28s var(--ease),visibility .28s;
   }
+  [data-theme="light"] .nav-links{background:rgba(245,244,240,.97)}
   .nav-links.open{transform:none;opacity:1;visibility:visible;pointer-events:auto}
   .nav-links a:not(.btn){padding:13px 12px;font-size:1rem}
   .nav-links a:not(.btn).active::after{left:12px;right:auto;width:16px;bottom:8px}
@@ -540,6 +581,28 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
   .reveal{opacity:1;transform:none}
 }
+
+/* ---------- light theme: the handful of spots that hardcode a color
+   instead of using a token, so they don't just fall out of the :root
+   override above. Everything else (text, borders, panels, the sticky
+   nav's own text/links, buttons, tags, icons...) already reads its
+   color from --bg/--ink/--line/etc. and adapts on its own. ---------- */
+[data-theme="light"] .nav.is-stuck{background:rgba(245,244,240,.82)}
+[data-theme="light"] .glow{opacity:.5}
+[data-theme="light"] .pill{color:var(--accent-deep)}
+[data-theme="light"] .btn-ghost:hover{color:var(--ink)}
+[data-theme="light"] .card{
+  background:linear-gradient(180deg,#ffffff,#fbfaf7);
+  box-shadow:0 1px 2px rgba(20,22,30,.05);
+}
+[data-theme="light"] .card:hover{box-shadow:0 20px 40px -22px rgba(20,22,30,.16)}
+[data-theme="light"] form{background:linear-gradient(180deg,#ffffff,#fbfaf7)}
+[data-theme="light"] input,
+[data-theme="light"] textarea{background:rgba(255,255,255,.8)}
+[data-theme="light"] input:focus,
+[data-theme="light"] textarea:focus{background:#ffffff}
+[data-theme="light"] input::placeholder,
+[data-theme="light"] textarea::placeholder{color:#8791a0}
 </style>
 </head>
 <body>
@@ -556,6 +619,16 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5l2.9 9.4 9.4 2.9-9.4 2.9L16 29.5l-2.9-11.8L3.7 14.8l9.4-2.9z" fill="currentColor"/></svg>
       Tycho<span class="dim">&nbsp;Tech</span>
     </a>
+
+    <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch to light theme">
+      <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <circle cx="12" cy="12" r="4.2"></circle>
+        <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"></path>
+      </svg>
+      <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M20 14.5A8.5 8.5 0 1110.5 4a6.8 6.8 0 009.5 10.5z"></path>
+      </svg>
+    </button>
 
     <button class="burger" id="burger" aria-label="Menu" aria-controls="menu" aria-expanded="false"><span></span></button>
 
@@ -928,16 +1001,25 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     }
   }
 
+  function isLightTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light';
+  }
+
+  // Same star positions and motion in both themes -- only the color and
+  // strength change, so light mode keeps the motif ("barely-there" gray
+  // dots) instead of losing it.
   function frame(t) {
     ctx.clearRect(0, 0, w, h);
+    var light = isLightTheme();
     for (var i = 0; i < stars.length; i++) {
       var s = stars[i];
       var alpha = s.a * (0.55 + 0.45 * Math.sin(t * s.tw + s.ph));
+      if (light) alpha *= 0.4;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = s.cyan
-        ? 'rgba(120, 232, 255, ' + alpha.toFixed(3) + ')'
-        : 'rgba(226, 236, 255, ' + alpha.toFixed(3) + ')';
+      ctx.fillStyle = light
+        ? (s.cyan ? 'rgba(12, 148, 184, ' + alpha.toFixed(3) + ')' : 'rgba(72, 80, 94, ' + alpha.toFixed(3) + ')')
+        : (s.cyan ? 'rgba(120, 232, 255, ' + alpha.toFixed(3) + ')' : 'rgba(226, 236, 255, ' + alpha.toFixed(3) + ')');
       ctx.fill();
 
       s.y -= s.vy;
@@ -948,11 +1030,15 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
   function paintStatic() {
     ctx.clearRect(0, 0, w, h);
+    var light = isLightTheme();
     for (var i = 0; i < stars.length; i++) {
       var s = stars[i];
+      var alpha = light ? s.a * 0.4 : s.a;
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(226, 236, 255, ' + s.a.toFixed(3) + ')';
+      ctx.fillStyle = light
+        ? 'rgba(72, 80, 94, ' + alpha.toFixed(3) + ')'
+        : 'rgba(226, 236, 255, ' + alpha.toFixed(3) + ')';
       ctx.fill();
     }
   }
@@ -989,6 +1075,32 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     revealables.forEach(function (el) { io.observe(el); });
   }
+
+  /* ================= theme toggle =================
+     The early inline script in <head> already applied any saved choice
+     before this ran, so there's nothing to do here but sync the
+     button's own label and wire up the click. */
+  var THEME_KEY = 'tycho-theme';
+  var themeToggle = document.getElementById('themeToggle');
+
+  function currentTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  }
+  function reflectTheme(theme) {
+    themeToggle.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    themeToggle.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+  }
+  reflectTheme(currentTheme());
+
+  themeToggle.addEventListener('click', function () {
+    var next = currentTheme() === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    reflectTheme(next);
+    try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private/blocked storage */ }
+    // The animated starfield already re-reads the theme every frame; the
+    // static (reduced-motion) one only draws once, so it needs a nudge.
+    if (reduced) paintStatic();
+  });
 
   /* ================= nav: stuck state, menu, active link ================= */
   var nav = document.getElementById('nav');
