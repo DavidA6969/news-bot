@@ -341,18 +341,69 @@ body.modal-open{overflow:hidden}
   background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;
   padding:5px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.preview-modal-close{
+.preview-modal-close,.preview-modal-back{
   flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
   background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
   cursor:pointer;font-size:1.15rem;line-height:1;
   transition:background .2s var(--ease),color .2s var(--ease);
 }
-.preview-modal-close:hover{background:var(--panel-2);color:var(--ink)}
-.preview-modal-frame{position:relative;width:100%;aspect-ratio:16/10;background:#0a0e18;overflow:hidden}
-.preview-modal-frame iframe{
-  --ms:1;width:800px;height:500px;border:0;position:absolute;top:0;left:0;
-  transform-origin:top left;transform:scale(var(--ms));
+.preview-modal-close:hover,.preview-modal-back:hover{background:var(--panel-2);color:var(--ink)}
+.preview-modal-back{display:none}
+.preview-modal-back svg{width:16px;height:16px}
+.preview-modal-panel:not([data-view="gallery"]) .preview-modal-back{display:grid}
+
+/* two tiles -- a site map and the live preview -- shown side by side by
+   default; clicking either grows it to fill the panel and shrinks the
+   other one out, so each can be looked at closely on its own. */
+.preview-modal-gallery{
+  display:flex;align-items:center;gap:2px;
+  width:100%;aspect-ratio:16/10;background:#0a0e18;
 }
+.preview-modal-tile{
+  position:relative;flex:1 1 50%;align-self:stretch;overflow:hidden;
+  transition:flex-basis .45s var(--ease),opacity .3s var(--ease);
+}
+.preview-modal-panel[data-view="sitemap"] .tile-site,
+.preview-modal-panel[data-view="site"] .tile-sitemap{
+  flex-basis:0%;opacity:0;pointer-events:none;
+}
+.preview-modal-panel[data-view="sitemap"] .tile-sitemap,
+.preview-modal-panel[data-view="site"] .tile-site{
+  flex-basis:100%;
+}
+.tile-label{
+  position:absolute;top:10px;left:10px;z-index:1;
+  font-family:var(--font-display);font-weight:600;font-size:.64rem;
+  letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.7);
+  background:rgba(5,7,15,.55);backdrop-filter:blur(4px);
+  padding:4px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.1);
+  pointer-events:none;
+  transition:opacity .2s var(--ease);
+}
+/* Only needed to tell the two small gallery thumbnails apart; once one
+   fills the panel its own content already makes that obvious, and the
+   chip just sits awkwardly over the site's real header. */
+.preview-modal-panel:not([data-view="gallery"]) .tile-label{opacity:0}
+.tile-frame{
+  position:relative;width:100%;height:100%;overflow:hidden;
+  cursor:zoom-in;
+}
+.preview-modal-panel:not([data-view="gallery"]) .tile-frame{cursor:default}
+.tile-sitemap .tile-frame{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
+.tile-sitemap svg{width:100%;height:100%}
+.tile-sitemap .nd{fill:var(--bg-2);stroke:var(--accent);stroke-width:1.6}
+.tile-sitemap .nd-root{fill:var(--accent);stroke:none;filter:drop-shadow(0 0 6px rgba(56,225,255,.6))}
+.tile-sitemap .ln{stroke:var(--line-strong);stroke-width:1.3}
+.tile-sitemap .lb{font-family:var(--font-body);font-size:9px;fill:var(--ink-2);text-anchor:middle}
+.tile-sitemap .lb-root{font-family:var(--font-display);font-weight:600;font-size:11px;fill:var(--ink);letter-spacing:.01em}
+.tile-sitemap .lb-sm{font-size:8px}
+.tile-site .tile-frame iframe{
+  --ms:1;width:800px;height:500px;border:0;
+  position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%) scale(var(--ms));
+  pointer-events:none;
+}
+.preview-modal-panel[data-view="site"] .tile-site .tile-frame iframe{pointer-events:auto}
 .note{font-size:.82rem;color:var(--ink-3);margin:16px 0 0}
 .note code{
   font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.9em;
@@ -382,7 +433,21 @@ body.modal-open{overflow:hidden}
   color:var(--accent);letter-spacing:-.03em;line-height:1;margin-bottom:14px;
 }
 
-/* ---------- contact ---------- */
+/* ---------- cta strip ---------- */
+.cta-strip-inner{text-align:center;max-width:640px;margin-inline:auto}
+.cta-strip-inner .lede{margin:16px auto 30px}
+
+/* ---------- contact (separate page) ---------- */
+.contact-page{padding-block:clamp(64px,8vw,100px);position:relative}
+.contact-page[hidden]{display:none}
+.back-link{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--font-display);font-weight:600;font-size:.92rem;color:var(--ink-2);
+  margin-bottom:clamp(28px,4vw,44px);
+  transition:color .2s var(--ease),transform .2s var(--ease);
+}
+.back-link svg{width:16px;height:16px;flex:none}
+.back-link:hover{color:var(--accent);transform:translateX(-3px)}
 .contact-grid{display:grid;gap:clamp(26px,4vw,52px);grid-template-columns:.92fr 1.08fr;align-items:start}
 .contact-aside .lede{margin-top:18px}
 .direct{margin:28px 0 0;padding:0;list-style:none;display:grid;gap:14px}
@@ -458,6 +523,17 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   .wrap{padding-inline:18px}
   .hero-cta .btn{width:100%}
   .trust{gap:10px 18px;justify-content:flex-start;text-align:left}
+}
+@media (max-width:640px){
+  /* Side by side is too cramped for two tiles at phone width -- stack
+     them, each keeping its own 16:10 shape, instead of both sharing one
+     fixed-height row. */
+  .preview-modal-gallery{aspect-ratio:auto;flex-direction:column;max-height:78vh;overflow-y:auto}
+  .preview-modal-tile{flex:none;width:100%;aspect-ratio:16/10;align-self:auto;max-height:1000px}
+  .preview-modal-panel[data-view="sitemap"] .tile-site,
+  .preview-modal-panel[data-view="site"] .tile-sitemap{
+    flex-basis:auto;max-height:0;aspect-ratio:auto;
+  }
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -609,7 +685,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <div class="grid-3">
       <article class="card reveal">
-        <button class="preview" type="button" data-example="ember" aria-haspopup="dialog" aria-label="View the restaurant example full size">
+        <button class="preview" type="button" data-example="ember" aria-haspopup="dialog" aria-label="View the restaurant example: site map and live preview">
           <span class="frame-label">Restaurant &amp; caf&#233;</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
           <iframe data-example="ember" loading="lazy" title="Example: a dark, editorial two-page site for a restaurant" aria-hidden="true" tabindex="-1"></iframe>
@@ -622,7 +698,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       </article>
 
       <article class="card reveal">
-        <button class="preview" type="button" data-example="aster" aria-haspopup="dialog" aria-label="View the boutique example full size">
+        <button class="preview" type="button" data-example="aster" aria-haspopup="dialog" aria-label="View the boutique example: site map and live preview">
           <span class="frame-label">Boutique &amp; salon</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
           <iframe data-example="aster" loading="lazy" title="Example: a light, refined four-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
@@ -635,7 +711,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       </article>
 
       <article class="card reveal">
-        <button class="preview" type="button" data-example="northbeam" aria-haspopup="dialog" aria-label="View the consulting example full size">
+        <button class="preview" type="button" data-example="northbeam" aria-haspopup="dialog" aria-label="View the consulting example: site map and live preview">
           <span class="frame-label">Consulting &amp; SaaS</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
           <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward six-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
@@ -685,61 +761,79 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   </div>
 </section>
 
-<!-- ============ CONTACT ============ -->
-<section id="contact">
-  <div class="wrap contact-grid">
-    <div class="contact-aside">
-      <div class="reveal">
-        <p class="eyebrow">Contact</p>
-        <h2>Let's get your site off the ground.</h2>
-        <p class="lede">Tell me what you do and what you need. I'll reply within one business day with a timeline and a fixed price — no pressure, no sales script.</p>
-      </div>
-
-      <ul class="direct reveal">
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6l9 6.5L21 6"/></svg>
-          <span>Prefer email? <a href="mailto:[you@example.com]">[you@example.com]</a></span>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M12 7.5V12l3.3 2"/></svg>
-          <span>Replies within one business day, Monday to Friday.</span>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 21s7.5-5.6 7.5-11a7.5 7.5 0 10-15 0c0 5.4 7.5 11 7.5 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
-          <span>Working remotely with clients anywhere.</span>
-        </li>
-      </ul>
+<!-- ============ CTA STRIP ============ -->
+<section id="cta-strip">
+  <div class="wrap">
+    <div class="cta-strip-inner reveal">
+      <h2>Let&rsquo;s get your site off the ground.</h2>
+      <p class="lede">Tell me what you do and what you need, and I&rsquo;ll reply within one business day with a timeline and a fixed price.</p>
+      <a class="btn btn-primary btn-lg" href="#contact">Start Your Project</a>
     </div>
-
-    <form id="contact-form" class="reveal" novalidate>
-      <div class="field">
-        <label for="name">Name</label>
-        <input id="name" name="name" type="text" autocomplete="name" placeholder="Your name" required>
-        <span class="err" id="name-err" aria-live="polite"></span>
-      </div>
-
-      <div class="field">
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required>
-        <span class="err" id="email-err" aria-live="polite"></span>
-      </div>
-
-      <div class="field">
-        <label for="message">Project details</label>
-        <textarea id="message" name="message" placeholder="What does your business do, and what do you need built?" required></textarea>
-        <span class="err" id="message-err" aria-live="polite"></span>
-      </div>
-
-      <!-- simple bot trap; leave empty -->
-      <div class="hp"><label for="company">Company</label><input id="company" name="company" type="text" tabindex="-1" autocomplete="off"></div>
-
-      <button class="btn btn-primary btn-lg" type="submit">Send project details</button>
-      <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
-    </form>
   </div>
 </section>
 
 </main>
+
+<!-- ============ CONTACT (separate page) ============ -->
+<div id="contact" class="contact-page" hidden>
+  <div class="wrap">
+    <a class="back-link" href="#top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back to Tycho Tech
+    </a>
+
+    <div class="contact-grid">
+      <div class="contact-aside">
+        <div class="reveal">
+          <p class="eyebrow">Contact</p>
+          <h2>Let's get your site off the ground.</h2>
+          <p class="lede">Tell me what you do and what you need. I'll reply within one business day with a timeline and a fixed price — no pressure, no sales script.</p>
+        </div>
+
+        <ul class="direct reveal">
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="2.5" y="4.5" width="19" height="15" rx="2.5"/><path d="M3 6l9 6.5L21 6"/></svg>
+            <span>Prefer email? <a href="mailto:[you@example.com]">[you@example.com]</a></span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path d="M12 7.5V12l3.3 2"/></svg>
+            <span>Replies within one business day, Monday to Friday.</span>
+          </li>
+          <li>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><path d="M12 21s7.5-5.6 7.5-11a7.5 7.5 0 10-15 0c0 5.4 7.5 11 7.5 11z"/><circle cx="12" cy="10" r="2.6"/></svg>
+            <span>Working remotely with clients anywhere.</span>
+          </li>
+        </ul>
+      </div>
+
+      <form id="contact-form" class="reveal" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input id="name" name="name" type="text" autocomplete="name" placeholder="Your name" required>
+          <span class="err" id="name-err" aria-live="polite"></span>
+        </div>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="you@company.com" required>
+          <span class="err" id="email-err" aria-live="polite"></span>
+        </div>
+
+        <div class="field">
+          <label for="message">Project details</label>
+          <textarea id="message" name="message" placeholder="What does your business do, and what do you need built?" required></textarea>
+          <span class="err" id="message-err" aria-live="polite"></span>
+        </div>
+
+        <!-- simple bot trap; leave empty -->
+        <div class="hp"><label for="company">Company</label><input id="company" name="company" type="text" tabindex="-1" autocomplete="off"></div>
+
+        <button class="btn btn-primary btn-lg" type="submit">Send project details</button>
+        <p class="form-status" id="form-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+</div>
 
 <!-- ============ FOOTER ============ -->
 <footer>
@@ -769,14 +863,26 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
 <div class="preview-modal" id="previewModal" aria-hidden="true">
   <div class="preview-modal-backdrop" data-modal-close></div>
-  <div class="preview-modal-panel" role="dialog" aria-modal="true" aria-label="Full example preview">
+  <div class="preview-modal-panel" role="dialog" aria-modal="true" aria-label="Full example preview" data-view="gallery" id="previewModalPanel">
     <div class="preview-modal-bar">
+      <button class="preview-modal-back" type="button" id="previewModalBack" aria-label="Back to both views">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      </button>
       <span class="dots"><span></span><span></span><span></span></span>
       <span class="preview-modal-url" id="previewModalUrl"></span>
       <button class="preview-modal-close" type="button" id="previewModalClose" aria-label="Close preview">&times;</button>
     </div>
-    <div class="preview-modal-frame">
-      <iframe id="previewModalFrame" title="Full example preview"></iframe>
+    <div class="preview-modal-gallery">
+      <div class="preview-modal-tile tile-sitemap">
+        <span class="tile-label">Site map</span>
+        <div class="tile-frame" data-view-target="sitemap" id="previewModalSitemap"></div>
+      </div>
+      <div class="preview-modal-tile tile-site">
+        <span class="tile-label">Live preview</span>
+        <div class="tile-frame" data-view-target="site">
+          <iframe id="previewModalFrame" title="Full example preview"></iframe>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -927,6 +1033,34 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     }, { rootMargin: '-45% 0px -50% 0px' });
     sections.forEach(function (s) { if (s) spy.observe(s); });
   }
+
+  /* ================= contact as a separate page =================
+     The contact form lives outside <main> as its own hidden view. A
+     plain hashchange listener toggles the two -- no router needed,
+     since every link to it is already a normal <a href="#contact">
+     and the browser updates location.hash on click for free. This also
+     makes the page shareable/bookmarkable and gives the browser's own
+     back button a "page" to return from.
+  ================================================== */
+  var mainEl = document.getElementById('top');
+  var contactPage = document.getElementById('contact');
+
+  function syncViewToHash() {
+    var isContact = location.hash === '#contact';
+    contactPage.hidden = !isContact;
+    mainEl.hidden = isContact;
+    navLinks.forEach(function (a) {
+      if (isContact) a.classList.toggle('active', a.getAttribute('href') === '#contact');
+    });
+    if (isContact) {
+      window.scrollTo(0, 0);
+    } else if (location.hash) {
+      var target = document.querySelector(location.hash);
+      if (target) requestAnimationFrame(function () { target.scrollIntoView(); });
+    }
+  }
+  window.addEventListener('hashchange', syncViewToHash);
+  syncViewToHash();
 
   /* ================= collapsible "How it works" ================= */
   var processToggle = document.getElementById('processToggle');
@@ -1180,15 +1314,19 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   });
 
   /* ================= example preview modal =================
-     Clicking a preview button opens the same EXAMPLES[key] content full
-     size in a dialog, this time interactive: the tiny thumbnail iframe
-     stays pointer-events:none (decorative), while the modal's iframe is
-     a live, clickable copy, so a multi-page example's own nav actually
-     switches pages inside it.
+     Clicking a preview button opens two views of the same example: a
+     site-map diagram of its real pages, and the live EXAMPLES[key]
+     content, interactive this time (the tiny thumbnail iframe on the
+     card stays pointer-events:none/decorative; this one is a live,
+     clickable copy so a multi-page example's own nav actually switches
+     pages inside it). Both start side by side; clicking either grows it
+     to fill the panel via the data-view attribute the CSS keys off of.
   ================================================== */
   var modal = document.getElementById('previewModal');
-  var modalPanel = modal.querySelector('.preview-modal-panel');
+  var modalPanel = document.getElementById('previewModalPanel');
+  var modalBack = document.getElementById('previewModalBack');
   var modalFrame = document.getElementById('previewModalFrame');
+  var modalSitemap = document.getElementById('previewModalSitemap');
   var modalUrl = document.getElementById('previewModalUrl');
   var modalClose = document.getElementById('previewModalClose');
   var modalLastTrigger = null;
@@ -1199,10 +1337,61 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     northbeam: 'northbeam.example'
   };
 
-  function scaleModalFrame() {
-    var box = modalFrame.parentElement.getBoundingClientRect();
+  // Each diagram mirrors that example's actual nav -- not a generic
+  // illustration -- so it stays true to the live preview next to it.
+  var SITEMAPS = {
+    ember:
+      '<svg viewBox="0 0 220 130" role="img" aria-label="Site map: Home linking to Menu">' +
+      '<line x1="110" y1="39" x2="110" y2="83" class="ln"></line>' +
+      '<circle cx="110" cy="30" r="9" class="nd nd-root"></circle>' +
+      '<circle cx="110" cy="90" r="7" class="nd"></circle>' +
+      '<text x="110" y="52" class="lb lb-root">Home</text>' +
+      '<text x="110" y="114" class="lb">Menu</text>' +
+      '</svg>',
+    aster:
+      '<svg viewBox="0 0 260 140" role="img" aria-label="Site map: Home linking to Services, About and Contact">' +
+      '<line x1="130" y1="33" x2="58" y2="80" class="ln"></line>' +
+      '<line x1="130" y1="33" x2="130" y2="80" class="ln"></line>' +
+      '<line x1="130" y1="33" x2="202" y2="80" class="ln"></line>' +
+      '<circle cx="130" cy="24" r="9" class="nd nd-root"></circle>' +
+      '<circle cx="58" cy="87" r="7" class="nd"></circle>' +
+      '<circle cx="130" cy="87" r="7" class="nd"></circle>' +
+      '<circle cx="202" cy="87" r="7" class="nd"></circle>' +
+      '<text x="130" y="46" class="lb lb-root">Home</text>' +
+      '<text x="58" y="110" class="lb">Services</text>' +
+      '<text x="130" y="110" class="lb">About</text>' +
+      '<text x="202" y="110" class="lb">Contact</text>' +
+      '</svg>',
+    northbeam:
+      '<svg viewBox="0 0 280 140" role="img" aria-label="Site map: Home linking to Approach, Services, Work, Blog and Contact">' +
+      '<line x1="140" y1="31" x2="20" y2="76" class="ln"></line>' +
+      '<line x1="140" y1="31" x2="72" y2="76" class="ln"></line>' +
+      '<line x1="140" y1="31" x2="140" y2="76" class="ln"></line>' +
+      '<line x1="140" y1="31" x2="208" y2="76" class="ln"></line>' +
+      '<line x1="140" y1="31" x2="260" y2="76" class="ln"></line>' +
+      '<circle cx="140" cy="22" r="9" class="nd nd-root"></circle>' +
+      '<circle cx="20" cy="83" r="6" class="nd"></circle>' +
+      '<circle cx="72" cy="83" r="6" class="nd"></circle>' +
+      '<circle cx="140" cy="83" r="6" class="nd"></circle>' +
+      '<circle cx="208" cy="83" r="6" class="nd"></circle>' +
+      '<circle cx="260" cy="83" r="6" class="nd"></circle>' +
+      '<text x="140" y="40" class="lb lb-root">Home</text>' +
+      '<text x="20" y="104" class="lb lb-sm">Approach</text>' +
+      '<text x="72" y="104" class="lb lb-sm">Services</text>' +
+      '<text x="140" y="104" class="lb lb-sm">Work</text>' +
+      '<text x="208" y="104" class="lb lb-sm">Blog</text>' +
+      '<text x="260" y="104" class="lb lb-sm">Contact</text>' +
+      '</svg>'
+  };
+
+  // Recomputes continuously (not just on window resize) so the iframe's
+  // scale tracks smoothly as the tile grows or shrinks during the
+  // gallery <-> zoomed transition, not just snapping once it settles.
+  var modalFrameRO = new ResizeObserver(function (entries) {
+    var box = entries[0].contentRect;
     if (box.width > 0) modalFrame.style.setProperty('--ms', Math.min(1, box.width / 800));
-  }
+  });
+  modalFrameRO.observe(modalFrame.parentElement);
 
   function onModalKeydown(e) {
     if (e.key === 'Escape') closePreviewModal();
@@ -1240,12 +1429,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     if (!EXAMPLES[key]) return;
     modalLastTrigger = trigger || null;
     modalFrame.srcdoc = EXAMPLES[key];
+    modalSitemap.innerHTML = SITEMAPS[key] || '';
     modalUrl.textContent = SITE_URLS[key] || '';
+    modalPanel.setAttribute('data-view', 'gallery'); // always reopen showing both
     document.body.classList.add('modal-open');
     modal.style.visibility = 'visible';
     modal.classList.add('open');
     modal.setAttribute('aria-hidden', 'false');
-    scaleModalFrame();
     modalClose.focus();
     document.addEventListener('keydown', onModalKeydown);
     document.addEventListener('focusin', containFocus);
@@ -1263,6 +1453,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     setTimeout(function () {
       modal.style.visibility = 'hidden';
       modalFrame.srcdoc = '';
+      modalSitemap.innerHTML = '';
     }, 300);
   }
 
@@ -1275,8 +1466,18 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     el.addEventListener('click', closePreviewModal);
   });
   modalClose.addEventListener('click', closePreviewModal);
-  window.addEventListener('resize', function () {
-    if (modal.classList.contains('open')) scaleModalFrame();
+
+  // Clicking either tile zooms it; the site tile's own iframe only
+  // becomes clickable once zoomed (see the pointer-events rule in CSS),
+  // so this same click can't fire again on its links, only on empty
+  // gallery-state thumbnails.
+  modal.querySelectorAll('.tile-frame[data-view-target]').forEach(function (tile) {
+    tile.addEventListener('click', function () {
+      modalPanel.setAttribute('data-view', tile.getAttribute('data-view-target'));
+    });
+  });
+  modalBack.addEventListener('click', function () {
+    modalPanel.setAttribute('data-view', 'gallery');
   });
   /* ================= card glow follows cursor ================= */
   document.querySelectorAll('.card').forEach(function (card) {
