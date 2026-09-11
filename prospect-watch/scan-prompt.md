@@ -49,13 +49,15 @@ the path below rather than stopping.
 
 Google Maps cannot be browsed from here without the API. The network policy
 blocks google.com, maps.google.com, yelp.ca, yellowpages.ca and bbb.org, so
-WebFetch on any of them fails. WebSearch still works and its results
-summarise Google and Yelp data.
+WebFetch on any of them fails. WebSearch still works, and what it reports
+from Google is the useful part.
 
 On this path you cannot see review dates. Do not claim them. Use the
-recency signals in the bar below instead. Do not use YellowPages as a
-starting point; the first version of this scan did, and it filed businesses
-that could not be confirmed to exist.
+recency signals in the bar below instead.
+
+Yelp and YellowPages are not to be used as starting points and not to be
+filed as links. The first version of this scan sourced from YellowPages and
+filed businesses that could not be confirmed to exist.
 
 Search per city and per trade the way a customer would, for example
 "barber shop Airdrie AB reviews", then search each promising name with its
@@ -73,10 +75,18 @@ is how dead businesses get onto a list.
 
 **Recently active.** On the Maps path this is already enforced: the
 scanner drops anything without a review in the window. On the search path,
-find at least one signal that someone has dealt with this business lately: a Yelp or directory page updated within the last six
-months, a review count that a platform describes as current, an active job
-posting, a current municipal business licence, a recent news or magazine
-mention, or a live booking page with real availability.
+find at least one signal that someone has dealt with this business lately:
+a Google rating and review count that search reports as current, a social
+post from the last few months, a live booking page with real availability,
+an open job posting, a current municipal business licence, or a recent
+local news or magazine mention.
+
+Do not lean on Yelp or YellowPages for this, and do not file them as links.
+Hardly anyone in these towns uses them, their pages go stale for years, and
+a listing on either is not evidence that a business is trading. Google is
+where the customers and the reviews actually are, so prefer what search
+reports from Google, and prefer the business's own social accounts, which
+have visible post dates.
 
 **Genuinely without a website.** Search the business name plus "website"
 and plus its own domain guesses. Check any email address you find: a
