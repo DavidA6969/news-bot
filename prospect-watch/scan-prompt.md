@@ -1,6 +1,6 @@
 You are running the weekly Alberta Web Gaps scan. It keeps a prospect list
-topped up with local businesses that have no website, only a social or
-booking page, or a site with a real technical fault.
+topped up with local businesses that are clearly trading and clearly have no
+real website of their own.
 
 The list lives in the database of this artifact:
 https://claude.ai/code/artifact/a3613b09-d3c5-442e-8e1e-621505b4a1e0
@@ -8,121 +8,135 @@ https://claude.ai/code/artifact/a3613b09-d3c5-442e-8e1e-621505b4a1e0
 Cities in scope: Calgary, Edmonton, Red Deer, Airdrie (nearby towns such as
 Cochrane, Penhold and Sylvan Lake count under the closest of those four).
 
-## 1. Load what is already on the list
+This session runs unattended. Nobody can answer a permission prompt. Never
+pass out_dir on an Artifact call and never write outside your scratchpad.
+Read database documents inline. If something blocks, stop and report it.
 
-Read every existing prospect so you do not add duplicates:
+## What this environment can and cannot reach
+
+Do not plan around fetching Google Maps. The network policy blocks
+google.com, maps.google.com, yelp.ca, yellowpages.ca and bbb.org outright.
+WebFetch on any of them fails.
+
+What works is WebSearch. Its results summarise Google and Yelp data and
+surface the directory and social pages a business actually has. That is the
+tool to use. Do not cite YellowPages as a source and do not use it as a
+starting point; the previous version of this scan did, and it produced
+entries for businesses that could not be confirmed to exist.
+
+You cannot see individual Google review dates. Do not claim to. Judge
+recency from the signals you can actually see, listed below.
+
+## 1. Load what is already on the list
 
   Artifact action="read_db" db_op="list" collection="prospects"
     query={"limit": 1000}
 
-Do not pass out_dir on any call in this run, and do not write files outside
-your own scratchpad directory. Saving elsewhere raises a permission prompt,
-and nobody is watching a scheduled run to answer it, so the scan would stall
-before it started. Read the documents inline instead.
+Page with query.cursor until no next_cursor. Note every id and name. Also
+read meta/scan.
 
-Page with query.cursor until no next_cursor comes back. Note every document
-id and business name. Also read meta/scan for the previous run's record.
+## 2. Find candidates
 
-The same applies to everything else you do here: this session runs
-unattended. Prefer the option that does not prompt. If something does block
-on a permission you cannot satisfy, stop and report it rather than waiting.
+Search the way a customer would, per city and per trade: construction and
+renovation, personal care, auto repair and body work, skilled trades, food
+service, professional and financial services.
 
-## 2. Look for candidates
+Query in the form that surfaces Google's own data, for example
+"barber shop Airdrie AB reviews" or "concrete contractor Red Deer".
+Then search each promising name directly with its street or city to pull up
+everything attached to it.
 
-Search for businesses in the four cities across these trades: construction
-and renovation, personal care (barbers, salons, nails, brows, massage),
-auto repair and body work, skilled trades (electrical, plumbing, painting,
-HVAC, roofing), food service, and professional or financial services.
+## 3. The bar for adding a business
 
-Useful starting points, in rough order of yield:
-- YellowPages.ca category pages per city, which mark whether a listing has
-  a website
-- Recent Alberta corporate registrations and new business licences
-- City business directories (Airdrie City View, Town of Penhold and similar)
-- Facebook and Instagram business pages with no link in the bio
-- Fresha, JaneApp, Setmore, Cojilio and MassageBook profiles, which are
-  often a business's entire web presence
+Every one of these must hold. A candidate that fails any of them is dropped,
+not softened.
 
-Favour businesses that look new this month, and businesses whose site has
-recently broken. Both are the point of the scan.
+**Alive.** At least two independent current sources, and no source calling
+it closed. If any source says permanently closed, drop it even when others
+disagree. A single directory listing with nothing else is not enough; that
+is how dead businesses get onto a list.
 
-## 3. Verify before adding anything
+**Recently active.** At least one signal that someone has dealt with this
+business lately: a Yelp or directory page updated within the last six
+months, a review count that a platform describes as current, an active job
+posting, a current municipal business licence, a recent news or magazine
+mention, or a live booking page with real availability.
 
-For each candidate, do all of these. A candidate that fails any check is
-dropped, not guessed at.
+**Genuinely without a website.** Search the business name plus "website"
+and plus its own domain guesses. Check any email address you find: a
+business using name@theirdomain.com almost always has a site at that
+domain, and that disqualifies it unless you confirm the domain serves
+nothing. A directory page, a social page, a booking portal, an aggregator
+and a review-mirror site are all NOT websites.
 
-- Search the business name plus its city and confirm no real website of
-  their own exists. A directory entry, a social page, a booking portal or
-  an aggregator is not a website.
-- For a "weak site" candidate, fetch the site and confirm a specific,
-  nameable fault you could screenshot: expired or missing certificate, an
-  HTTPS address that falls back to plain HTTP, a free-host or template
-  subdomain, a parked or "coming soon" page, a dead domain, or a site that
-  does not load on a phone.
-- Confirm the business is currently trading. Skip anything marked closed.
-- Collect at least one real link you have actually loaded. Never invent a
-  URL, an address or a phone number. Leave a field empty rather than guess.
+**Not a name collision.** Confirm the address and phone belong to the
+business you are filing, not to a same-named company elsewhere. If the
+identity is ambiguous, drop it.
 
-Aim for quality over volume. Five verified prospects beat twenty guesses,
-and a week with nothing new is a valid result.
+Five verified prospects beat twenty guesses. Add at most five per run. A
+week with nothing new is a good result, not a failure.
 
-## 4. Write the new ones in
+## 4. Prune what no longer qualifies
 
-For each verified new business, write one document. The id is the business
-name lowercased with every run of non-alphanumeric characters replaced by a
-single hyphen, trimmed (for example "Bayside Barber Shop Inc" becomes
-"bayside-barber-shop-inc"). Check that id is not already in the collection
-before writing.
+Before adding anything, re-check a handful of existing entries, oldest
+verifiedAt first, about five per run. If one now has a real website, or
+reads as closed, or cannot be confirmed to exist, delete it:
+
+  {op:"delete", collection:"prospects", doc_id:"<slug>"}
+
+Deleting is correct here. A stale list is worse than a short one. Say in
+your report which you removed and why.
+
+For entries that still qualify, set verifiedAt to today and correct any
+phone, address or gap classification you find to be wrong.
+
+## 5. Write the new ones in
+
+Document id is the business name lowercased, every run of non-alphanumeric
+characters collapsed to one hyphen, trimmed.
 
   Artifact action="write_db" db_op="batch"
     url="https://claude.ai/code/artifact/a3613b09-d3c5-442e-8e1e-621505b4a1e0"
     writes=[{op:"set", collection:"prospects", doc_id:"<slug>", data:{...}}]
 
-Document shape, all fields required unless noted:
-
-  name    Business name as they write it
-  city    Exactly one of: Calgary, Edmonton, Red Deer, Airdrie
-  gap     "none"   no website at all
-          "social" a social page or booking link only
-          "weak"   a real site with a real, nameable fault
-  trade   One of: Construction, Personal care, Auto, Trades, Food,
-          Finance, Other
-  niche   What they actually do, two or three words
-  addr    Street address, or the city name if you only have that
-  tel     Phone as 403-555-0134, or "" if you could not confirm one
-  note    Two or three sentences on what you found and what is missing.
-          Concrete and specific. Name the fault, the platform, the
-          competing search result. No filler.
-  angle   One or two sentences on how to open the conversation, written
-          for someone about to phone them.
-  links   Array of [label, url] pairs you have loaded yourself
-  addedAt Current time, ISO 8601, for example "2026-09-14T13:04:00Z"
-  source  "scan"
+  name        As they write it
+  city        Calgary | Edmonton | Red Deer | Airdrie
+  gap         "none"   nothing online of their own at all
+              "social" a social page or booking link only
+              "weak"   a real site with a real, nameable fault
+  trade       Construction | Personal care | Auto | Trades | Food |
+              Finance | Other
+  niche       What they do, two or three words
+  addr        Street address
+  tel         403-555-0134 format, or "" if unconfirmed
+  note        Two or three sentences. What they have, what they lack, and
+              the evidence they are trading. Name the platform, the
+              competing search result, the specific fault. No filler.
+  angle       One or two sentences for someone about to phone them.
+  links       [label, url] pairs you actually saw in results
+  addedAt     ISO 8601 now
+  verifiedAt  ISO 8601 now
+  liveness    One short phrase naming the recency signal you used, for
+              example "Yelp page updated Aug 2026" or "hiring apprentices"
+  source      "scan"
 
 Match the voice of the existing entries: plain, specific, no marketing
-language, no exclamation marks. Read a few of the existing notes first.
+language, no exclamation marks.
 
-Never delete or overwrite an existing prospect. Only add. If a business on
-the list has since built a real website, do not remove it: update only its
-note to say so, and leave everything else alone.
-
-## 5. Record the run
-
-Always update the scan record, even when nothing was added:
+## 6. Record the run
 
   Artifact action="write_db" db_op="set" collection="meta" doc_id="scan"
-    data={lastRunAt:"<ISO now>", lastRunAdded:<count added this run>,
-          totalScans:<previous totalScans + 1>,
+    data={lastRunAt:"<ISO now>", lastRunAdded:<count>,
+          lastRunRemoved:<count>, totalScans:<previous + 1>,
           cities:["Calgary","Edmonton","Red Deer","Airdrie"],
           schedule:"Weekly, Monday 07:00 Alberta time",
-          summary:"<one sentence on what this run covered>"}
+          standard:"Trading, recently active, no website of their own",
+          summary:"<one sentence>"}
 
-Pass if_version using the version you read in step 1 so a concurrent write
-cannot be clobbered.
+Pass if_version from what you read in step 1.
 
-## 6. Report
+## 7. Report
 
-Finish with a short plain-text summary: how many businesses you added,
-their names and cities, and anything that blocked the scan. Do not publish
-a new version of the artifact and do not edit its HTML. The page reads the
-database live, so writing the documents is all that is needed.
+A dozen lines at most: what you added, what you removed and why, and
+anything that blocked you. Do not publish a new artifact version or edit
+its HTML. The page reads the database live.

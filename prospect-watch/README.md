@@ -27,6 +27,31 @@ in the artifact's own database and the page reads it live.
 Three things write to it: the weekly scan, the add form at the bottom of the
 page, and a person running the Artifact tool by hand.
 
+## The standard for being on the list
+
+Three things, all of which must hold:
+
+1. **Trading now.** At least two independent current sources and no source
+   calling it closed. A single directory listing is not evidence; that is
+   how dead businesses get onto a list.
+2. **Recently active.** A directory page updated in the last six months, a
+   current review count, an open job posting, a live booking page, a
+   municipal licence, or a recent press mention.
+3. **No website of their own.** A social page, a booking portal, a
+   directory entry and a review mirror are none of them a website. An email
+   at a custom domain usually means a site exists, so it disqualifies until
+   proven otherwise.
+
+Google Maps cannot be read directly from this environment. The network
+policy blocks google.com, maps.google.com, yelp.ca, yellowpages.ca and
+bbb.org. Web search still reaches summaries of Google and Yelp data, which
+is what the scan uses. Individual Google review dates are not available, so
+the scan must not claim them; the recency signals above stand in.
+
+Google's Places API host (maps.googleapis.com) IS reachable and would give
+review timestamps, open/closed status and whether Google holds a website on
+file. It needs an API key that nobody has supplied.
+
 ## The weekly scan
 
 A Routine fires a fresh session every Monday at 13:00 UTC, which is 07:00
