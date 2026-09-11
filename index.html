@@ -242,6 +242,29 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 .step h3{margin-bottom:9px}
 .step p{color:var(--ink-2);margin:0;font-size:.97rem;max-width:34ch;margin-inline:auto}
 
+/* ---------- collapsible section (process) ---------- */
+.disclosure-toggle{
+  all:unset;box-sizing:border-box;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+  width:100%;cursor:pointer;padding:2px 0;
+}
+.disclosure-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:8px}
+.disclosure-toggle-text{display:flex;flex-direction:column;gap:8px;text-align:left}
+.disclosure-heading{
+  font-family:var(--font-display);font-weight:700;color:var(--ink);
+  font-size:clamp(1.5rem,3.4vw,2.1rem);line-height:1.12;letter-spacing:-.02em;
+}
+.chevron{
+  flex:none;width:22px;height:22px;color:var(--ink-2);margin-top:2px;
+  transition:transform .35s var(--ease),color .25s var(--ease);
+}
+.disclosure-toggle:hover .chevron{color:var(--accent)}
+.disclosure-toggle[aria-expanded="true"] .chevron{transform:rotate(180deg);color:var(--accent)}
+.disclosure-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
+.disclosure-wrap.open{grid-template-rows:1fr}
+.disclosure-inner{overflow:hidden;min-height:0}
+.disclosure-inner-pad{padding-top:clamp(28px,4vw,40px)}
+
 /* ---------- examples ---------- */
 .preview{
   all:unset;box-sizing:border-box;
@@ -336,21 +359,7 @@ body.modal-open{overflow:hidden}
   padding:2px 6px;border-radius:6px;background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
 }
 
-/* ---------- pricing by scope ---------- */
-.scope-card{padding-top:26px}
-.sitemap{width:100%;height:auto;display:block;margin:0 0 14px;overflow:visible}
-.sitemap .nd{fill:var(--bg-2);stroke:var(--accent);stroke-width:1.6;transition:transform .35s var(--ease);transform-box:fill-box;transform-origin:center}
-.sitemap .nd-root{fill:var(--accent);stroke:none;filter:drop-shadow(0 0 7px rgba(56,225,255,.65))}
-.sitemap .nd-opt{fill:none;stroke:var(--ink-3);stroke-width:1.4;stroke-dasharray:2.5 2.5}
-.sitemap .nd-sub{fill:none;stroke:var(--ink-3);stroke-width:1.2}
-.card:hover .sitemap .nd{transform:scale(1.12)}
-.sitemap .ln{stroke:var(--line-strong);stroke-width:1.3}
-.sitemap .ln-dash{stroke:var(--ink-3);stroke-width:1.3;stroke-dasharray:3 3}
-.sitemap .ln-thin{stroke:var(--line);stroke-width:1}
-.sitemap .lb{font-family:var(--font-body);font-size:9px;fill:var(--ink-2);text-anchor:middle}
-.sitemap .lb-root{font-family:var(--font-display);font-weight:600;font-size:11px;fill:var(--ink);letter-spacing:.01em}
-.sitemap .lb-sm{font-size:8px}
-.sitemap .lb-opt,.sitemap .lb-tiny{font-family:var(--font-display);font-size:7.5px;font-weight:600;fill:var(--ink-3);letter-spacing:.06em;text-transform:uppercase}
+/* ---------- pricing (merged into the examples cards) ---------- */
 .scope-range{
   font-family:var(--font-display);font-weight:700;font-size:.72rem;
   letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 8px;
@@ -477,8 +486,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     <nav class="nav-links" id="menu" aria-label="Sections">
       <a href="#services">Services</a>
       <a href="#process">Process</a>
-      <a href="#examples">Examples</a>
-      <a href="#scope">Pricing</a>
+      <a href="#examples">Pricing</a>
       <a href="#why">Why me</a>
       <a href="#contact">Contact</a>
       <a class="btn btn-primary" href="#contact">Start Your Project</a>
@@ -551,42 +559,52 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   </div>
 </section>
 
-<!-- ============ PROCESS ============ -->
+<!-- ============ PROCESS (collapsible) ============ -->
 <section id="process">
   <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">How it works</p>
-      <h2>Three steps to launch</h2>
-      <p class="lede">No long discovery phases or surprise invoices. You always know what happens next.</p>
-    </div>
+    <button class="disclosure-toggle reveal" type="button" id="processToggle" aria-expanded="false" aria-controls="processBody">
+      <span class="disclosure-toggle-text">
+        <span class="eyebrow">How it works</span>
+        <span class="disclosure-heading">See how a project runs, start to finish</span>
+      </span>
+      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+    </button>
 
-    <div class="steps">
-      <article class="step reveal">
-        <div class="node">01</div>
-        <h3>Plan</h3>
-        <p>A short call to cover your goals, audience and content. You get a fixed quote and a launch date before any work starts.</p>
-      </article>
-      <article class="step reveal">
-        <div class="node">02</div>
-        <h3>Build</h3>
-        <p>I design and build the site, then share a live preview link. You give feedback in one round, I refine until it feels right.</p>
-      </article>
-      <article class="step reveal">
-        <div class="node">03</div>
-        <h3>Launch</h3>
-        <p>I connect your domain, test everything on real devices, and hand over the site with a short guide for making edits.</p>
-      </article>
+    <div class="disclosure-wrap" id="processBody">
+      <div class="disclosure-inner">
+        <div class="disclosure-inner-pad">
+          <p class="lede">No long discovery phases or surprise invoices. You always know what happens next.</p>
+
+          <div class="steps">
+            <article class="step reveal">
+              <div class="node">01</div>
+              <h3>Plan</h3>
+              <p>A short call to cover your goals, audience and content. You get a fixed quote and a launch date before any work starts.</p>
+            </article>
+            <article class="step reveal">
+              <div class="node">02</div>
+              <h3>Build</h3>
+              <p>I design and build the site, then share a live preview link. You give feedback in one round, I refine until it feels right.</p>
+            </article>
+            <article class="step reveal">
+              <div class="node">03</div>
+              <h3>Launch</h3>
+              <p>I connect your domain, test everything on real devices, and hand over the site with a short guide for making edits.</p>
+            </article>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ============ WORK ============ -->
+<!-- ============ EXAMPLES + PRICING ============ -->
 <section id="examples">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="eyebrow">Examples</p>
-      <h2>A few directions to start from</h2>
-      <p class="lede">Not client work yet, just three quick style options so you can see the range before we talk. Tell me which one feels closest to your brand, and we'll build from there.</p>
+      <p class="eyebrow">Examples &amp; pricing</p>
+      <h2>See what fits your budget</h2>
+      <p class="lede">Three real, clickable examples &mdash; from a single page to a full site &mdash; so you can see the difference, and roughly what it costs, before we talk.</p>
     </div>
 
     <div class="grid-3">
@@ -594,118 +612,43 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <button class="preview" type="button" data-example="ember" aria-haspopup="dialog" aria-label="View the restaurant example full size">
           <span class="frame-label">Restaurant &amp; caf&#233;</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
-          <iframe data-example="ember" loading="lazy" title="Example: a dark, editorial one-page site for a restaurant" aria-hidden="true" tabindex="-1"></iframe>
+          <iframe data-example="ember" loading="lazy" title="Example: a dark, editorial two-page site for a restaurant" aria-hidden="true" tabindex="-1"></iframe>
         </button>
+        <p class="scope-range">1&ndash;2 pages</p>
         <h3>Dark &amp; editorial</h3>
-        <p>Moody, image-led, built around a menu or a seasonal offering. Good fit for restaurants, bars and anywhere the food or room is the draw.</p>
-        <ul class="tags"><li>1 page</li><li>Reservation CTA</li></ul>
+        <p>Moody and image-led, with a Home page and a Menu page linked up. Good fit for restaurants, bars and anywhere the food or room is the draw.</p>
+        <ul class="tags"><li>Reservation CTA</li></ul>
+        <p class="scope-price">[$X&ndash;$Y]</p>
       </article>
 
       <article class="card reveal">
         <button class="preview" type="button" data-example="aster" aria-haspopup="dialog" aria-label="View the boutique example full size">
           <span class="frame-label">Boutique &amp; salon</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
-          <iframe data-example="aster" loading="lazy" title="Example: a light, refined two-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
+          <iframe data-example="aster" loading="lazy" title="Example: a light, refined four-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
         </button>
+        <p class="scope-range">3&ndash;5 pages</p>
         <h3>Light &amp; refined</h3>
-        <p>Quiet, spacious, a little formal, with a Home page and a Services page linked up. Good fit for salons, studios and boutiques.</p>
-        <ul class="tags"><li>2 pages</li><li>Booking CTA</li></ul>
+        <p>Quiet and spacious, with Home, Services, About and Contact pages linked up. Good fit for salons, studios and boutiques.</p>
+        <ul class="tags"><li>Booking CTA</li></ul>
+        <p class="scope-price">[$X&ndash;$Y]</p>
       </article>
 
       <article class="card reveal">
         <button class="preview" type="button" data-example="northbeam" aria-haspopup="dialog" aria-label="View the consulting example full size">
           <span class="frame-label">Consulting &amp; SaaS</span>
           <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
-          <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward three-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
+          <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward six-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
         </button>
-        <h3>Clean &amp; corporate</h3>
-        <p>Direct and credible, with Home, Approach and Contact pages linked up. Good fit for consultants, agencies and small software teams.</p>
-        <ul class="tags"><li>3 pages</li><li>Data-forward</li></ul>
-      </article>
-    </div>
-
-    <p class="note reveal">Click a preview to open the full site and click through its pages. More directions available on request &mdash; these three are just a starting point for the conversation.</p>
-  </div>
-</section>
-
-
-<!-- ============ PRICING BY SCOPE ============ -->
-<section id="scope">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Pricing by scope</p>
-      <h2>How many pages do you need?</h2>
-      <p class="lede">Price scales with how much site you actually need. Here&rsquo;s roughly what each size looks like, so you know what you&rsquo;re choosing between before we talk numbers.</p>
-    </div>
-
-    <div class="grid-3">
-      <article class="card scope-card reveal">
-        <svg class="sitemap" viewBox="0 0 260 150" role="img" aria-label="Diagram: one home page, with an optional second page">
-          <line x1="130" y1="39" x2="130" y2="86" class="ln ln-dash"></line>
-          <circle cx="130" cy="30" r="9" class="nd nd-root"></circle>
-          <circle cx="130" cy="95" r="7" class="nd nd-opt"></circle>
-          <text x="130" y="53" class="lb lb-root">Home</text>
-          <text x="130" y="122" class="lb lb-opt">+1 page</text>
-        </svg>
-        <p class="scope-range">1&ndash;2 pages</p>
-        <h3>A single page</h3>
-        <p>One scrolling page covering who you are, what you offer, and how to reach you. Add a second page if one part of the story needs its own room.</p>
-        <p class="scope-price">[$X&ndash;$Y]</p>
-      </article>
-
-      <article class="card scope-card reveal">
-        <svg class="sitemap" viewBox="0 0 260 150" role="img" aria-label="Diagram: a home page linking to three inner pages">
-          <line x1="130" y1="35" x2="55" y2="88" class="ln"></line>
-          <line x1="130" y1="35" x2="130" y2="88" class="ln"></line>
-          <line x1="130" y1="35" x2="205" y2="88" class="ln"></line>
-          <circle cx="130" cy="26" r="9" class="nd nd-root"></circle>
-          <circle cx="55" cy="95" r="7" class="nd"></circle>
-          <circle cx="130" cy="95" r="7" class="nd"></circle>
-          <circle cx="205" cy="95" r="7" class="nd"></circle>
-          <text x="130" y="46" class="lb lb-root">Home</text>
-          <text x="55" y="118" class="lb">About</text>
-          <text x="130" y="118" class="lb">Services</text>
-          <text x="205" y="118" class="lb">Contact</text>
-        </svg>
-        <p class="scope-range">3&ndash;5 pages</p>
-        <h3>A small site</h3>
-        <p>Separate pages for Home, About, Services and Contact, so visitors can find what they need without scrolling through everything at once.</p>
-        <p class="scope-price">[$X&ndash;$Y]</p>
-      </article>
-
-      <article class="card scope-card reveal">
-        <svg class="sitemap" viewBox="0 0 260 150" role="img" aria-label="Diagram: a home page linking to five inner pages, one of which branches into two more">
-          <line x1="130" y1="31" x2="25" y2="78" class="ln"></line>
-          <line x1="130" y1="31" x2="72" y2="78" class="ln"></line>
-          <line x1="130" y1="31" x2="130" y2="78" class="ln"></line>
-          <line x1="130" y1="31" x2="188" y2="78" class="ln"></line>
-          <line x1="130" y1="31" x2="235" y2="78" class="ln"></line>
-          <line x1="72" y1="91" x2="54" y2="128" class="ln ln-thin"></line>
-          <line x1="72" y1="91" x2="90" y2="128" class="ln ln-thin"></line>
-          <circle cx="130" cy="22" r="9" class="nd nd-root"></circle>
-          <circle cx="25" cy="85" r="6" class="nd"></circle>
-          <circle cx="72" cy="85" r="6" class="nd"></circle>
-          <circle cx="130" cy="85" r="6" class="nd"></circle>
-          <circle cx="188" cy="85" r="6" class="nd"></circle>
-          <circle cx="235" cy="85" r="6" class="nd"></circle>
-          <circle cx="54" cy="132" r="4" class="nd nd-sub"></circle>
-          <circle cx="90" cy="132" r="4" class="nd nd-sub"></circle>
-          <text x="130" y="41" class="lb lb-root">Home</text>
-          <text x="25" y="106" class="lb lb-sm">About</text>
-          <text x="72" y="106" class="lb lb-sm">Services</text>
-          <text x="130" y="106" class="lb lb-sm">Blog</text>
-          <text x="188" y="106" class="lb lb-sm">Contact</text>
-          <text x="235" y="106" class="lb lb-sm">FAQ</text>
-          <text x="72" y="146" class="lb lb-tiny">+ sub-pages</text>
-        </svg>
         <p class="scope-range">6+ pages</p>
-        <h3>A full site</h3>
-        <p>Room for individual service pages, a blog, FAQs &mdash; whatever the business needs beyond the basics, scoped out page by page.</p>
+        <h3>Clean &amp; corporate</h3>
+        <p>Direct and credible, with Home, Approach, Services, Work, Blog and Contact pages linked up. Good fit for consultants and small software teams.</p>
+        <ul class="tags"><li>Data-forward</li></ul>
         <p class="scope-price">[$X&ndash;$Y]</p>
       </article>
     </div>
 
-    <p class="note reveal">Ranges are a starting point &mdash; the final price depends on content, features and timeline.</p>
+    <p class="note reveal">Click a preview to open the full site and click through its pages. Ranges are a starting point &mdash; the final price depends on content, features and timeline.</p>
 
     <div class="scope-cta reveal">
       <a class="btn btn-ghost" href="#contact">Not sure which fits? Let&rsquo;s talk it through</a>
@@ -812,8 +755,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <nav aria-label="Footer">
         <a href="#services">Services</a>
         <a href="#process">Process</a>
-        <a href="#examples">Examples</a>
-        <a href="#scope">Pricing</a>
+        <a href="#examples">Pricing</a>
         <a href="#why">Why me</a>
         <a href="#contact">Contact</a>
       </nav>
@@ -986,6 +928,29 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     sections.forEach(function (s) { if (s) spy.observe(s); });
   }
 
+  /* ================= collapsible "How it works" ================= */
+  var processToggle = document.getElementById('processToggle');
+  var processBody = document.getElementById('processBody');
+
+  function openProcess() {
+    processToggle.setAttribute('aria-expanded', 'true');
+    processBody.classList.add('open');
+  }
+  function toggleProcess() {
+    var open = processToggle.getAttribute('aria-expanded') === 'true';
+    processToggle.setAttribute('aria-expanded', String(!open));
+    processBody.classList.toggle('open', !open);
+  }
+  processToggle.addEventListener('click', toggleProcess);
+
+  // Jumping here from the hero button or a nav link should land on an
+  // already-open section, not a collapsed one the visitor then has to
+  // open themselves.
+  document.querySelectorAll('a[href="#process"]').forEach(function (a) {
+    a.addEventListener('click', openProcess);
+  });
+  if (location.hash === '#process') openProcess();
+
   /* ================= example previews =================
      Each card in the Examples section holds an <iframe> with an empty
      srcdoc in the markup. We fill it here with a real, self-contained
@@ -1012,26 +977,50 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       'html,body{width:800px;height:500px;overflow:hidden}' +
       'body{background:#1c1512;color:#f3ece2;font-family:Georgia,"Iowan Old Style","Palatino Linotype",serif;display:flex;flex-direction:column}' +
       'header{display:flex;align-items:center;justify-content:space-between;padding:28px 44px;font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:#c9bdae;border-bottom:1px solid rgba(255,255,255,.08)}' +
-      'nav{display:flex;gap:28px;font-size:12px}' +
-      'main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 60px}' +
+      'nav{display:flex;gap:24px;font-size:12px}' +
+      'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.6;padding-bottom:3px;border-bottom:1px solid transparent}' +
+      'nav a.active{opacity:1;border-bottom-color:#d97a42}' +
+      '.page{display:none}' +
+      '.page.active{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 60px}' +
       'h1{font-size:56px;font-weight:400;line-height:1.05;letter-spacing:-.01em;margin-bottom:18px}' +
+      'h1.small{font-size:38px;margin-bottom:20px}' +
       'p.sub{font-family:system-ui,sans-serif;font-size:15px;color:#c9bdae;max-width:480px;line-height:1.6;margin-bottom:30px}' +
       'a.cta{font-family:system-ui,sans-serif;font-size:13px;letter-spacing:.06em;background:#d97a42;color:#1c1512;padding:13px 30px;border-radius:3px;text-decoration:none;font-weight:600}' +
+      '.menu-list{display:flex;flex-direction:column;gap:4px;width:100%;max-width:400px;margin:0 0 28px;text-align:left}' +
+      '.menu-item{display:flex;justify-content:space-between;align-items:baseline;gap:14px;padding:12px 2px;border-bottom:1px solid rgba(255,255,255,.08)}' +
+      '.menu-item b{font-family:system-ui,sans-serif;font-weight:600;font-size:12.5px;letter-spacing:.03em;text-transform:uppercase;color:#f3ece2}' +
+      '.menu-item span{font-family:system-ui,sans-serif;font-size:11.5px;color:#c9bdae;text-align:right}' +
       'footer{display:flex;justify-content:center;gap:40px;padding:22px;font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a7563;border-top:1px solid rgba(255,255,255,.08)}' +
       '</style></head><body>' +
-      '<header><span>Marrow</span><nav><span>Menu</span><span>Hours</span><span>Reserve</span></nav></header>' +
-      '<main><h1>Wood-fired,<br>always.</h1>' +
+      '<header><span>Marrow</span><nav>' +
+      '<a href="#" data-page="home" class="active">Home</a>' +
+      '<a href="#" data-page="menu">Menu</a>' +
+      '</nav></header>' +
+      '<div class="page active" data-page="home">' +
+      '<h1>Wood-fired,<br>always.</h1>' +
       '<p class="sub">Dinner Tuesday through Sunday, 5 to 10pm. Walk-ins welcome after 8, or reserve ahead.</p>' +
-      '<a class="cta" href="#" tabindex="-1">Reserve a table</a></main>' +
+      '<a class="cta" href="#" tabindex="-1">Reserve a table</a>' +
+      '</div>' +
+      '<div class="page" data-page="menu">' +
+      '<h1 class="small">Menu</h1>' +
+      '<div class="menu-list">' +
+      '<div class="menu-item"><b>Wood-fired flatbread</b><span>Charred tomato, basil</span></div>' +
+      '<div class="menu-item"><b>Grilled trout</b><span>Lemon, fennel</span></div>' +
+      '<div class="menu-item"><b>Braised short rib</b><span>Root vegetables</span></div>' +
+      '<div class="menu-item"><b>Roasted stone fruit</b><span>Honey, mascarpone</span></div>' +
+      '</div>' +
+      '<a class="cta" href="#" tabindex="-1">Reserve a table</a>' +
+      '</div>' +
       '<footer><span>Seasonal menu</span><span>Full bar</span><span>Private dining</span></footer>' +
+      PAGE_SWITCHER +
       '</body></html>',
 
     aster: '<!doctype html><html><head><meta charset="utf-8"><style>' +
       '*{box-sizing:border-box;margin:0}' +
       'html,body{width:800px;height:500px;overflow:hidden}' +
       'body{background:#ece5de;color:#2b2420;font-family:"Century Gothic","Avenir Next",system-ui,sans-serif;display:flex;flex-direction:column}' +
-      'header{display:flex;align-items:center;justify-content:space-between;padding:26px 40px;font-size:12.5px;letter-spacing:.28em;text-transform:uppercase}' +
-      'nav{display:flex;gap:22px;font-size:11.5px;letter-spacing:.1em}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:26px 40px;font-size:12.5px;letter-spacing:.26em;text-transform:uppercase}' +
+      'nav{display:flex;gap:18px;font-size:11px;letter-spacing:.09em}' +
       'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.55;padding-bottom:3px;border-bottom:1px solid transparent}' +
       'nav a.active{opacity:1;border-bottom-color:#6c3a54}' +
       '.page{display:none}' +
@@ -1051,6 +1040,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<header><span>Aster Studio</span><nav>' +
       '<a href="#" data-page="home" class="active">Home</a>' +
       '<a href="#" data-page="services">Services</a>' +
+      '<a href="#" data-page="about">About</a>' +
+      '<a href="#" data-page="contact">Contact</a>' +
       '</nav></header>' +
       '<div class="page active" data-page="home">' +
       '<h1>Hair &amp; skin,<br>done quietly well.</h1>' +
@@ -1067,6 +1058,15 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '</div>' +
       '<a class="cta" href="#" tabindex="-1">Book a visit</a>' +
       '</div>' +
+      '<div class="page" data-page="about">' +
+      '<h1 class="small">About</h1>' +
+      '<p class="sub">Trained in Paris and New York, now working from a single quiet room. No chains and no upsells &mdash; just the appointment you booked.</p>' +
+      '</div>' +
+      '<div class="page" data-page="contact">' +
+      '<h1 class="small">Visit</h1>' +
+      '<p class="sub">1420 Willow Street, Arts District. Street parking after 6pm, or the garage two doors down.</p>' +
+      '<a class="cta" href="#" tabindex="-1">Book a visit</a>' +
+      '</div>' +
       '<footer>Tuesday&ndash;Saturday, by appointment</footer>' +
       PAGE_SWITCHER +
       '</body></html>',
@@ -1075,34 +1075,41 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '*{box-sizing:border-box;margin:0}' +
       'html,body{width:800px;height:500px;overflow:hidden}' +
       'body{background:#f6f7f8;color:#14181d;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}' +
-      'header{display:flex;align-items:center;justify-content:space-between;padding:24px 44px;border-bottom:1px solid rgba(20,24,29,.08)}' +
-      '.brand{display:flex;align-items:center;gap:10px}' +
-      '.word{font-weight:700;font-size:15px;letter-spacing:-.01em}' +
-      '.tag{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#0f6e6a;border:1px solid rgba(15,110,106,.3);border-radius:4px;padding:3px 8px}' +
-      'nav{display:flex;gap:20px;font-size:12.5px}' +
-      'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.55;padding-bottom:3px;border-bottom:1px solid transparent}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:24px 40px;border-bottom:1px solid rgba(20,24,29,.08)}' +
+      '.brand{display:flex;align-items:center;gap:10px;flex:none}' +
+      '.word{font-weight:700;font-size:14px;letter-spacing:-.01em}' +
+      '.tag{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;letter-spacing:.05em;color:#0f6e6a;border:1px solid rgba(15,110,106,.3);border-radius:4px;padding:2px 6px}' +
+      'nav{display:flex;gap:14px;font-size:11px}' +
+      'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.55;padding-bottom:3px;border-bottom:1px solid transparent;white-space:nowrap}' +
       'nav a.active{opacity:1;color:#0f6e6a;border-bottom-color:#0f6e6a}' +
       '.page{display:none}' +
-      '.page.active{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 44px}' +
-      'h1{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:480px;margin-bottom:14px}' +
-      'h1.small{font-size:32px;margin-bottom:10px}' +
-      'p.sub{font-size:14.5px;color:#4b535c;max-width:420px;line-height:1.65;margin-bottom:26px}' +
-      'a.cta{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.01em;background:#0f6e6a;color:#f6f7f8;padding:12px 26px;border-radius:5px;text-decoration:none;margin-bottom:16px}' +
-      '.stats{display:flex;gap:34px;margin-bottom:38px}' +
-      '.stat b{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:26px;color:#0f6e6a;font-weight:600}' +
-      '.stat span{font-size:11.5px;color:#5c646d;letter-spacing:.02em}' +
-      '.steps3{display:flex;flex-direction:column;gap:15px;max-width:440px}' +
+      '.page.active{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 40px}' +
+      'h1{font-size:40px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:480px;margin-bottom:14px}' +
+      'h1.small{font-size:30px;margin-bottom:10px}' +
+      'p.sub{font-size:14px;color:#4b535c;max-width:420px;line-height:1.62;margin-bottom:24px}' +
+      'a.cta{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.01em;background:#0f6e6a;color:#f6f7f8;padding:12px 26px;border-radius:5px;text-decoration:none;margin-bottom:14px}' +
+      '.stats{display:flex;gap:34px;margin-bottom:30px}' +
+      '.stat b{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:24px;color:#0f6e6a;font-weight:600}' +
+      '.stat span{font-size:11px;color:#5c646d;letter-spacing:.02em}' +
+      '.steps3{display:flex;flex-direction:column;gap:13px;max-width:440px}' +
       '.step3{display:flex;gap:16px;align-items:flex-start;text-align:left}' +
-      '.step3 b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#0f6e6a;flex:none;padding-top:2px}' +
-      '.step3 strong{display:block;font-size:14.5px;margin-bottom:3px}' +
-      '.step3 span{font-size:12.5px;color:#4b535c;line-height:1.55}' +
-      '.fine{font-size:11.5px;color:#7a828b;margin-top:6px}' +
-      'footer{padding:16px 44px;border-top:1px solid rgba(20,24,29,.08);font-size:11.5px;color:#7a828b}' +
+      '.step3 b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:#0f6e6a;flex:none;padding-top:2px}' +
+      '.step3 strong{display:block;font-size:14px;margin-bottom:3px}' +
+      '.step3 span{font-size:12px;color:#4b535c;line-height:1.5}' +
+      '.svc-list{display:flex;flex-direction:column;gap:10px;max-width:440px;text-align:left}' +
+      '.svc{padding:13px 16px;border:1px solid rgba(20,24,29,.08);border-radius:8px;background:rgba(15,110,106,.04)}' +
+      '.svc b{display:block;font-size:12.5px;margin-bottom:3px}' +
+      '.svc span{font-size:11.5px;color:#4b535c;line-height:1.5}' +
+      '.fine{font-size:11px;color:#7a828b;margin-top:6px}' +
+      'footer{padding:14px 40px;border-top:1px solid rgba(20,24,29,.08);font-size:11px;color:#7a828b}' +
       '</style></head><body>' +
       '<header><div class="brand"><span class="word">Northbeam</span><span class="tag">OPS CONSULTING</span></div>' +
       '<nav>' +
       '<a href="#" data-page="home" class="active">Home</a>' +
       '<a href="#" data-page="approach">Approach</a>' +
+      '<a href="#" data-page="services">Services</a>' +
+      '<a href="#" data-page="work">Work</a>' +
+      '<a href="#" data-page="blog">Blog</a>' +
       '<a href="#" data-page="contact">Contact</a>' +
       '</nav></header>' +
       '<div class="page active" data-page="home">' +
@@ -1119,6 +1126,28 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '<div class="step3"><b>01</b><div><strong>Diagnose</strong><span>Map the process end to end and find where it actually breaks.</span></div></div>' +
       '<div class="step3"><b>02</b><div><strong>Redesign</strong><span>Rebuild the parts that slow the team down, not the whole system.</span></div></div>' +
       '<div class="step3"><b>03</b><div><strong>Deploy</strong><span>Ship it with the team using it, and stay through the first month.</span></div></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="page" data-page="services">' +
+      '<h1 class="small">Services</h1>' +
+      '<div class="svc-list">' +
+      '<div class="svc"><b>Process audit</b><span>A two-week read on exactly where time and money are leaking.</span></div>' +
+      '<div class="svc"><b>Systems rebuild</b><span>Replace the manual steps with something that runs itself.</span></div>' +
+      '<div class="svc"><b>Team rollout</b><span>Training and support until the new way actually sticks.</span></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="page" data-page="work">' +
+      '<h1 class="small">Recent work</h1>' +
+      '<div class="svc-list">' +
+      '<div class="svc"><b>Operations rebuild</b><span>A 40-person logistics team, six weeks, one shared system instead of four.</span></div>' +
+      '<div class="svc"><b>Onboarding redesign</b><span>Cut new-hire ramp time from six weeks down to two.</span></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="page" data-page="blog">' +
+      '<h1 class="small">Notes</h1>' +
+      '<div class="svc-list">' +
+      '<div class="svc"><b>Why most process docs go stale</b><span>And what to check instead of rewriting them again.</span></div>' +
+      '<div class="svc"><b>The real cost of a manual handoff</b><span>It is rarely the hours you think it is.</span></div>' +
       '</div>' +
       '</div>' +
       '<div class="page" data-page="contact">' +
