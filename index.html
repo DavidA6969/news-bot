@@ -3,30 +3,33 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Tycho Tech — Websites that launch.</title>
-<meta name="description" content="Tycho Tech builds landing pages and websites for small businesses, startups and local shops. Fast turnaround, modern design, honest pricing.">
-<meta name="theme-color" content="#05070f">
+<title>I&amp;D Digital — Imagine It. We Build It.</title>
+<meta name="description" content="I&amp;D Digital builds landing pages and websites for small businesses, startups and local shops. Fast turnaround, modern design, honest pricing.">
+<meta name="theme-color" content="#f5f4f0">
 
 <!-- Set the saved theme before first paint, so there's no flash of the
      wrong theme on load. Kept tiny and synchronous on purpose. -->
 <script>
 (function () {
   try {
-    var t = localStorage.getItem('tycho-theme');
+    var t = localStorage.getItem('iandd-theme');
     if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-  } catch (e) { /* private/blocked storage -- falls back to the default dark theme */ }
+  } catch (e) { /* private/blocked storage -- falls back to the default light theme */ }
 })();
 </script>
 
 <!-- ===================================================================
      SWAP THESE PLACEHOLDERS FOR YOUR REAL DETAILS
      Search the file for each bracketed item and replace it:
-       [Your Name]                 — your name (hero, Why, footer)
-       [you@example.com]           — your contact email (also in CONFIG below)
+       [Your Name]                 — your name (Why us section)
+       [Partner's Name]            — your partner's name (Why us section)
+       [you@example.com]           — your contact email (appears 3x: the
+                                     Contact page, the terms popup, and
+                                     CONTACT_EMAIL in the script below)
        [small businesses, startups and local shops]  — your audience
-     Form: by default the Send button opens the visitor's mail app with the
-     message pre-filled. To use a real form service instead, see the note
-     above handleSubmit() near the bottom of this file.
+     FORM: set FORM_ENDPOINT near the top of the script below to make the
+     contact form actually deliver. Until you do, it falls back to opening
+     the visitor's mail app, which is unreliable. See the notes there.
      =================================================================== -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -35,32 +38,11 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23070c18'/%3E%3Cpath d='M16 5l2.6 8.4L27 16l-8.4 2.6L16 27l-2.6-8.4L5 16l8.4-2.6z' fill='%2338e1ff'/%3E%3C/svg%3E">
 
 <style>
-/* ---------- tokens ---------- */
+/* ---------- tokens ----------
+   Light is the default theme: it lives on bare :root, so the page renders
+   light even before any script runs. Dark is the opt-in override below.
+   ---------------------------- */
 :root{
-  --bg:#05070f;
-  --bg-2:#080d1b;
-  --panel:rgba(255,255,255,.035);
-  --panel-2:rgba(255,255,255,.055);
-  --line:rgba(255,255,255,.10);
-  --line-strong:rgba(255,255,255,.18);
-  --ink:#eef3fb;
-  --ink-2:#a7b2c6;
-  --ink-3:#76829a;
-  --accent:#38e1ff;
-  --accent-deep:#0c94b8;
-  --accent-soft:rgba(56,225,255,.12);
-  --radius:18px;
-  --maxw:1140px;
-  --ease:cubic-bezier(.22,.8,.3,1);
-  --font-display:"Space Grotesk",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
-  --font-body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-}
-
-/* Light theme: same accent, everything else flipped. Dark stays the
-   default (bare :root above) so nothing changes unless this attribute
-   is explicitly set -- by the toggle, or the early script restoring a
-   saved choice. */
-:root[data-theme="light"]{
   --bg:#f5f4f0;
   --bg-2:#ebe9e4;
   --panel:rgba(20,22,30,.04);
@@ -70,8 +52,36 @@
   --ink:#171b24;
   --ink-2:#4b5563;
   --ink-3:#6b7280;
-  /* --accent, --accent-deep and --accent-soft are deliberately not
-     redefined here -- the cyan stays the same in both themes. */
+  /* The brand cyan. It stays identical in both themes wherever it's used
+     as a FILL -- buttons, chips, dots, the logo mark, glows. */
+  --accent:#38e1ff;
+  --accent-soft:rgba(56,225,255,.12);
+  /* ...but cyan text on a near-white page is about 1.6:1 against the
+     background, far under the 4.5:1 needed to be readable. So anything
+     that paints the accent as TEXT or as a small icon uses this deeper
+     teal instead (4.9:1 here), and the dark theme sets it back to the
+     cyan, where the cyan is the legible one. */
+  --accent-ink:#0a7490;
+  --radius:18px;
+  --maxw:1140px;
+  --ease:cubic-bezier(.22,.8,.3,1);
+  --font-display:"Space Grotesk",ui-sans-serif,system-ui,"Segoe UI",sans-serif;
+  --font-body:"Inter",ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+
+/* Dark theme: set explicitly by the toggle, or by the early script in
+   <head> restoring a saved choice. */
+:root[data-theme="dark"]{
+  --bg:#05070f;
+  --bg-2:#080d1b;
+  --panel:rgba(255,255,255,.035);
+  --panel-2:rgba(255,255,255,.055);
+  --line:rgba(255,255,255,.10);
+  --line-strong:rgba(255,255,255,.18);
+  --ink:#eef3fb;
+  --ink-2:#a7b2c6;
+  --ink-3:#76829a;
+  --accent-ink:#38e1ff;
 }
 
 *,*::before,*::after{box-sizing:border-box}
@@ -92,7 +102,7 @@ a{color:inherit;text-decoration:none}
 /* ---------- background layers ---------- */
 #stars{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
 .glow{
-  position:fixed;inset:0;z-index:0;pointer-events:none;
+  position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
   background:
     radial-gradient(900px 520px at 50% -8%, rgba(56,225,255,.16), transparent 65%),
     radial-gradient(700px 420px at 88% 12%, rgba(56,225,255,.07), transparent 70%),
@@ -107,10 +117,10 @@ section{padding-block:clamp(72px,9vw,124px);position:relative}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
   font-family:var(--font-display);font-size:.72rem;font-weight:600;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--accent);
+  letter-spacing:.18em;text-transform:uppercase;color:var(--accent-ink);
   margin:0 0 16px;
 }
-.eyebrow::before{content:"";width:18px;height:1px;background:var(--accent);opacity:.7}
+.eyebrow::before{content:"";width:18px;height:1px;background:var(--accent-ink);opacity:.7}
 h1,h2,h3{font-family:var(--font-display);line-height:1.08;letter-spacing:-.02em;margin:0}
 h2{font-size:clamp(1.9rem,4.2vw,2.9rem);font-weight:700}
 h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
@@ -123,13 +133,16 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   transition:background .35s var(--ease),border-color .35s var(--ease),backdrop-filter .35s var(--ease);
 }
 .nav.is-stuck{
-  background:rgba(5,7,15,.72);
+  background:rgba(245,244,240,.82);
   backdrop-filter:blur(14px) saturate(140%);
   border-bottom-color:var(--line);
 }
 .nav-inner{display:flex;align-items:center;gap:18px;height:72px}
 .logo{display:flex;align-items:center;gap:10px;font-family:var(--font-display);font-weight:700;letter-spacing:-.01em;font-size:1.06rem}
-.logo .mark{width:22px;height:22px;color:var(--accent);filter:drop-shadow(0 0 10px rgba(56,225,255,.55));flex:none}
+/* The mark is a solid shape, so it takes the deeper accent: the bright
+   cyan sits at ~1.6:1 on the light ground and reads as washed out. The
+   glow only makes sense against the dark ground, so it moves there too. */
+.logo .mark{width:22px;height:22px;color:var(--accent-ink);flex:none}
 .logo .dim{color:var(--ink-2);font-weight:500}
 .nav-links{display:flex;align-items:center;gap:4px}
 .nav-links a:not(.btn){
@@ -140,7 +153,7 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 .nav-links a:not(.btn).active{color:var(--ink)}
 .nav-links a:not(.btn).active::after{
   content:"";position:absolute;left:13px;right:13px;bottom:3px;height:1.5px;
-  background:var(--accent);box-shadow:0 0 8px var(--accent);border-radius:2px;
+  background:var(--accent-ink);box-shadow:0 0 6px rgba(10,116,144,.5);border-radius:2px;
 }
 .nav .btn{margin-left:10px}
 .theme-toggle{
@@ -151,9 +164,9 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 }
 .theme-toggle:hover{background:var(--panel-2)}
 .theme-toggle svg{width:18px;height:18px}
-.theme-toggle .icon-sun{display:none}
-[data-theme="light"] .theme-toggle .icon-sun{display:block}
-[data-theme="light"] .theme-toggle .icon-moon{display:none}
+.theme-toggle .icon-moon{display:none}
+[data-theme="dark"] .theme-toggle .icon-moon{display:block}
+[data-theme="dark"] .theme-toggle .icon-sun{display:none}
 .burger{
   display:none;width:42px;height:42px;border-radius:11px;
   background:var(--panel);border:1px solid var(--line);color:var(--ink);
@@ -183,10 +196,10 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 }
 .btn-primary:hover{transform:translateY(-2px);box-shadow:0 18px 40px -14px rgba(56,225,255,.8)}
 .btn-ghost{background:var(--panel);color:var(--ink);--b:var(--line-strong)}
-.btn-ghost:hover{background:var(--panel-2);border-color:var(--accent);color:#fff;transform:translateY(-2px)}
+.btn-ghost:hover{background:var(--panel-2);border-color:var(--accent-ink);color:var(--ink);transform:translateY(-2px)}
 .btn:active{transform:translateY(0)}
 .btn-lg{padding:15px 27px;font-size:1rem}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px;border-radius:8px}
 
 /* ---------- hero ---------- */
 .hero{padding-top:clamp(56px,8vw,96px);padding-bottom:clamp(72px,9vw,118px);text-align:center;overflow:hidden}
@@ -203,21 +216,21 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   display:inline-flex;align-items:center;gap:9px;
   padding:7px 15px 7px 12px;border-radius:999px;
   background:var(--accent-soft);border:1px solid rgba(56,225,255,.28);
-  color:#b7f2ff;font-size:.8rem;font-weight:500;letter-spacing:.02em;
+  color:var(--accent-ink);font-size:.8rem;font-weight:500;letter-spacing:.02em;
 }
-.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px rgba(56,225,255,.18);animation:pulse 2.6s var(--ease) infinite}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent-ink);box-shadow:0 0 0 4px rgba(10,116,144,.18);animation:pulse 2.6s var(--ease) infinite}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(56,225,255,.22)}50%{box-shadow:0 0 0 7px rgba(56,225,255,0)}}
 .hero h1{
   font-size:clamp(2.5rem,7.4vw,4.6rem);font-weight:700;margin:24px 0 0;
   letter-spacing:-.035em;
 }
 .hero h1 .accent{
-  background:linear-gradient(100deg,#8ef0ff,var(--accent) 55%,#2aa7c9);
+  background-image:linear-gradient(100deg,#0e8fa8,#0a7490 55%,#075c73);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
 .tagline{
   font-family:var(--font-display);font-weight:600;font-size:clamp(1.05rem,2.4vw,1.35rem);
-  color:var(--accent);margin:20px 0 0;letter-spacing:-.01em;
+  color:var(--accent-ink);margin:20px 0 0;letter-spacing:-.01em;
 }
 .hero p.sub{color:var(--ink-2);font-size:1.07rem;max-width:56ch;margin:18px auto 0}
 .hero-cta{display:flex;flex-wrap:wrap;gap:13px;justify-content:center;margin-top:34px}
@@ -227,28 +240,29 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   font-size:.88rem;color:var(--ink-3);
 }
 .trust li{display:flex;align-items:center;gap:9px}
-.trust svg{width:15px;height:15px;color:var(--accent);flex:none}
+.trust svg{width:15px;height:15px;color:var(--accent-ink);flex:none}
 
 /* ---------- cards ---------- */
 .grid-3{display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))}
 .card{
   position:relative;padding:28px 26px 30px;border-radius:var(--radius);
-  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+  background:linear-gradient(180deg,#ffffff,#fbfaf7);
+  box-shadow:0 1px 2px rgba(20,22,30,.05);
   border:1px solid var(--line);overflow:hidden;
   transition:transform .4s var(--ease),border-color .4s var(--ease),box-shadow .4s var(--ease);
 }
 .card::after{
   content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
-  background:radial-gradient(420px 220px at var(--mx,50%) var(--my,0%),rgba(56,225,255,.10),transparent 70%);
+  background-image:radial-gradient(420px 220px at var(--mx,50%) var(--my,0%),rgba(10,116,144,.07),transparent 70%);
   opacity:0;transition:opacity .4s var(--ease);
 }
-.card:hover{transform:translateY(-6px);border-color:rgba(56,225,255,.36);box-shadow:0 26px 54px -30px rgba(0,0,0,.9)}
+.card:hover{transform:translateY(-6px);border-color:rgba(10,116,144,.34);box-shadow:0 20px 40px -22px rgba(20,22,30,.16)}
 .card:hover::after{opacity:1}
 .card h3{margin-bottom:10px}
 .card p{color:var(--ink-2);margin:0;font-size:.97rem}
 .icon{
   width:46px;height:46px;border-radius:13px;display:grid;place-items:center;margin-bottom:20px;
-  background:var(--accent-soft);border:1px solid rgba(56,225,255,.26);color:var(--accent);
+  background:var(--accent-soft);border:1px solid rgba(10,116,144,.26);color:var(--accent-ink);
   transition:transform .4s var(--ease),background .4s var(--ease);
 }
 .icon svg{width:22px;height:22px}
@@ -268,7 +282,7 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   aspect-ratio:16/10;border-radius:13px;margin:-4px 0 20px;position:relative;overflow:hidden;
   border:1px solid var(--line);background:#0a0e18;
 }
-.preview:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.preview:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px}
 .preview iframe{
   --s:.39; /* fallback scale until JS measures the real card width; kept as a
               custom property (not a plain inline transform) so the :hover
@@ -330,7 +344,7 @@ body.modal-open{overflow:hidden}
 .preview-modal-backdrop{position:absolute;inset:0;background:rgba(4,6,12,.72);backdrop-filter:blur(6px)}
 .preview-modal-panel{
   position:relative;z-index:1;width:min(800px,100%);
-  border-radius:16px;overflow:hidden;border:1px solid var(--line-strong);
+  border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,.18);
   background:#0a0e18;box-shadow:0 40px 90px -30px rgba(0,0,0,.85);
   transform:translateY(14px) scale(.98);opacity:0;
   transition:transform .35s var(--ease),opacity .35s var(--ease);
@@ -338,13 +352,13 @@ body.modal-open{overflow:hidden}
 .preview-modal.open .preview-modal-panel{transform:none;opacity:1}
 .preview-modal-bar{
   display:flex;align-items:center;gap:10px;padding:12px 14px;
-  background:rgba(255,255,255,.035);border-bottom:1px solid var(--line);
+  background:rgba(255,255,255,.035);border-bottom:1px solid rgba(255,255,255,.10);
 }
 .preview-modal-bar .dots{display:flex;gap:6px;flex:none}
 .preview-modal-bar .dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
 .preview-modal-url{
-  flex:1;min-width:0;font-size:.78rem;color:var(--ink-3);
-  background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;
+  flex:1;min-width:0;font-size:.78rem;color:#76829a;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.10);border-radius:7px;
   padding:5px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 /* The site map is a diagram, not a web page -- so when it's the one
@@ -355,11 +369,15 @@ body.modal-open{overflow:hidden}
 .preview-modal-panel[data-view="sitemap"] .preview-modal-url{display:none}
 .preview-modal-close,.preview-modal-back{
   flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
-  background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
+  background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.10);color:#a7b2c6;
   cursor:pointer;font-size:1.15rem;line-height:1;
   transition:background .2s var(--ease),color .2s var(--ease);
 }
-.preview-modal-close:hover,.preview-modal-back:hover{background:var(--panel-2);color:var(--ink)}
+.preview-modal-close:hover,.preview-modal-back:hover{background:rgba(255,255,255,.055);color:#eef3fb}
+/* The copyright popup reuses this button, but its panel follows the theme,
+   so there the button goes back to reading from the tokens. */
+.info-modal .preview-modal-close{background:var(--panel);border-color:var(--line);color:var(--ink-2)}
+.info-modal .preview-modal-close:hover{background:var(--panel-2);color:var(--ink)}
 .preview-modal-back{display:none}
 .preview-modal-back svg{width:16px;height:16px}
 .preview-modal-panel:not([data-view="gallery"]) .preview-modal-back{display:grid}
@@ -403,11 +421,11 @@ body.modal-open{overflow:hidden}
 .preview-modal-panel:not([data-view="gallery"]) .tile-frame{cursor:default}
 .tile-sitemap .tile-frame{display:flex;align-items:center;justify-content:center;padding:18px;box-sizing:border-box}
 .tile-sitemap svg{width:100%;height:100%}
-.tile-sitemap .nd{fill:var(--bg-2);stroke:var(--accent);stroke-width:1.6}
-.tile-sitemap .nd-root{fill:var(--accent);stroke:none;filter:drop-shadow(0 0 6px rgba(56,225,255,.6))}
-.tile-sitemap .ln{stroke:var(--line-strong);stroke-width:1.3}
-.tile-sitemap .lb{font-family:var(--font-body);font-size:9px;fill:var(--ink-2);text-anchor:middle}
-.tile-sitemap .lb-root{font-family:var(--font-display);font-weight:600;font-size:11px;fill:var(--ink);letter-spacing:.01em}
+.tile-sitemap .nd{fill:#080d1b;stroke:#38e1ff;stroke-width:1.6}
+.tile-sitemap .nd-root{fill:#38e1ff;stroke:none;filter:drop-shadow(0 0 6px rgba(56,225,255,.6))}
+.tile-sitemap .ln{stroke:rgba(255,255,255,.18);stroke-width:1.3}
+.tile-sitemap .lb{font-family:var(--font-body);font-size:9px;fill:#a7b2c6;text-anchor:middle}
+.tile-sitemap .lb-root{font-family:var(--font-display);font-weight:600;font-size:11px;fill:#eef3fb;letter-spacing:.01em}
 .tile-sitemap .lb-sm{font-size:8px}
 .tile-site .tile-frame iframe{
   --ms:1;width:800px;height:500px;border:0;
@@ -425,7 +443,7 @@ body.modal-open{overflow:hidden}
 /* ---------- page-count badge on the example cards ---------- */
 .scope-range{
   font-family:var(--font-display);font-weight:700;font-size:.72rem;
-  letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin:0 0 8px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink);margin:0 0 8px;
 }
 .scope-cta{display:flex;justify-content:center;margin-top:clamp(28px,4vw,40px)}
 
@@ -434,7 +452,7 @@ body.modal-open{overflow:hidden}
 .why .card{padding:26px 24px}
 .why .big{
   font-family:var(--font-display);font-weight:700;font-size:2.1rem;
-  color:var(--accent);letter-spacing:-.03em;line-height:1;margin-bottom:14px;
+  color:var(--accent-ink);letter-spacing:-.03em;line-height:1;margin-bottom:14px;
 }
 
 /* ---------- cta strip ---------- */
@@ -451,37 +469,44 @@ body.modal-open{overflow:hidden}
   transition:color .2s var(--ease),transform .2s var(--ease);
 }
 .back-link svg{width:16px;height:16px;flex:none}
-.back-link:hover{color:var(--accent);transform:translateX(-3px)}
+.back-link:hover{color:var(--accent-ink);transform:translateX(-3px)}
 .contact-grid{display:grid;gap:clamp(26px,4vw,52px);grid-template-columns:.92fr 1.08fr;align-items:start}
 .contact-aside .lede{margin-top:18px}
 .direct{margin:28px 0 0;padding:0;list-style:none;display:grid;gap:14px}
 .direct li{display:flex;gap:13px;align-items:flex-start;font-size:.95rem;color:var(--ink-2)}
-.direct svg{width:17px;height:17px;color:var(--accent);flex:none;margin-top:4px}
-.direct a{color:var(--ink);border-bottom:1px solid rgba(56,225,255,.45);transition:color .2s}
-.direct a:hover{color:var(--accent)}
+.direct svg{width:17px;height:17px;color:var(--accent-ink);flex:none;margin-top:4px}
+.direct a{color:var(--ink);border-bottom:1px solid rgba(10,116,144,.4);transition:color .2s}
+.direct a:hover{color:var(--accent-ink)}
 form{
   padding:clamp(24px,3vw,34px);border-radius:var(--radius);
-  background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  background:linear-gradient(180deg,#ffffff,#fbfaf7);
   border:1px solid var(--line);
 }
 .field{margin-bottom:18px}
 label{display:block;font-size:.83rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px;font-family:var(--font-display)}
 input,textarea{
   width:100%;padding:13px 15px;border-radius:11px;
-  background:rgba(3,6,13,.7);border:1px solid var(--line-strong);
+  background:rgba(255,255,255,.8);border:1px solid var(--line-strong);
   color:var(--ink);font-family:inherit;font-size:.97rem;line-height:1.5;
   transition:border-color .25s var(--ease),box-shadow .25s var(--ease),background .25s var(--ease);
 }
-input::placeholder,textarea::placeholder{color:#5b667c}
+input::placeholder,textarea::placeholder{color:#8791a0}
 input:focus,textarea:focus{
-  outline:none;border-color:var(--accent);background:rgba(3,6,13,.95);
-  box-shadow:0 0 0 4px rgba(56,225,255,.13);
+  outline:none;border-color:var(--accent-ink);background:#ffffff;
+  box-shadow:0 0 0 4px rgba(10,116,144,.13);
 }
 textarea{resize:vertical;min-height:132px}
 .err{display:block;min-height:1.1em;font-size:.8rem;color:#ff8f9e;margin-top:6px}
 input[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:#ff8f9e}
 form .btn{width:100%;margin-top:6px}
-.form-status{margin:14px 0 0;font-size:.9rem;color:var(--accent);min-height:1.2em}
+.form-status{margin:14px 0 0;font-size:.9rem;color:var(--accent-ink);min-height:1.2em;line-height:1.5}
+.form-status.is-ok{color:#0f7a4a}
+.form-status.is-warn{color:#8a6212}
+.form-status.is-err{color:#b3261e}
+[data-theme="dark"] .form-status.is-ok{color:#5fd99b}
+[data-theme="dark"] .form-status.is-warn{color:#e8c06a}
+[data-theme="dark"] .form-status.is-err{color:#ff8f9e}
+form .btn[disabled]{opacity:.6;cursor:progress;transform:none;box-shadow:none}
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
 /* ---------- footer ---------- */
@@ -489,7 +514,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 .foot{display:flex;flex-wrap:wrap;gap:20px 28px;align-items:center;justify-content:space-between}
 .foot .tag{color:var(--ink-2);font-size:.92rem;margin:6px 0 0}
 .foot nav{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.9rem;color:var(--ink-2)}
-.foot nav a:hover{color:var(--accent)}
+.foot nav a:hover{color:var(--accent-ink)}
 .copy{width:100%;border-top:1px solid var(--line);margin-top:30px;padding-top:22px;font-size:.84rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
 
 /* ---------- clickable copyright + its popup ---------- */
@@ -500,8 +525,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   border-bottom:1px solid transparent;
   transition:color .2s var(--ease),border-color .2s var(--ease);
 }
-.copy-link:hover{color:var(--accent);border-bottom-color:rgba(56,225,255,.45)}
-.copy-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.copy-link:hover{color:var(--accent-ink);border-bottom-color:rgba(10,116,144,.45)}
+.copy-link:focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px;border-radius:4px}
 .copy-link svg{width:13px;height:13px;flex:none;opacity:.75}
 
 .info-modal{
@@ -515,23 +540,22 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 .info-modal-panel{
   position:relative;z-index:1;width:min(560px,100%);max-height:82vh;overflow-y:auto;
   border-radius:16px;border:1px solid var(--line-strong);
-  background:var(--bg-2);box-shadow:0 40px 90px -30px rgba(0,0,0,.85);
+  background:#ffffff;box-shadow:0 40px 90px -30px rgba(0,0,0,.28);
   padding:clamp(24px,3vw,32px);
   transform:translateY(14px) scale(.98);opacity:0;
   transition:transform .3s var(--ease),opacity .3s var(--ease);
 }
-[data-theme="light"] .info-modal-panel{background:#ffffff}
 .info-modal.open .info-modal-panel{transform:none;opacity:1}
 .info-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px}
 .info-modal-head h2{font-size:clamp(1.3rem,3vw,1.6rem)}
 .info-modal-body h3{
   font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;
-  color:var(--accent);margin:22px 0 7px;
+  color:var(--accent-ink);margin:22px 0 7px;
 }
 .info-modal-body p{color:var(--ink-2);font-size:.92rem;line-height:1.65;margin:0}
 .info-modal-body p.lead{color:var(--ink);font-size:.95rem;margin-top:10px}
-.info-modal-body a{color:var(--ink);border-bottom:1px solid rgba(56,225,255,.45)}
-.info-modal-body a:hover{color:var(--accent)}
+.info-modal-body a{color:var(--ink);border-bottom:1px solid rgba(10,116,144,.4)}
+.info-modal-body a:hover{color:var(--accent-ink)}
 
 /* ---------- reveal on scroll ---------- */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
@@ -545,12 +569,11 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   .nav-links{
     position:fixed;inset:72px 0 auto;flex-direction:column;align-items:stretch;gap:2px;
     margin:0;padding:14px 20px 22px;
-    background:rgba(6,9,18,.97);backdrop-filter:blur(16px);
+    background:rgba(245,244,240,.97);backdrop-filter:blur(16px);
     border-bottom:1px solid var(--line);
     transform:translateY(-12px);opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .28s var(--ease),transform .28s var(--ease),visibility .28s;
   }
-  [data-theme="light"] .nav-links{background:rgba(245,244,240,.97)}
   .nav-links.open{transform:none;opacity:1;visibility:visible;pointer-events:auto}
   .nav-links a:not(.btn){padding:13px 12px;font-size:1rem}
   .nav-links a:not(.btn).active::after{left:12px;right:auto;width:16px;bottom:8px}
@@ -580,27 +603,39 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   .reveal{opacity:1;transform:none}
 }
 
-/* ---------- light theme: the handful of spots that hardcode a color
+/* ---------- dark theme: the handful of spots that hardcode a color
    instead of using a token, so they don't just fall out of the :root
    override above. Everything else (text, borders, panels, the sticky
    nav's own text/links, buttons, tags, icons...) already reads its
    color from --bg/--ink/--line/etc. and adapts on its own. ---------- */
-[data-theme="light"] .nav.is-stuck{background:rgba(245,244,240,.82)}
-[data-theme="light"] .glow{opacity:.5}
-[data-theme="light"] .pill{color:var(--accent-deep)}
-[data-theme="light"] .btn-ghost:hover{color:var(--ink)}
-[data-theme="light"] .card{
-  background:linear-gradient(180deg,#ffffff,#fbfaf7);
-  box-shadow:0 1px 2px rgba(20,22,30,.05);
+[data-theme="dark"] .nav.is-stuck{background:rgba(5,7,15,.72)}
+[data-theme="dark"] .glow{opacity:1}
+[data-theme="dark"] .pill{color:#b7f2ff}
+[data-theme="dark"] .btn-ghost:hover{color:#ffffff}
+[data-theme="dark"] .card{
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.018));
+  box-shadow:none;
 }
-[data-theme="light"] .card:hover{box-shadow:0 20px 40px -22px rgba(20,22,30,.16)}
-[data-theme="light"] form{background:linear-gradient(180deg,#ffffff,#fbfaf7)}
-[data-theme="light"] input,
-[data-theme="light"] textarea{background:rgba(255,255,255,.8)}
-[data-theme="light"] input:focus,
-[data-theme="light"] textarea:focus{background:#ffffff}
-[data-theme="light"] input::placeholder,
-[data-theme="light"] textarea::placeholder{color:#8791a0}
+[data-theme="dark"] .card:hover{border-color:rgba(56,225,255,.36);box-shadow:0 26px 54px -30px rgba(0,0,0,.9)}
+[data-theme="dark"] form{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02))}
+[data-theme="dark"] input,
+[data-theme="dark"] textarea{background:rgba(3,6,13,.7)}
+[data-theme="dark"] input:focus,
+[data-theme="dark"] textarea:focus{background:rgba(3,6,13,.95)}
+[data-theme="dark"] input::placeholder,
+[data-theme="dark"] textarea::placeholder{color:#5b667c}
+[data-theme="dark"] .info-modal-panel{background:var(--bg-2);box-shadow:0 40px 90px -30px rgba(0,0,0,.85)}
+/* On the dark ground the bright cyan is the legible one, so the accent
+   ramps and tints go back to it. */
+[data-theme="dark"] .hero h1 .accent{background-image:linear-gradient(100deg,#8ef0ff,#38e1ff 55%,#2aa7c9)}
+[data-theme="dark"] .card::after{background-image:radial-gradient(420px 220px at var(--mx,50%) var(--my,0%),rgba(56,225,255,.10),transparent 70%)}
+[data-theme="dark"] .icon{border-color:rgba(56,225,255,.26)}
+[data-theme="dark"] .dot{background:var(--accent);box-shadow:0 0 0 4px rgba(56,225,255,.18)}
+[data-theme="dark"] .logo .mark{filter:drop-shadow(0 0 10px rgba(56,225,255,.55))}
+[data-theme="dark"] .nav-links a:not(.btn).active::after{box-shadow:0 0 8px var(--accent)}
+@media (max-width:820px){
+  [data-theme="dark"] .nav-links{background:rgba(6,9,18,.97)}
+}
 </style>
 </head>
 <body>
@@ -613,12 +648,12 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 <!-- ============ NAV ============ -->
 <header class="nav" id="nav">
   <div class="wrap nav-inner">
-    <a class="logo" href="#top" aria-label="Tycho Tech — home">
+    <a class="logo" href="#top" aria-label="I&amp;D Digital — home">
       <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5l2.9 9.4 9.4 2.9-9.4 2.9L16 29.5l-2.9-11.8L3.7 14.8l9.4-2.9z" fill="currentColor"/></svg>
-      Tycho<span class="dim">&nbsp;Tech</span>
+      I&amp;D<span class="dim">&nbsp;Digital</span>
     </a>
 
-    <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch to light theme">
+    <button class="theme-toggle" id="themeToggle" type="button" aria-pressed="false" aria-label="Switch to dark theme">
       <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <circle cx="12" cy="12" r="4.2"></circle>
         <path d="M12 2.5v2.4M12 19.1v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.5 12h2.4M19.1 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"></path>
@@ -632,7 +667,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <nav class="nav-links" id="menu" aria-label="Sections">
       <a href="#examples">Examples</a>
-      <a href="#why">Why me</a>
+      <a href="#why">Why us</a>
       <a href="#contact">Contact</a>
       <a class="btn btn-primary" href="#contact">Start Your Project</a>
     </nav>
@@ -650,10 +685,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <h1 class="reveal">Get online in days, <span class="accent">not months.</span></h1>
 
-    <p class="tagline reveal">Websites that launch.</p>
+    <p class="tagline reveal">Imagine It. We Build It.</p>
 
     <p class="sub reveal">
-      I build landing pages and websites for <strong>[small businesses, startups and local shops]</strong>,
+      We build landing pages and websites for <strong>[small businesses, startups and local shops]</strong>,
       using AI-assisted workflows to move fast and keep pricing affordable.
     </p>
 
@@ -674,9 +709,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 <section id="why">
   <div class="wrap">
     <div class="section-head reveal">
-      <p class="eyebrow">Why Tycho Tech</p>
+      <p class="eyebrow">Why I&amp;D Digital</p>
       <h2>Small studio, serious output</h2>
-      <p class="lede">You work directly with me — [Your Name] — from the first call to launch day. No account managers, no handoffs.</p>
+      <p class="lede">You work directly with us — [Your Name] and [Partner's Name] — from the first call to launch day. No account managers, no handoffs.</p>
     </div>
 
     <div class="why">
@@ -704,7 +739,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   <div class="wrap">
     <div class="cta-strip-inner reveal">
       <h2>Let&rsquo;s get your site off the ground.</h2>
-      <p class="lede">Tell me what you do and what you need, and I&rsquo;ll reply within one business day with a timeline and a fixed price.</p>
+      <p class="lede">Tell us what you do and what you need, and we&rsquo;ll reply within one business day with a timeline and a fixed price.</p>
       <a class="btn btn-primary btn-lg" href="#contact">Start Your Project</a>
     </div>
   </div>
@@ -717,13 +752,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   <div class="wrap">
     <a class="back-link" href="#top">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
-      Back to Tycho Tech
+      Back to I&amp;D Digital
     </a>
 
     <div class="section-head reveal">
       <p class="eyebrow">Examples</p>
       <h2>A few directions to start from</h2>
-      <p class="lede">Three real, clickable examples &mdash; from a single page to a full site &mdash; so you can see the range before we talk. Tell me which one feels closest to your brand.</p>
+      <p class="lede">Three real, clickable examples &mdash; from a single page to a full site &mdash; so you can see the range before we talk. Tell us which one feels closest to your brand.</p>
     </div>
 
     <div class="grid-3">
@@ -777,7 +812,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   <div class="wrap">
     <a class="back-link" href="#top">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
-      Back to Tycho Tech
+      Back to I&amp;D Digital
     </a>
 
     <div class="contact-grid">
@@ -785,7 +820,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <div class="reveal">
           <p class="eyebrow">Contact</p>
           <h2>Let's get your site off the ground.</h2>
-          <p class="lede">Tell me what you do and what you need. I'll reply within one business day with a timeline and a fixed price — no pressure, no sales script.</p>
+          <p class="lede">Tell us what you do and what you need. We'll reply within one business day with a timeline and a fixed price — no pressure, no sales script.</p>
         </div>
 
         <ul class="direct reveal">
@@ -840,21 +875,21 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <div>
         <a class="logo" href="#top">
           <svg class="mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 2.5l2.9 9.4 9.4 2.9-9.4 2.9L16 29.5l-2.9-11.8L3.7 14.8l9.4-2.9z" fill="currentColor"/></svg>
-          Tycho<span class="dim">&nbsp;Tech</span>
+          I&amp;D<span class="dim">&nbsp;Digital</span>
         </a>
-        <p class="tag">Websites that launch.</p>
+        <p class="tag">Imagine It. We Build It.</p>
       </div>
       <nav aria-label="Footer">
         <a href="#examples">Examples</a>
-        <a href="#why">Why me</a>
+        <a href="#why">Why us</a>
         <a href="#contact">Contact</a>
       </nav>
       <div class="copy">
         <button class="copy-link" type="button" id="copyrightBtn" aria-haspopup="dialog">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.2" stroke-linecap="round"/><path d="M12 7.9v.1" stroke-linecap="round"/></svg>
-          &copy; <span id="year">2026</span> Tycho Tech &mdash; terms of use
+          &copy; <span id="year">2026</span> I&amp;D Digital &mdash; terms of use
         </button>
-        <span>Named for Tycho Brahe, who measured the sky without a telescope.</span>
+        <span>I&amp;D &mdash; two people, one build, start to launch.</span>
       </div>
     </div>
   </div>
@@ -890,24 +925,24 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   <div class="info-modal-backdrop" data-info-close></div>
   <div class="info-modal-panel" role="dialog" aria-modal="true" aria-labelledby="copyrightTitle">
     <div class="info-modal-head">
-      <h2 id="copyrightTitle">&copy; <span id="year2">2026</span> Tycho Tech</h2>
+      <h2 id="copyrightTitle">&copy; <span id="year2">2026</span> I&amp;D Digital</h2>
       <button class="preview-modal-close" type="button" id="copyrightClose" aria-label="Close">&times;</button>
     </div>
 
     <div class="info-modal-body">
-      <p class="lead">All content on this site &mdash; copy, layout, code, and the example previews &mdash; is the work of Tycho Tech and is protected by copyright.</p>
+      <p class="lead">All content on this site &mdash; copy, layout, code, and the example previews &mdash; is the work of I&amp;D Digital and is protected by copyright.</p>
 
       <h3>What you own</h3>
       <p>When your project is paid in full, the finished website is yours: the design, the content you supplied, and the code that ships with it. You get the files and you can host them anywhere you like.</p>
 
       <h3>What stays mine</h3>
-      <p>The example previews on this site, and any reusable components or internal tooling behind them, stay the property of Tycho Tech. They're here to show what's possible, not to be copied.</p>
+      <p>The example previews on this site, and any reusable components or internal tooling behind them, stay the property of I&amp;D Digital. They're here to show what's possible, not to be copied.</p>
 
       <h3>Showing your project</h3>
-      <p>I may show finished work in a portfolio unless you ask me not to &mdash; just say the word and it stays private.</p>
+      <p>We may show finished work in a portfolio unless you ask us not to &mdash; just say the word and it stays private.</p>
 
       <h3>Questions</h3>
-      <p>Anything unclear, or you need something in writing before we start? Email <a href="mailto:[you@example.com]">[you@example.com]</a> and I'll sort it out.</p>
+      <p>Anything unclear, or you need something in writing before we start? Email <a href="mailto:[you@example.com]">[you@example.com]</a> and we'll sort it out.</p>
     </div>
   </div>
 </div>
@@ -953,8 +988,8 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     }
   }
 
-  function isLightTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'light';
+  function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
   }
 
   // Same star positions and motion in both themes -- only the color and
@@ -962,7 +997,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   // dots) instead of losing it.
   function frame(t) {
     ctx.clearRect(0, 0, w, h);
-    var light = isLightTheme();
+    var light = !isDarkTheme();
     for (var i = 0; i < stars.length; i++) {
       var s = stars[i];
       var alpha = s.a * (0.55 + 0.45 * Math.sin(t * s.tw + s.ph));
@@ -982,7 +1017,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
   function paintStatic() {
     ctx.clearRect(0, 0, w, h);
-    var light = isLightTheme();
+    var light = !isDarkTheme();
     for (var i = 0; i < stars.length; i++) {
       var s = stars[i];
       var alpha = light ? s.a * 0.4 : s.a;
@@ -1032,20 +1067,20 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
      The early inline script in <head> already applied any saved choice
      before this ran, so there's nothing to do here but sync the
      button's own label and wire up the click. */
-  var THEME_KEY = 'tycho-theme';
+  var THEME_KEY = 'iandd-theme';
   var themeToggle = document.getElementById('themeToggle');
 
   function currentTheme() {
-    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
   }
   function reflectTheme(theme) {
-    themeToggle.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
-    themeToggle.setAttribute('aria-label', theme === 'light' ? 'Switch to dark theme' : 'Switch to light theme');
+    themeToggle.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+    themeToggle.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
   }
   reflectTheme(currentTheme());
 
   themeToggle.addEventListener('click', function () {
-    var next = currentTheme() === 'light' ? 'dark' : 'light';
+    var next = currentTheme() === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     reflectTheme(next);
     try { localStorage.setItem(THEME_KEY, next); } catch (e) { /* private/blocked storage */ }
@@ -1578,16 +1613,33 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   });
 
   /* ================= contact form =================
-     No backend here: a valid submit opens the visitor's mail app with the
-     message pre-filled and shows a confirmation.
+     Submits over fetch() to FORM_ENDPOINT and reports the result in place.
+     The visitor never leaves the page, and the enquiry lands in an inbox
+     whether or not they have a mail app configured -- which is the whole
+     reason not to rely on a mailto: link.
 
-     To use a real form service instead (Formspree, Netlify Forms, Basin, ...):
-       1. add action="https://your-endpoint" method="POST" to the <form> tag
-       2. delete the two lines marked MAILTO below and replace them with
-          form.submit();
+     WHILE FORM_ENDPOINT IS EMPTY the form falls back to opening the mail
+     app, and says so honestly rather than claiming the message was sent.
+     That fallback is a stopgap: on a phone it often does nothing at all,
+     and anyone on webmail just loses what they typed.
+
+     TO TURN IT ON (free, ~3 minutes, no domain needed -- any inbox works):
+       1. Sign up at formspree.io (or basin, or formsubmit.co) with the
+          address you want enquiries sent to.
+       2. Create a form. It gives you an endpoint URL that looks like
+          https://formspree.io/f/xxxxxxx
+       3. Paste it as FORM_ENDPOINT below, and put the same address in
+          CONTACT_EMAIL above. Send yourself a test.
+     No other change is needed: the field names (name / email / message)
+     are what these services expect.
   ================================================== */
+  var FORM_ENDPOINT = ''; // <-- paste your form endpoint URL here
+
   var form = document.getElementById('contact-form');
   var statusEl = document.getElementById('form-status');
+  var submitBtn = form.querySelector('button[type="submit"]');
+  var submitLabel = submitBtn.textContent;
+  var sending = false;
 
   function fail(input, msg) {
     document.getElementById(input.id + '-err').textContent = msg;
@@ -1597,14 +1649,27 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     document.getElementById(input.id + '-err').textContent = '';
     input.removeAttribute('aria-invalid');
   }
+  function setStatus(msg, kind) {
+    statusEl.textContent = msg;
+    statusEl.className = 'form-status' + (kind ? ' is-' + kind : '');
+  }
 
   ['name', 'email', 'message'].forEach(function (id) {
     var el = document.getElementById(id);
     el.addEventListener('input', function () { if (el.value.trim()) clear(el); });
   });
 
+  // Last-resort path when no endpoint is configured yet.
+  function openMailApp(name, email, message) {
+    var body = 'Name: ' + name + '\nEmail: ' + email + '\n\n' + message;
+    window.location.href = 'mailto:' + CONTACT_EMAIL +
+      '?subject=' + encodeURIComponent('New project enquiry from ' + name) +
+      '&body=' + encodeURIComponent(body);
+  }
+
   form.addEventListener('submit', function (e) {
     e.preventDefault();
+    if (sending) return;
 
     var name = document.getElementById('name');
     var email = document.getElementById('email');
@@ -1613,9 +1678,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     var ok = true;
 
     [name, email, message].forEach(clear);
-    statusEl.textContent = '';
+    setStatus('');
 
-    if (!name.value.trim()) { fail(name, 'Please tell me your name.'); ok = false; }
+    if (!name.value.trim()) { fail(name, 'Please tell us your name.'); ok = false; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.value.trim())) { fail(email, 'Please enter a valid email address.'); ok = false; }
     if (message.value.trim().length < 10) { fail(message, 'A sentence or two about the project, please.'); ok = false; }
 
@@ -1623,17 +1688,37 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       form.querySelector('[aria-invalid="true"]').focus();
       return;
     }
-    if (trap.value) return; // bot
+    if (trap.value) return; // bot filled the hidden field
 
-    // --- MAILTO (replace these two lines to post to a form service) ---
-    var body = 'Name: ' + name.value.trim() + '\nEmail: ' + email.value.trim() + '\n\n' + message.value.trim();
-    window.location.href = 'mailto:' + CONTACT_EMAIL +
-      '?subject=' + encodeURIComponent('New project enquiry from ' + name.value.trim()) +
-      '&body=' + encodeURIComponent(body);
-    // ------------------------------------------------------------------
+    var firstName = name.value.trim().split(' ')[0];
 
-    statusEl.textContent = 'Thanks ' + name.value.trim().split(' ')[0] + ' — your email app should open with the details ready to send.';
-    form.reset();
+    if (!FORM_ENDPOINT) {
+      openMailApp(name.value.trim(), email.value.trim(), message.value.trim());
+      setStatus('Your email app should open with the details ready to send. If nothing happens, email us directly at ' + CONTACT_EMAIL + '.', 'warn');
+      return;
+    }
+
+    sending = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+    setStatus('Sending…');
+
+    fetch(FORM_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' },
+      body: new FormData(form)
+    }).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      form.reset();
+      setStatus('Thanks ' + firstName + ' — that\'s with us. We\'ll reply within one business day.', 'ok');
+    }).catch(function () {
+      // Don't strand the enquiry: say what happened and give a way through.
+      setStatus('Something went wrong sending that. Please email us directly at ' + CONTACT_EMAIL + ' and we\'ll pick it up from there.', 'err');
+    }).then(function () {
+      sending = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = submitLabel;
+    });
   });
 
   /* ================= clickable copyright ================= */
