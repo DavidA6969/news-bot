@@ -12,9 +12,20 @@ This session runs unattended. Nobody can answer a permission prompt. Never
 pass out_dir on an Artifact call and never write outside your scratchpad.
 Read database documents inline. If something blocks, stop and report it.
 
-## How to find candidates
+## 1. Load what is already on the list
 
-### If GOOGLE_MAPS_API_KEY is set, search Google Maps
+Read every existing prospect first, so you do not file a duplicate:
+
+  Artifact action="read_db" db_op="list" collection="prospects"
+    query={"limit": 1000}
+
+Page with query.cursor until no next_cursor comes back. Note every document
+id and business name. Also read meta/scan for the previous run's record and
+its version, which you need in step 6.
+
+## 2. How to find candidates
+
+### The Maps path, when GOOGLE_MAPS_API_KEY is set
 
 This is the preferred path. Run the scanner, which asks Google Maps for
 each trade in each city and keeps only places that are marked OPERATIONAL,
@@ -34,7 +45,7 @@ If the script exits 2 the key is missing; if it exits 3 the key was
 rejected or out of quota. Either way say so in your report and fall back to
 the path below rather than stopping.
 
-### If there is no key, search the web instead
+### The fallback path, when there is no key
 
 Google Maps cannot be browsed from here without the API. The network policy
 blocks google.com, maps.google.com, yelp.ca, yellowpages.ca and bbb.org, so
