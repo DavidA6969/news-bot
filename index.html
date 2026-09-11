@@ -262,49 +262,6 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   background:var(--panel);border:1px solid var(--line);
 }
 
-/* ---------- how it works ---------- */
-.steps{display:grid;gap:26px;grid-template-columns:repeat(3,1fr);position:relative}
-.steps::before{
-  content:"";position:absolute;top:27px;left:16%;right:16%;height:1px;
-  background:linear-gradient(90deg,transparent,rgba(56,225,255,.5),rgba(56,225,255,.5),transparent);
-}
-.step{text-align:center;position:relative}
-.node{
-  width:54px;height:54px;margin:0 auto 22px;border-radius:50%;
-  display:grid;place-items:center;position:relative;
-  background:radial-gradient(circle at 50% 38%,#0f1d33,#070c17);
-  border:1px solid rgba(56,225,255,.4);
-  font-family:var(--font-display);font-weight:700;font-size:.9rem;color:var(--accent);
-  box-shadow:0 0 0 6px var(--bg),0 0 28px -4px rgba(56,225,255,.55);
-  transition:box-shadow .4s var(--ease),transform .4s var(--ease);
-}
-.step:hover .node{transform:scale(1.07);box-shadow:0 0 0 6px var(--bg),0 0 40px -2px rgba(56,225,255,.85)}
-.step h3{margin-bottom:9px}
-.step p{color:var(--ink-2);margin:0;font-size:.97rem;max-width:34ch;margin-inline:auto}
-
-/* ---------- collapsible section (process) ---------- */
-.disclosure-toggle{
-  all:unset;box-sizing:border-box;
-  display:flex;align-items:center;justify-content:space-between;gap:20px;
-  width:100%;cursor:pointer;padding:2px 0;
-}
-.disclosure-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:6px;border-radius:8px}
-.disclosure-toggle-text{display:flex;flex-direction:column;gap:8px;text-align:left}
-.disclosure-heading{
-  font-family:var(--font-display);font-weight:700;color:var(--ink);
-  font-size:clamp(1.5rem,3.4vw,2.1rem);line-height:1.12;letter-spacing:-.02em;
-}
-.chevron{
-  flex:none;width:22px;height:22px;color:var(--ink-2);margin-top:2px;
-  transition:transform .35s var(--ease),color .25s var(--ease);
-}
-.disclosure-toggle:hover .chevron{color:var(--accent)}
-.disclosure-toggle[aria-expanded="true"] .chevron{transform:rotate(180deg);color:var(--accent)}
-.disclosure-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .45s var(--ease)}
-.disclosure-wrap.open{grid-template-rows:1fr}
-.disclosure-inner{overflow:hidden;min-height:0}
-.disclosure-inner-pad{padding-top:clamp(28px,4vw,40px)}
-
 /* ---------- examples ---------- */
 .preview{
   all:unset;box-sizing:border-box;
@@ -626,13 +583,6 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   .nav-links a:not(.btn).active::after{left:12px;right:auto;width:16px;bottom:8px}
   .nav-links .btn{margin:10px 0 0;width:100%}
   .burger{display:flex}
-  .steps{grid-template-columns:1fr;gap:30px}
-  .steps::before{top:8px;bottom:8px;left:27px;right:auto;width:1px;height:auto;
-    background:linear-gradient(180deg,transparent,rgba(56,225,255,.5),rgba(56,225,255,.5),transparent)}
-  .step{display:grid;grid-template-columns:54px 1fr;gap:0 20px;text-align:left}
-  .node{margin:0}
-  .step h3{grid-column:2;align-self:center}
-  .step p{grid-column:2;margin:8px 0 0;max-width:46ch}
 }
 @media (max-width:540px){
   body{font-size:16px}
@@ -710,7 +660,6 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     <nav class="nav-links" id="menu" aria-label="Sections">
       <a href="#services">Services</a>
       <a href="#examples">Pricing</a>
-      <a href="#process">Process</a>
       <a href="#why">Why me</a>
       <a href="#contact">Contact</a>
       <a class="btn btn-primary" href="#contact">Start Your Project</a>
@@ -738,7 +687,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <div class="hero-cta reveal">
       <a class="btn btn-primary btn-lg" href="#contact">Start Your Project</a>
-      <a class="btn btn-ghost btn-lg" href="#process">See how it works</a>
+      <a class="btn btn-ghost btn-lg" href="#examples">See examples &amp; pricing</a>
     </div>
 
     <ul class="trust reveal">
@@ -874,45 +823,6 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   </div>
 </section>
 
-<!-- ============ PROCESS (collapsible) ============ -->
-<section id="process">
-  <div class="wrap">
-    <button class="disclosure-toggle reveal" type="button" id="processToggle" aria-expanded="false" aria-controls="processBody">
-      <span class="disclosure-toggle-text">
-        <span class="eyebrow">How it works</span>
-        <span class="disclosure-heading">See how a project runs, start to finish</span>
-      </span>
-      <svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
-    </button>
-
-    <div class="disclosure-wrap" id="processBody">
-      <div class="disclosure-inner">
-        <div class="disclosure-inner-pad">
-          <p class="lede">No long discovery phases or surprise invoices. You always know what happens next.</p>
-
-          <div class="steps">
-            <article class="step reveal">
-              <div class="node">01</div>
-              <h3>Plan</h3>
-              <p>A short call to cover your goals, audience and content. You get a fixed quote and a launch date before any work starts.</p>
-            </article>
-            <article class="step reveal">
-              <div class="node">02</div>
-              <h3>Build</h3>
-              <p>I design and build the site, then share a live preview link. You give feedback in one round, I refine until it feels right.</p>
-            </article>
-            <article class="step reveal">
-              <div class="node">03</div>
-              <h3>Launch</h3>
-              <p>I connect your domain, test everything on real devices, and hand over the site with a short guide for making edits.</p>
-            </article>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ============ WHY ============ -->
 <section id="why">
   <div class="wrap">
@@ -1030,7 +940,6 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <nav aria-label="Footer">
         <a href="#services">Services</a>
         <a href="#examples">Pricing</a>
-        <a href="#process">Process</a>
         <a href="#why">Why me</a>
         <a href="#contact">Contact</a>
       </nav>
@@ -1356,29 +1265,6 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       if (nameEl) nameEl.focus();
     });
   });
-
-  /* ================= collapsible "How it works" ================= */
-  var processToggle = document.getElementById('processToggle');
-  var processBody = document.getElementById('processBody');
-
-  function openProcess() {
-    processToggle.setAttribute('aria-expanded', 'true');
-    processBody.classList.add('open');
-  }
-  function toggleProcess() {
-    var open = processToggle.getAttribute('aria-expanded') === 'true';
-    processToggle.setAttribute('aria-expanded', String(!open));
-    processBody.classList.toggle('open', !open);
-  }
-  processToggle.addEventListener('click', toggleProcess);
-
-  // Jumping here from the hero button or a nav link should land on an
-  // already-open section, not a collapsed one the visitor then has to
-  // open themselves.
-  document.querySelectorAll('a[href="#process"]').forEach(function (a) {
-    a.addEventListener('click', openProcess);
-  });
-  if (location.hash === '#process') openProcess();
 
   /* ================= example previews =================
      Each card in the Examples section holds an <iframe> with an empty
