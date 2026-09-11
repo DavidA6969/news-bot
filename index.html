@@ -244,9 +244,12 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 
 /* ---------- examples ---------- */
 .preview{
+  all:unset;box-sizing:border-box;
+  display:block;width:100%;cursor:pointer;
   aspect-ratio:16/10;border-radius:13px;margin:-4px 0 20px;position:relative;overflow:hidden;
   border:1px solid var(--line);background:#0a0e18;
 }
+.preview:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 .preview iframe{
   --s:.39; /* fallback scale until JS measures the real card width; kept as a
               custom property (not a plain inline transform) so the :hover
@@ -264,6 +267,68 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
   background:rgba(5,7,15,.55);backdrop-filter:blur(6px);
   padding:5px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.12);
   pointer-events:none;
+}
+.preview .view-chip{
+  position:absolute;right:12px;bottom:12px;z-index:1;
+  display:inline-flex;align-items:center;gap:5px;
+  font-family:var(--font-display);font-weight:700;font-size:.66rem;
+  letter-spacing:.05em;text-transform:uppercase;color:#04202b;
+  background:var(--accent);
+  padding:5px 11px 5px 9px;border-radius:999px;
+  box-shadow:0 6px 16px -8px rgba(56,225,255,.7);
+  transition:transform .3s var(--ease),box-shadow .3s var(--ease);
+  pointer-events:none;
+}
+.preview .view-chip svg{width:11px;height:11px}
+.preview:hover .view-chip,.preview:focus-visible .view-chip{
+  transform:translateY(-1px);box-shadow:0 10px 22px -8px rgba(56,225,255,.85);
+}
+
+/* ---------- example preview modal ---------- */
+body.modal-open{overflow:hidden}
+.preview-modal{
+  position:fixed;inset:0;z-index:200;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .3s var(--ease);
+  /* visibility is deliberately NOT transitioned -- it's set directly via JS
+     instead (see openPreviewModal/closePreviewModal). Chromium won't accept
+     a focus() call on an element while its own visibility is mid-transition,
+     even the instant it flips to visible, so keeping this property out of
+     the transition list is what lets the close button take focus on open. */
+}
+.preview-modal.open{opacity:1;pointer-events:auto}
+.preview-modal-backdrop{position:absolute;inset:0;background:rgba(4,6,12,.72);backdrop-filter:blur(6px)}
+.preview-modal-panel{
+  position:relative;z-index:1;width:min(800px,100%);
+  border-radius:16px;overflow:hidden;border:1px solid var(--line-strong);
+  background:#0a0e18;box-shadow:0 40px 90px -30px rgba(0,0,0,.85);
+  transform:translateY(14px) scale(.98);opacity:0;
+  transition:transform .35s var(--ease),opacity .35s var(--ease);
+}
+.preview-modal.open .preview-modal-panel{transform:none;opacity:1}
+.preview-modal-bar{
+  display:flex;align-items:center;gap:10px;padding:12px 14px;
+  background:rgba(255,255,255,.035);border-bottom:1px solid var(--line);
+}
+.preview-modal-bar .dots{display:flex;gap:6px;flex:none}
+.preview-modal-bar .dots span{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.18)}
+.preview-modal-url{
+  flex:1;min-width:0;font-size:.78rem;color:var(--ink-3);
+  background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;
+  padding:5px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.preview-modal-close{
+  flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+  background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
+  cursor:pointer;font-size:1.15rem;line-height:1;
+  transition:background .2s var(--ease),color .2s var(--ease);
+}
+.preview-modal-close:hover{background:var(--panel-2);color:var(--ink)}
+.preview-modal-frame{position:relative;width:100%;aspect-ratio:16/10;background:#0a0e18;overflow:hidden}
+.preview-modal-frame iframe{
+  --ms:1;width:800px;height:500px;border:0;position:absolute;top:0;left:0;
+  transform-origin:top left;transform:scale(var(--ms));
 }
 .note{font-size:.82rem;color:var(--ink-3);margin:16px 0 0}
 .note code{
@@ -496,37 +561,40 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <div class="grid-3">
       <article class="card reveal">
-        <div class="preview">
+        <button class="preview" type="button" data-example="ember" aria-haspopup="dialog" aria-label="View the restaurant example full size">
           <span class="frame-label">Restaurant &amp; caf&#233;</span>
+          <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
           <iframe data-example="ember" loading="lazy" title="Example: a dark, editorial one-page site for a restaurant" aria-hidden="true" tabindex="-1"></iframe>
-        </div>
+        </button>
         <h3>Dark &amp; editorial</h3>
         <p>Moody, image-led, built around a menu or a seasonal offering. Good fit for restaurants, bars and anywhere the food or room is the draw.</p>
-        <ul class="tags"><li>Serif display</li><li>Reservation CTA</li></ul>
+        <ul class="tags"><li>1 page</li><li>Reservation CTA</li></ul>
       </article>
 
       <article class="card reveal">
-        <div class="preview">
+        <button class="preview" type="button" data-example="aster" aria-haspopup="dialog" aria-label="View the boutique example full size">
           <span class="frame-label">Boutique &amp; salon</span>
-          <iframe data-example="aster" loading="lazy" title="Example: a light, refined one-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
-        </div>
+          <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
+          <iframe data-example="aster" loading="lazy" title="Example: a light, refined two-page site for a boutique or salon" aria-hidden="true" tabindex="-1"></iframe>
+        </button>
         <h3>Light &amp; refined</h3>
-        <p>Quiet, spacious, a little formal. Good fit for salons, studios and boutiques where the booking itself should feel considered.</p>
-        <ul class="tags"><li>Soft neutral palette</li><li>Booking CTA</li></ul>
+        <p>Quiet, spacious, a little formal, with a Home page and a Services page linked up. Good fit for salons, studios and boutiques.</p>
+        <ul class="tags"><li>2 pages</li><li>Booking CTA</li></ul>
       </article>
 
       <article class="card reveal">
-        <div class="preview">
+        <button class="preview" type="button" data-example="northbeam" aria-haspopup="dialog" aria-label="View the consulting example full size">
           <span class="frame-label">Consulting &amp; SaaS</span>
-          <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward one-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
-        </div>
+          <span class="view-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M8 3H5a2 2 0 00-2 2v3m18-5h-3m3 0v3M3 16v3a2 2 0 002 2h3m11-5v3a2 2 0 01-2 2h-3"/></svg>View site</span>
+          <iframe data-example="northbeam" loading="lazy" title="Example: a clean, data-forward three-page site for a consulting or software business" aria-hidden="true" tabindex="-1"></iframe>
+        </button>
         <h3>Clean &amp; corporate</h3>
-        <p>Direct, credible, built to make a case fast. Good fit for consultants, agencies and small software teams selling to other businesses.</p>
-        <ul class="tags"><li>Data-forward</li><li>Proof-point stats</li></ul>
+        <p>Direct and credible, with Home, Approach and Contact pages linked up. Good fit for consultants, agencies and small software teams.</p>
+        <ul class="tags"><li>3 pages</li><li>Data-forward</li></ul>
       </article>
     </div>
 
-    <p class="note reveal">More directions available on request &mdash; these three are just a starting point for the conversation.</p>
+    <p class="note reveal">Click a preview to open the full site and click through its pages. More directions available on request &mdash; these three are just a starting point for the conversation.</p>
   </div>
 </section>
 
@@ -640,6 +708,20 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     </div>
   </div>
 </footer>
+
+<div class="preview-modal" id="previewModal" aria-hidden="true">
+  <div class="preview-modal-backdrop" data-modal-close></div>
+  <div class="preview-modal-panel" role="dialog" aria-modal="true" aria-label="Full example preview">
+    <div class="preview-modal-bar">
+      <span class="dots"><span></span><span></span><span></span></span>
+      <span class="preview-modal-url" id="previewModalUrl"></span>
+      <button class="preview-modal-close" type="button" id="previewModalClose" aria-label="Close preview">&times;</button>
+    </div>
+    <div class="preview-modal-frame">
+      <iframe id="previewModalFrame" title="Full example preview"></iframe>
+    </div>
+  </div>
+</div>
 
 </div><!-- /.page -->
 
@@ -797,6 +879,17 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
      custom property so it fits whatever width the card ends up at,
      including on resize.
   ================================================== */
+  var PAGE_SWITCHER =
+    '<script>(function(){' +
+    "var L=[].slice.call(document.querySelectorAll('nav a[data-page]'));" +
+    "var P=[].slice.call(document.querySelectorAll('.page'));" +
+    "function go(k){" +
+    "L.forEach(function(a){a.classList.toggle('active',a.getAttribute('data-page')===k)});" +
+    "P.forEach(function(p){p.classList.toggle('active',p.getAttribute('data-page')===k)});" +
+    "}" +
+    "L.forEach(function(a){a.addEventListener('click',function(e){e.preventDefault();go(a.getAttribute('data-page'));});});" +
+    '})();</scri' + 'pt>';
+
   var EXAMPLES = {
     ember: '<!doctype html><html><head><meta charset="utf-8"><style>' +
       '*{box-sizing:border-box;margin:0}' +
@@ -821,46 +914,105 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       '*{box-sizing:border-box;margin:0}' +
       'html,body{width:800px;height:500px;overflow:hidden}' +
       'body{background:#ece5de;color:#2b2420;font-family:"Century Gothic","Avenir Next",system-ui,sans-serif;display:flex;flex-direction:column}' +
-      'header{display:flex;align-items:center;justify-content:center;padding:30px;font-size:13px;letter-spacing:.32em;text-transform:uppercase}' +
-      'main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 70px}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:26px 40px;font-size:12.5px;letter-spacing:.28em;text-transform:uppercase}' +
+      'nav{display:flex;gap:22px;font-size:11.5px;letter-spacing:.1em}' +
+      'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.55;padding-bottom:3px;border-bottom:1px solid transparent}' +
+      'nav a.active{opacity:1;border-bottom-color:#6c3a54}' +
+      '.page{display:none}' +
+      '.page.active{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 70px}' +
       'h1{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:400;font-size:46px;line-height:1.18;color:#2b2420;margin-bottom:16px}' +
+      'h1.small{font-size:34px;margin-bottom:10px}' +
       'p.sub{font-size:14px;color:#5c5248;max-width:420px;line-height:1.7;margin-bottom:26px;letter-spacing:.01em}' +
       'a.cta{font-size:12px;letter-spacing:.1em;text-transform:uppercase;background:#6c3a54;color:#f6eef2;padding:14px 34px;border-radius:999px;text-decoration:none;font-weight:600}' +
       '.tags{display:flex;gap:14px;margin-top:34px}' +
       '.tags span{font-size:11px;letter-spacing:.08em;text-transform:uppercase;border:1px solid rgba(43,36,32,.25);border-radius:999px;padding:6px 16px;color:#5c5248}' +
-      'footer{padding:20px;text-align:center;font-size:11px;letter-spacing:.1em;color:#8a7f73;text-transform:uppercase}' +
+      '.svc-list{display:flex;flex-direction:column;gap:12px;width:100%;max-width:380px;margin:0 0 26px;text-align:left}' +
+      '.svc{display:flex;flex-direction:column;gap:3px;padding:13px 18px;border:1px solid rgba(43,36,32,.18);border-radius:10px;background:rgba(255,255,255,.4)}' +
+      '.svc b{font-size:12.5px;letter-spacing:.04em;text-transform:uppercase}' +
+      '.svc span{font-size:12px;color:#5c5248;line-height:1.5}' +
+      'footer{padding:18px;text-align:center;font-size:11px;letter-spacing:.1em;color:#8a7f73;text-transform:uppercase}' +
       '</style></head><body>' +
-      '<header>Aster Studio</header>' +
-      '<main><h1>Hair &amp; skin,<br>done quietly well.</h1>' +
+      '<header><span>Aster Studio</span><nav>' +
+      '<a href="#" data-page="home" class="active">Home</a>' +
+      '<a href="#" data-page="services">Services</a>' +
+      '</nav></header>' +
+      '<div class="page active" data-page="home">' +
+      '<h1>Hair &amp; skin,<br>done quietly well.</h1>' +
       '<p class="sub">A private studio in the Arts District. By appointment, one client at a time.</p>' +
       '<a class="cta" href="#" tabindex="-1">Book a visit</a>' +
-      '<div class="tags"><span>Color</span><span>Cut</span><span>Facial</span></div></main>' +
+      '<div class="tags"><span>Color</span><span>Cut</span><span>Facial</span></div>' +
+      '</div>' +
+      '<div class="page" data-page="services">' +
+      '<h1 class="small">Services</h1>' +
+      '<div class="svc-list">' +
+      '<div class="svc"><b>Color</b><span>Full color, balayage and gloss, mixed to your skin tone.</span></div>' +
+      '<div class="svc"><b>Cut</b><span>Precision cuts, shaped to how your hair actually falls.</span></div>' +
+      '<div class="svc"><b>Facial</b><span>A quiet, results-focused treatment. Forty-five minutes.</span></div>' +
+      '</div>' +
+      '<a class="cta" href="#" tabindex="-1">Book a visit</a>' +
+      '</div>' +
       '<footer>Tuesday&ndash;Saturday, by appointment</footer>' +
+      PAGE_SWITCHER +
       '</body></html>',
 
     northbeam: '<!doctype html><html><head><meta charset="utf-8"><style>' +
       '*{box-sizing:border-box;margin:0}' +
       'html,body{width:800px;height:500px;overflow:hidden}' +
       'body{background:#f6f7f8;color:#14181d;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;display:flex;flex-direction:column}' +
-      'header{display:flex;align-items:center;justify-content:space-between;padding:26px 44px;border-bottom:1px solid rgba(20,24,29,.08)}' +
+      'header{display:flex;align-items:center;justify-content:space-between;padding:24px 44px;border-bottom:1px solid rgba(20,24,29,.08)}' +
+      '.brand{display:flex;align-items:center;gap:10px}' +
       '.word{font-weight:700;font-size:15px;letter-spacing:-.01em}' +
       '.tag{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;letter-spacing:.06em;color:#0f6e6a;border:1px solid rgba(15,110,106,.3);border-radius:4px;padding:3px 8px}' +
-      'main{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 44px}' +
+      'nav{display:flex;gap:20px;font-size:12.5px}' +
+      'nav a{color:inherit;text-decoration:none;cursor:pointer;opacity:.55;padding-bottom:3px;border-bottom:1px solid transparent}' +
+      'nav a.active{opacity:1;color:#0f6e6a;border-bottom-color:#0f6e6a}' +
+      '.page{display:none}' +
+      '.page.active{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 44px}' +
       'h1{font-size:42px;font-weight:700;letter-spacing:-.02em;line-height:1.12;max-width:480px;margin-bottom:14px}' +
+      'h1.small{font-size:32px;margin-bottom:10px}' +
       'p.sub{font-size:14.5px;color:#4b535c;max-width:420px;line-height:1.65;margin-bottom:26px}' +
-      'a.cta{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.01em;background:#0f6e6a;color:#f6f7f8;padding:12px 26px;border-radius:5px;text-decoration:none;margin-bottom:38px}' +
-      '.stats{display:flex;gap:34px}' +
+      'a.cta{display:inline-block;font-size:13px;font-weight:600;letter-spacing:.01em;background:#0f6e6a;color:#f6f7f8;padding:12px 26px;border-radius:5px;text-decoration:none;margin-bottom:16px}' +
+      '.stats{display:flex;gap:34px;margin-bottom:38px}' +
       '.stat b{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums;font-size:26px;color:#0f6e6a;font-weight:600}' +
       '.stat span{font-size:11.5px;color:#5c646d;letter-spacing:.02em}' +
-      'footer{padding:18px 44px;border-top:1px solid rgba(20,24,29,.08);font-size:11.5px;color:#7a828b}' +
+      '.steps3{display:flex;flex-direction:column;gap:15px;max-width:440px}' +
+      '.step3{display:flex;gap:16px;align-items:flex-start;text-align:left}' +
+      '.step3 b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#0f6e6a;flex:none;padding-top:2px}' +
+      '.step3 strong{display:block;font-size:14.5px;margin-bottom:3px}' +
+      '.step3 span{font-size:12.5px;color:#4b535c;line-height:1.55}' +
+      '.fine{font-size:11.5px;color:#7a828b;margin-top:6px}' +
+      'footer{padding:16px 44px;border-top:1px solid rgba(20,24,29,.08);font-size:11.5px;color:#7a828b}' +
       '</style></head><body>' +
-      '<header><span class="word">Northbeam</span><span class="tag">OPS CONSULTING</span></header>' +
-      '<main><h1>Fewer handoffs.<br>Faster ops.</h1>' +
+      '<header><div class="brand"><span class="word">Northbeam</span><span class="tag">OPS CONSULTING</span></div>' +
+      '<nav>' +
+      '<a href="#" data-page="home" class="active">Home</a>' +
+      '<a href="#" data-page="approach">Approach</a>' +
+      '<a href="#" data-page="contact">Contact</a>' +
+      '</nav></header>' +
+      '<div class="page active" data-page="home">' +
+      '<h1>Fewer handoffs.<br>Faster ops.</h1>' +
       '<p class="sub">We rebuild the systems behind your busiest process, end to end, in six weeks or less.</p>' +
       '<a class="cta" href="#" tabindex="-1">See the approach</a>' +
       '<div class="stats"><div class="stat"><b>6 wks</b><span>Typical rollout</span></div>' +
-      '<div class="stat"><b>3</b><span>Systems replaced, on average</span></div></div></main>' +
+      '<div class="stat"><b>3</b><span>Systems replaced, on average</span></div></div>' +
+      '</div>' +
+      '<div class="page" data-page="approach">' +
+      '<h1 class="small">How we work</h1>' +
+      '<p class="sub">Three steps, six weeks, no surprise scope.</p>' +
+      '<div class="steps3">' +
+      '<div class="step3"><b>01</b><div><strong>Diagnose</strong><span>Map the process end to end and find where it actually breaks.</span></div></div>' +
+      '<div class="step3"><b>02</b><div><strong>Redesign</strong><span>Rebuild the parts that slow the team down, not the whole system.</span></div></div>' +
+      '<div class="step3"><b>03</b><div><strong>Deploy</strong><span>Ship it with the team using it, and stay through the first month.</span></div></div>' +
+      '</div>' +
+      '</div>' +
+      '<div class="page" data-page="contact">' +
+      '<h1 class="small">Get in touch</h1>' +
+      '<p class="sub">Tell us what&rsquo;s slow, and we&rsquo;ll tell you honestly if six weeks is realistic.</p>' +
+      '<a class="cta" href="#" tabindex="-1">Start a conversation</a>' +
+      '<p class="fine">Based remotely. Replies within one business day.</p>' +
+      '</div>' +
       '<footer>A four-person team. No subcontractors.</footer>' +
+      PAGE_SWITCHER +
       '</body></html>'
   };
 
@@ -882,6 +1034,105 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     scalePreviews._t = setTimeout(scalePreviews, 120);
   });
 
+  /* ================= example preview modal =================
+     Clicking a preview button opens the same EXAMPLES[key] content full
+     size in a dialog, this time interactive: the tiny thumbnail iframe
+     stays pointer-events:none (decorative), while the modal's iframe is
+     a live, clickable copy, so a multi-page example's own nav actually
+     switches pages inside it.
+  ================================================== */
+  var modal = document.getElementById('previewModal');
+  var modalPanel = modal.querySelector('.preview-modal-panel');
+  var modalFrame = document.getElementById('previewModalFrame');
+  var modalUrl = document.getElementById('previewModalUrl');
+  var modalClose = document.getElementById('previewModalClose');
+  var modalLastTrigger = null;
+
+  var SITE_URLS = {
+    ember: 'marrow.example',
+    aster: 'asterstudio.example',
+    northbeam: 'northbeam.example'
+  };
+
+  function scaleModalFrame() {
+    var box = modalFrame.parentElement.getBoundingClientRect();
+    if (box.width > 0) modalFrame.style.setProperty('--ms', Math.min(1, box.width / 800));
+  }
+
+  function onModalKeydown(e) {
+    if (e.key === 'Escape') closePreviewModal();
+  }
+
+  // A plain Tab-key handler on the outer document can't see keystrokes typed
+  // while focus is inside the modal's <iframe> -- that's a separate document,
+  // and keyboard events don't cross the frame boundary. So instead of
+  // hand-rolling a Tab cycle, we just watch where focus LANDS: if it ever
+  // ends up outside the modal panel while the modal is open (including a
+  // Tab that walked out of the iframe's own content), snap it back to the
+  // close button. This also covers focus leaking backward via Shift+Tab.
+  function containFocus(e) {
+    if (!modal.classList.contains('open')) return;
+    if (modalPanel.contains(e.target)) return;
+    // Deferred a tick: redirecting focus synchronously from inside a
+    // focusin handler that a native Tab keypress is still processing can
+    // get silently dropped, the same class of issue as the modal's own
+    // open-focus (see the visibility-transition note above).
+    setTimeout(function () { modalClose.focus(); }, 0);
+  }
+
+  // Escape typed while focus is inside the iframe never reaches the outer
+  // document's keydown listener either, for the same cross-frame reason --
+  // so bind it fresh inside the iframe's own document each time it loads.
+  modalFrame.addEventListener('load', function () {
+    try {
+      modalFrame.contentDocument.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closePreviewModal();
+      });
+    } catch (err) { /* srcdoc is same-origin, so this shouldn't throw */ }
+  });
+
+  function openPreviewModal(key, trigger) {
+    if (!EXAMPLES[key]) return;
+    modalLastTrigger = trigger || null;
+    modalFrame.srcdoc = EXAMPLES[key];
+    modalUrl.textContent = SITE_URLS[key] || '';
+    document.body.classList.add('modal-open');
+    modal.style.visibility = 'visible';
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+    scaleModalFrame();
+    modalClose.focus();
+    document.addEventListener('keydown', onModalKeydown);
+    document.addEventListener('focusin', containFocus);
+  }
+
+  function closePreviewModal() {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', onModalKeydown);
+    document.removeEventListener('focusin', containFocus);
+    if (modalLastTrigger) modalLastTrigger.focus();
+    // Hide only after the fade-out finishes, and clear the iframe content
+    // so nothing keeps running in the background.
+    setTimeout(function () {
+      modal.style.visibility = 'hidden';
+      modalFrame.srcdoc = '';
+    }, 300);
+  }
+
+  document.querySelectorAll('.preview[data-example]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      openPreviewModal(btn.getAttribute('data-example'), btn);
+    });
+  });
+  modal.querySelectorAll('[data-modal-close]').forEach(function (el) {
+    el.addEventListener('click', closePreviewModal);
+  });
+  modalClose.addEventListener('click', closePreviewModal);
+  window.addEventListener('resize', function () {
+    if (modal.classList.contains('open')) scaleModalFrame();
+  });
   /* ================= card glow follows cursor ================= */
   document.querySelectorAll('.card').forEach(function (card) {
     card.addEventListener('pointermove', function (e) {
