@@ -347,6 +347,12 @@ body.modal-open{overflow:hidden}
   background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:7px;
   padding:5px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
+/* The site map is a diagram, not a web page -- so when it's the one
+   filling the panel, drop the browser chrome (window dots + address
+   bar) and leave just the back and close controls. */
+.preview-modal-panel[data-view="sitemap"] .preview-modal-bar{justify-content:space-between}
+.preview-modal-panel[data-view="sitemap"] .preview-modal-bar .dots,
+.preview-modal-panel[data-view="sitemap"] .preview-modal-url{display:none}
 .preview-modal-close,.preview-modal-back{
   flex:none;width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
   background:var(--panel);border:1px solid var(--line);color:var(--ink-2);
@@ -436,8 +442,8 @@ body.modal-open{overflow:hidden}
 .cta-strip-inner .lede{margin:16px auto 30px}
 
 /* ---------- contact (separate page) ---------- */
-.contact-page{padding-block:clamp(64px,8vw,100px);position:relative}
-.contact-page[hidden]{display:none}
+.contact-page,.sub-page{padding-block:clamp(64px,8vw,100px);position:relative}
+.contact-page[hidden],.sub-page[hidden]{display:none}
 .back-link{
   display:inline-flex;align-items:center;gap:8px;
   font-family:var(--font-display);font-weight:600;font-size:.92rem;color:var(--ink-2);
@@ -485,6 +491,47 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 .foot nav{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.9rem;color:var(--ink-2)}
 .foot nav a:hover{color:var(--accent)}
 .copy{width:100%;border-top:1px solid var(--line);margin-top:30px;padding-top:22px;font-size:.84rem;color:var(--ink-3);display:flex;flex-wrap:wrap;gap:8px 18px;justify-content:space-between}
+
+/* ---------- clickable copyright + its popup ---------- */
+.copy-link{
+  all:unset;box-sizing:border-box;cursor:pointer;
+  font-size:.84rem;color:var(--ink-3);
+  display:inline-flex;align-items:center;gap:7px;
+  border-bottom:1px solid transparent;
+  transition:color .2s var(--ease),border-color .2s var(--ease);
+}
+.copy-link:hover{color:var(--accent);border-bottom-color:rgba(56,225,255,.45)}
+.copy-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+.copy-link svg{width:13px;height:13px;flex:none;opacity:.75}
+
+.info-modal{
+  position:fixed;inset:0;z-index:210;
+  display:flex;align-items:center;justify-content:center;padding:16px;
+  opacity:0;visibility:hidden;pointer-events:none;
+  transition:opacity .25s var(--ease);
+}
+.info-modal.open{opacity:1;pointer-events:auto}
+.info-modal-backdrop{position:absolute;inset:0;background:rgba(4,6,12,.72);backdrop-filter:blur(6px)}
+.info-modal-panel{
+  position:relative;z-index:1;width:min(560px,100%);max-height:82vh;overflow-y:auto;
+  border-radius:16px;border:1px solid var(--line-strong);
+  background:var(--bg-2);box-shadow:0 40px 90px -30px rgba(0,0,0,.85);
+  padding:clamp(24px,3vw,32px);
+  transform:translateY(14px) scale(.98);opacity:0;
+  transition:transform .3s var(--ease),opacity .3s var(--ease);
+}
+[data-theme="light"] .info-modal-panel{background:#ffffff}
+.info-modal.open .info-modal-panel{transform:none;opacity:1}
+.info-modal-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:6px}
+.info-modal-head h2{font-size:clamp(1.3rem,3vw,1.6rem)}
+.info-modal-body h3{
+  font-size:.78rem;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--accent);margin:22px 0 7px;
+}
+.info-modal-body p{color:var(--ink-2);font-size:.92rem;line-height:1.65;margin:0}
+.info-modal-body p.lead{color:var(--ink);font-size:.95rem;margin-top:10px}
+.info-modal-body a{color:var(--ink);border-bottom:1px solid rgba(56,225,255,.45)}
+.info-modal-body a:hover{color:var(--accent)}
 
 /* ---------- reveal on scroll ---------- */
 .reveal{opacity:0;transform:translateY(26px);transition:opacity .8s var(--ease),transform .8s var(--ease)}
@@ -623,9 +670,56 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   </div>
 </section>
 
-<!-- ============ EXAMPLES ============ -->
-<section id="examples">
+<!-- ============ WHY ============ -->
+<section id="why">
   <div class="wrap">
+    <div class="section-head reveal">
+      <p class="eyebrow">Why Tycho Tech</p>
+      <h2>Small studio, serious output</h2>
+      <p class="lede">You work directly with me — [Your Name] — from the first call to launch day. No account managers, no handoffs.</p>
+    </div>
+
+    <div class="why">
+      <article class="card reveal">
+        <p class="big">Days</p>
+        <h3>Fast turnaround</h3>
+        <p>Most landing pages go live within a week. AI-assisted tooling removes the slow parts without cutting the care.</p>
+      </article>
+      <article class="card reveal">
+        <p class="big">Fixed</p>
+        <h3>Affordable pricing</h3>
+        <p>One flat quote agreed upfront, sized for small budgets. No hourly billing and no mid-project surprises.</p>
+      </article>
+      <article class="card reveal">
+        <p class="big">2026</p>
+        <h3>Modern design</h3>
+        <p>Clean, current layouts that load in well under two seconds and look right on every screen size.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CTA STRIP ============ -->
+<section id="cta-strip">
+  <div class="wrap">
+    <div class="cta-strip-inner reveal">
+      <h2>Let&rsquo;s get your site off the ground.</h2>
+      <p class="lede">Tell me what you do and what you need, and I&rsquo;ll reply within one business day with a timeline and a fixed price.</p>
+      <a class="btn btn-primary btn-lg" href="#contact">Start Your Project</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- ============ EXAMPLES (separate page) ============ -->
+<div id="examples" class="sub-page" hidden>
+  <div class="wrap">
+    <a class="back-link" href="#top">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+      Back to Tycho Tech
+    </a>
+
     <div class="section-head reveal">
       <p class="eyebrow">Examples</p>
       <h2>A few directions to start from</h2>
@@ -676,49 +770,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
       <a class="btn btn-ghost" href="#contact">Not sure which fits? Let&rsquo;s talk it through</a>
     </div>
   </div>
-</section>
-
-<!-- ============ WHY ============ -->
-<section id="why">
-  <div class="wrap">
-    <div class="section-head reveal">
-      <p class="eyebrow">Why Tycho Tech</p>
-      <h2>Small studio, serious output</h2>
-      <p class="lede">You work directly with me — [Your Name] — from the first call to launch day. No account managers, no handoffs.</p>
-    </div>
-
-    <div class="why">
-      <article class="card reveal">
-        <p class="big">Days</p>
-        <h3>Fast turnaround</h3>
-        <p>Most landing pages go live within a week. AI-assisted tooling removes the slow parts without cutting the care.</p>
-      </article>
-      <article class="card reveal">
-        <p class="big">Fixed</p>
-        <h3>Affordable pricing</h3>
-        <p>One flat quote agreed upfront, sized for small budgets. No hourly billing and no mid-project surprises.</p>
-      </article>
-      <article class="card reveal">
-        <p class="big">2026</p>
-        <h3>Modern design</h3>
-        <p>Clean, current layouts that load in well under two seconds and look right on every screen size.</p>
-      </article>
-    </div>
-  </div>
-</section>
-
-<!-- ============ CTA STRIP ============ -->
-<section id="cta-strip">
-  <div class="wrap">
-    <div class="cta-strip-inner reveal">
-      <h2>Let&rsquo;s get your site off the ground.</h2>
-      <p class="lede">Tell me what you do and what you need, and I&rsquo;ll reply within one business day with a timeline and a fixed price.</p>
-      <a class="btn btn-primary btn-lg" href="#contact">Start Your Project</a>
-    </div>
-  </div>
-</section>
-
-</main>
+</div>
 
 <!-- ============ CONTACT (separate page) ============ -->
 <div id="contact" class="contact-page" hidden>
@@ -798,7 +850,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
         <a href="#contact">Contact</a>
       </nav>
       <div class="copy">
-        <span>&copy; <span id="year">2026</span> Tycho Tech. All rights reserved.</span>
+        <button class="copy-link" type="button" id="copyrightBtn" aria-haspopup="dialog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.2" stroke-linecap="round"/><path d="M12 7.9v.1" stroke-linecap="round"/></svg>
+          &copy; <span id="year">2026</span> Tycho Tech &mdash; terms of use
+        </button>
         <span>Named for Tycho Brahe, who measured the sky without a telescope.</span>
       </div>
     </div>
@@ -827,6 +882,32 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
           <iframe id="previewModalFrame" title="Full example preview"></iframe>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="info-modal" id="copyrightModal" aria-hidden="true">
+  <div class="info-modal-backdrop" data-info-close></div>
+  <div class="info-modal-panel" role="dialog" aria-modal="true" aria-labelledby="copyrightTitle">
+    <div class="info-modal-head">
+      <h2 id="copyrightTitle">&copy; <span id="year2">2026</span> Tycho Tech</h2>
+      <button class="preview-modal-close" type="button" id="copyrightClose" aria-label="Close">&times;</button>
+    </div>
+
+    <div class="info-modal-body">
+      <p class="lead">All content on this site &mdash; copy, layout, code, and the example previews &mdash; is the work of Tycho Tech and is protected by copyright.</p>
+
+      <h3>What you own</h3>
+      <p>When your project is paid in full, the finished website is yours: the design, the content you supplied, and the code that ships with it. You get the files and you can host them anywhere you like.</p>
+
+      <h3>What stays mine</h3>
+      <p>The example previews on this site, and any reusable components or internal tooling behind them, stay the property of Tycho Tech. They're here to show what's possible, not to be copied.</p>
+
+      <h3>Showing your project</h3>
+      <p>I may show finished work in a portfolio unless you ask me not to &mdash; just say the word and it stays private.</p>
+
+      <h3>Questions</h3>
+      <p>Anything unclear, or you need something in writing before we start? Email <a href="mailto:[you@example.com]">[you@example.com]</a> and I'll sort it out.</p>
     </div>
   </div>
 </div>
@@ -1017,28 +1098,36 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     sections.forEach(function (s) { if (s) spy.observe(s); });
   }
 
-  /* ================= contact as a separate page =================
-     The contact form lives outside <main> as its own hidden view. A
-     plain hashchange listener toggles the two -- no router needed,
-     since every link to it is already a normal <a href="#contact">
-     and the browser updates location.hash on click for free. This also
-     makes the page shareable/bookmarkable and gives the browser's own
-     back button a "page" to return from.
+  /* ================= examples + contact as separate pages =================
+     Both live outside <main> as their own hidden views, so the home page
+     stays short. No router library needed: every link to them is already
+     a normal <a href="#examples"> / <a href="#contact">, and the browser
+     updates location.hash on click for free. We just listen for that and
+     show exactly one view. Each page is shareable and bookmarkable, and
+     the browser's own back button has a "page" to return from.
   ================================================== */
   var mainEl = document.getElementById('top');
-  var contactPage = document.getElementById('contact');
+  var subPages = {
+    '#examples': document.getElementById('examples'),
+    '#contact': document.getElementById('contact')
+  };
 
   function syncViewToHash() {
-    var isContact = location.hash === '#contact';
-    contactPage.hidden = !isContact;
-    mainEl.hidden = isContact;
-    navLinks.forEach(function (a) {
-      if (isContact) a.classList.toggle('active', a.getAttribute('href') === '#contact');
+    var hash = location.hash;
+    var active = subPages[hash] || null;
+
+    Object.keys(subPages).forEach(function (key) {
+      subPages[key].hidden = subPages[key] !== active;
     });
-    if (isContact) {
+    mainEl.hidden = !!active;
+
+    if (active) {
+      navLinks.forEach(function (a) {
+        a.classList.toggle('active', a.getAttribute('href') === hash);
+      });
       window.scrollTo(0, 0);
-    } else if (location.hash) {
-      var target = document.querySelector(location.hash);
+    } else if (hash) {
+      var target = document.querySelector(hash);
       if (target) requestAnimationFrame(function () { target.scrollIntoView(); });
     }
   }
@@ -1261,17 +1350,35 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     if (EXAMPLES[key]) f.srcdoc = EXAMPLES[key];
   });
 
-  function scalePreviews() {
-    previewFrames.forEach(function (f) {
-      var box = f.parentElement.getBoundingClientRect();
-      if (box.width > 0) f.style.setProperty('--s', box.width / 800);
+  /* The iframe is laid out at a fixed 800px design width and scaled to
+     whatever width its card actually gets. A ResizeObserver, rather than
+     a window resize listener, because the Examples page starts hidden:
+     a hidden container measures 0 wide, so a one-shot measurement at load
+     would stick at the CSS fallback scale until something resized the
+     window. The observer fires the moment the page is shown and on every
+     later reflow, so each frame corrects itself. */
+  function scalePreview(frame) {
+    var box = frame.parentElement.getBoundingClientRect();
+    if (box.width > 0) frame.style.setProperty('--s', box.width / 800);
+  }
+
+  if ('ResizeObserver' in window) {
+    var previewRO = new ResizeObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var frame = entry.target.querySelector('iframe');
+        if (frame) scalePreview(frame);
+      });
+    });
+    previewFrames.forEach(function (f) { previewRO.observe(f.parentElement); });
+  } else {
+    var rescaleAll = function () { previewFrames.forEach(scalePreview); };
+    rescaleAll();
+    window.addEventListener('hashchange', rescaleAll);
+    window.addEventListener('resize', function () {
+      clearTimeout(rescaleAll._t);
+      rescaleAll._t = setTimeout(rescaleAll, 120);
     });
   }
-  scalePreviews();
-  window.addEventListener('resize', function () {
-    clearTimeout(scalePreviews._t);
-    scalePreviews._t = setTimeout(scalePreviews, 120);
-  });
 
   /* ================= example preview modal =================
      Clicking a preview button opens two views of the same example: a
@@ -1529,8 +1636,58 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     form.reset();
   });
 
+  /* ================= clickable copyright ================= */
+  /* The copyright line in the footer is a real button: the terms live in
+     a popup rather than taking up room on the page, or sending the visitor
+     off to a second document. Same close affordances as the preview modal
+     -- backdrop click, Escape, and focus returned to the line that opened
+     it -- but no iframe here, so a plain keydown listener is enough. */
+  var copyBtn = document.getElementById('copyrightBtn');
+  var copyModal = document.getElementById('copyrightModal');
+  var copyPanel = copyModal.querySelector('.info-modal-panel');
+  var copyClose = document.getElementById('copyrightClose');
+
+  function onCopyKeydown(e) {
+    if (e.key === 'Escape') closeCopyright();
+  }
+
+  function containCopyFocus(e) {
+    if (!copyModal.classList.contains('open')) return;
+    if (copyPanel.contains(e.target)) return;
+    setTimeout(function () { copyClose.focus(); }, 0);
+  }
+
+  function openCopyright() {
+    document.body.classList.add('modal-open');
+    copyModal.style.visibility = 'visible';
+    copyModal.classList.add('open');
+    copyModal.setAttribute('aria-hidden', 'false');
+    copyPanel.scrollTop = 0;
+    copyClose.focus();
+    document.addEventListener('keydown', onCopyKeydown);
+    document.addEventListener('focusin', containCopyFocus);
+  }
+
+  function closeCopyright() {
+    copyModal.classList.remove('open');
+    copyModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.removeEventListener('keydown', onCopyKeydown);
+    document.removeEventListener('focusin', containCopyFocus);
+    copyBtn.focus();
+    setTimeout(function () { copyModal.style.visibility = 'hidden'; }, 300);
+  }
+
+  copyBtn.addEventListener('click', openCopyright);
+  copyClose.addEventListener('click', closeCopyright);
+  copyModal.addEventListener('click', function (e) {
+    if (e.target.hasAttribute('data-info-close')) closeCopyright();
+  });
+
   /* ================= footer year ================= */
-  document.getElementById('year').textContent = new Date().getFullYear();
+  var thisYear = new Date().getFullYear();
+  document.getElementById('year').textContent = thisYear;
+  document.getElementById('year2').textContent = thisYear;
 })();
 </script>
 </body>
