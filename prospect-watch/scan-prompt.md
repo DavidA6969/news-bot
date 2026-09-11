@@ -14,10 +14,18 @@ Read every existing prospect so you do not add duplicates:
 
   Artifact action="read_db" db_op="list" collection="prospects"
     query={"limit": 1000}
-    out_dir="<your scratchpad>/existing"
+
+Do not pass out_dir on any call in this run, and do not write files outside
+your own scratchpad directory. Saving elsewhere raises a permission prompt,
+and nobody is watching a scheduled run to answer it, so the scan would stall
+before it started. Read the documents inline instead.
 
 Page with query.cursor until no next_cursor comes back. Note every document
 id and business name. Also read meta/scan for the previous run's record.
+
+The same applies to everything else you do here: this session runs
+unattended. Prefer the option that does not prompt. If something does block
+on a permission you cannot satisfy, stop and report it rather than waiting.
 
 ## 2. Look for candidates
 
