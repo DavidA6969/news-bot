@@ -26,14 +26,14 @@
 <meta property="og:site_name" content="I&amp;D Digital">
 <meta property="og:url" content="[https://yourdomain.com]/">
 <meta property="og:title" content="I&amp;D Digital — Imagine It. We Build It.">
-<meta property="og:description" content="Landing pages and websites for small businesses, startups and local shops — launched in about a week, at a fixed price quoted upfront.">
+<meta property="og:description" content="Landing pages and websites for small businesses, startups and local shops — launched in a day, at a fixed price quoted upfront.">
 <meta property="og:image" content="[https://yourdomain.com]/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="I&amp;D Digital — Imagine It. We Build It.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="I&amp;D Digital — Imagine It. We Build It.">
-<meta name="twitter:description" content="Landing pages and websites for small businesses, startups and local shops — launched in about a week, at a fixed price quoted upfront.">
+<meta name="twitter:description" content="Landing pages and websites for small businesses, startups and local shops — launched in a day, at a fixed price quoted upfront.">
 <meta name="twitter:image" content="[https://yourdomain.com]/og-image.png">
 
 <!-- Set the saved theme before first paint, so there's no flash of the
@@ -144,8 +144,8 @@ a{color:inherit;text-decoration:none}
 
 /* ---------- layout ---------- */
 .wrap{width:100%;max-width:var(--maxw);margin-inline:auto;padding-inline:22px}
-section{padding-block:clamp(72px,9vw,124px);position:relative}
-.section-head{max-width:660px;margin-bottom:clamp(36px,5vw,58px)}
+section{padding-block:clamp(48px,6vw,100px);position:relative}
+.section-head{max-width:660px;margin-bottom:clamp(28px,4.5vw,54px)}
 .eyebrow{
   display:inline-flex;align-items:center;gap:8px;
   font-family:var(--font-display);font-size:.72rem;font-weight:600;
@@ -234,7 +234,7 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 :focus-visible{outline:2px solid var(--accent-ink);outline-offset:3px;border-radius:8px}
 
 /* ---------- hero ---------- */
-.hero{padding-top:clamp(56px,8vw,96px);padding-bottom:clamp(72px,9vw,118px);text-align:center;overflow:hidden}
+.hero{padding-top:clamp(40px,5vw,84px);padding-bottom:clamp(48px,6vw,96px);text-align:center;overflow:hidden}
 .hero-inner{position:relative;max-width:880px;margin-inline:auto}
 .orbits{
   position:absolute;left:50%;top:46%;translate:-50% -50%;
@@ -268,7 +268,7 @@ h3{font-size:1.18rem;font-weight:600;letter-spacing:-.01em}
 .hero-cta{display:flex;flex-wrap:wrap;gap:13px;justify-content:center;margin-top:34px}
 .trust{
   display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;
-  margin:46px 0 0;padding:0;list-style:none;
+  margin:34px 0 0;padding:0;list-style:none;
   font-size:.88rem;color:var(--ink-3);
 }
 .trust li{display:flex;align-items:center;gap:9px}
@@ -457,7 +457,7 @@ body.modal-open{overflow:hidden}
 .cta-strip-inner .lede{margin:16px auto 30px}
 
 /* ---------- contact (separate page) ---------- */
-.contact-page,.sub-page{padding-block:clamp(64px,8vw,100px);position:relative}
+.contact-page,.sub-page{padding-block:clamp(48px,6vw,88px);position:relative}
 .contact-page[hidden],.sub-page[hidden]{display:none}
 .back-link{
   display:inline-flex;align-items:center;gap:8px;
@@ -581,7 +581,12 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
   body{font-size:16px}
   .wrap{padding-inline:18px}
   .hero-cta .btn{width:100%}
-  .trust{gap:10px 18px;justify-content:flex-start;text-align:left}
+  .trust{gap:10px 18px;justify-content:flex-start;text-align:left;margin-top:28px}
+  section{padding-block:40px}
+  .hero{padding-top:32px;padding-bottom:40px}
+  .section-head{margin-bottom:24px}
+  .sub-page,.contact-page{padding-block:40px}
+  .back-link{margin-bottom:22px}
 }
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -669,13 +674,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
 
     <p class="pill reveal"><span class="dot"></span> Taking on new projects this month</p>
 
-    <h1 class="reveal">Get online in days, <span class="accent">not months.</span></h1>
+    <h1 class="reveal">Get online in a day, <span class="accent">not months.</span></h1>
 
     <p class="tagline reveal">Imagine It. We Build It.</p>
 
     <p class="sub reveal">
-      We build landing pages and websites for <strong>[small businesses, startups and local shops]</strong>,
-      using AI-assisted workflows to move fast and keep pricing affordable.
+      We build landing pages and websites for <strong>[small businesses, startups and local shops]</strong>.
+      A small team of web developers, quick turnarounds, and pricing built for small budgets.
     </p>
 
     <div class="hero-cta reveal">
@@ -684,7 +689,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     </div>
 
     <ul class="trust reveal">
-      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M13 2L4.1 13.4A1 1 0 005 15h5l-1 7 8.9-11.4A1 1 0 0017 9h-5z"/></svg> Launch in about a week</li>
+      <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M13 2L4.1 13.4A1 1 0 005 15h5l-1 7 8.9-11.4A1 1 0 0017 9h-5z"/></svg> Launch in a day</li>
       <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> Fixed price, quoted upfront</li>
       <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8"/></svg> Built mobile-first</li>
     </ul>
@@ -697,14 +702,14 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
     <div class="section-head reveal">
       <p class="eyebrow">Why I&amp;D Digital</p>
       <h2>Small studio, serious output</h2>
-      <p class="lede">You work directly with us — [Your Name] and [Partner's Name] — from the first call to launch day. No account managers, no handoffs.</p>
+      <p class="lede">You work directly with us — [Your Name] and [Partner's Name] — from the first call to launch day, with our developers building behind us. No account managers, no handoffs.</p>
     </div>
 
     <div class="why">
       <article class="card reveal">
-        <p class="big">Days</p>
+        <p class="big">1 day</p>
         <h3>Fast turnaround</h3>
-        <p>Most landing pages go live within a week. AI-assisted tooling removes the slow parts without cutting the care.</p>
+        <p>Most landing pages go live the same day you sign off on the design. Our developers build from proven foundations, so nothing sits in a queue.</p>
       </article>
       <article class="card reveal">
         <p class="big">Fixed</p>
@@ -875,7 +880,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 38px;background:linear-gr
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.3"/><path d="M12 11v5.2" stroke-linecap="round"/><path d="M12 7.9v.1" stroke-linecap="round"/></svg>
           &copy; <span id="year">2026</span> I&amp;D Digital &mdash; terms of use
         </button>
-        <span>I&amp;D &mdash; two people, one build, start to launch.</span>
+        <span>I&amp;D &mdash; one team, from first sketch to launch day.</span>
       </div>
     </div>
   </div>
