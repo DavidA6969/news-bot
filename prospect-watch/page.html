@@ -956,12 +956,33 @@
       render();
     });
 
+    var migrated = false;
     db.collection("status").onSnapshot(function (snap) {
       var next = {};
       snap.docs.forEach(function (d) {
         var v = d.data() || {};
         if (v.state) next[d.id] = v.state;
       });
+
+      // One-time lift of marks made before this list was shared: if nobody
+      // has marked anything in the shared store yet, carry this browser's
+      // own marks up so they are not lost.
+      if (!migrated) {
+        migrated = true;
+        var local = readLocalStatus();
+        var carry = Object.keys(local).filter(function (id) {
+          return local[id] && local[id] !== "New" && !next[id];
+        });
+        if (!snap.docs.length && carry.length) {
+          var stamp = new Date().toISOString();
+          carry.forEach(function (id) {
+            next[id] = local[id];
+            db.doc("status/" + id).set({ state: local[id], updatedAt: stamp, liftedFrom: "browser" })
+              .catch(function () {});
+          });
+        }
+      }
+
       STATUS = next;
       if (dbReady) render();
     }, function () {});
