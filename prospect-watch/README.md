@@ -38,6 +38,22 @@ write the new ones in.
 It only ever adds. Nothing is deleted automatically, and a business that has
 since built a real website gets a note rather than a removal.
 
+## The four-week stop
+
+A scheduled job with no end date keeps drawing usage whether or not anyone
+is reading what it produces, so this one has a hard checkpoint.
+
+A second, one-off Routine fires on 6 October 2026. It pauses the weekly
+scan, reads what four runs actually added, spot-checks a few entries by
+loading their links, and reports whether the output was worth the usage.
+The scan stays off until someone turns it back on.
+
+    weekly scan       trig_019qAJapVXjxBZBfKokvQZQ8   Mondays 13:00 UTC
+    review and pause  trig_01PVN3vfvpqfWBGkXt3ckg2D   once, 2026-10-06
+
+A run costs roughly one moderately heavy session. Either Routine can be
+switched off at any time under Routines in claude.ai settings.
+
 Edit `scan-prompt.md` and push, then update the Routine's prompt to match
 (they are two copies; this folder is the readable one).
 
