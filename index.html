@@ -7,6 +7,35 @@
 <meta name="description" content="I&amp;D Digital builds landing pages and websites for small businesses, startups and local shops. Fast turnaround, modern design, honest pricing.">
 <meta name="theme-color" content="#f5f4f0">
 
+<!-- Tab + bookmark icon: inlined so there's no second file to upload and no
+     extra request. -->
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMiAzMiI+PHJlY3Qgd2lkdGg9IjMyIiBoZWlnaHQ9IjMyIiByeD0iNyIgZmlsbD0iIzBhNzQ5MCIvPjxwYXRoIGQ9Ik0xNiA0LjhsMi43IDguNSA4LjUgMi43LTguNSAyLjdMMTYgMjcuMmwtMi43LTguNUw0LjggMTZsOC41LTIuN3oiIGZpbGw9IiNlNmZiZmYiLz48L3N2Zz4=">
+
+<!-- ============ LINK PREVIEW ============
+     What a chat app, a text message or a social post shows when this URL is
+     pasted. Without these it renders as a bare link with no title or image.
+
+     og:url and og:image MUST be absolute URLs -- scrapers fetch them from
+     their own servers, so a relative path resolves to nothing. Swap
+     [https://yourdomain.com] for your real address once you have one, in
+     all four tags below (canonical, og:url, og:image, twitter:image).
+     og-image.png ships next to this file; upload it to the same folder.
+     ====================================== -->
+<link rel="canonical" href="[https://yourdomain.com]/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="I&amp;D Digital">
+<meta property="og:url" content="[https://yourdomain.com]/">
+<meta property="og:title" content="I&amp;D Digital — Imagine It. We Build It.">
+<meta property="og:description" content="Landing pages and websites for small businesses, startups and local shops — launched in about a week, at a fixed price quoted upfront.">
+<meta property="og:image" content="[https://yourdomain.com]/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="I&amp;D Digital — Imagine It. We Build It.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="I&amp;D Digital — Imagine It. We Build It.">
+<meta name="twitter:description" content="Landing pages and websites for small businesses, startups and local shops — launched in about a week, at a fixed price quoted upfront.">
+<meta name="twitter:image" content="[https://yourdomain.com]/og-image.png">
+
 <!-- Set the saved theme before first paint, so there's no flash of the
      wrong theme on load. Kept tiny and synchronous on purpose. -->
 <script>
@@ -27,9 +56,12 @@
                                      Contact page, the terms popup, and
                                      CONTACT_EMAIL in the script below)
        [small businesses, startups and local shops]  — your audience
+       [https://yourdomain.com]    — your address once you have one (4x, in
+                                     the link-preview block just above)
      FORM: set FORM_ENDPOINT near the top of the script below to make the
      contact form actually deliver. Until you do, it falls back to opening
      the visitor's mail app, which is unreliable. See the notes there.
+     FILES: this page plus og-image.png. Upload both to the same folder.
      =================================================================== -->
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
