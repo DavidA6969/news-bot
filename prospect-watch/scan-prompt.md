@@ -116,6 +116,13 @@ your report which you removed and why.
 For entries that still qualify, set verifiedAt to today and correct any
 phone, address or gap classification you find to be wrong.
 
+Any entry whose links array is empty needs one. That happens when its only
+links were Yelp or YellowPages and were stripped. Prefer the business's own
+Facebook or Instagram, then a neighbourhood or trade platform people
+actually use, then a company profile. If you genuinely cannot confirm a
+page belongs to them, leave the array empty and say so in the note rather
+than filing a guess.
+
 ## 5. Write the new ones in
 
 Document id is the business name lowercased, every run of non-alphanumeric
