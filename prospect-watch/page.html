@@ -1,0 +1,1000 @@
+<title>Alberta Web Gaps</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #F4F5F3;
+    --surface: #FFFFFF;
+    --surface-2: #EBEDE9;
+    --ink: #16191C;
+    --ink-2: #4E5862;
+    --ink-3: #78838C;
+    --rule: #DCDFDA;
+    --rule-2: #C8CCC6;
+    --accent: #16557A;
+    --accent-soft: #DCE7EE;
+    --sig-none: #A8411D;
+    --sig-social: #96660C;
+    --sig-weak: #40634A;
+    --sig-none-bg: #F3E2DA;
+    --sig-social-bg: #F4EAD2;
+    --sig-weak-bg: #DFE8DF;
+    --focus: #16557A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #131619;
+      --surface: #1B1F23;
+      --surface-2: #23282D;
+      --ink: #EBEEEA;
+      --ink-2: #A3ADB5;
+      --ink-3: #7C868E;
+      --rule: #2B3136;
+      --rule-2: #3A4147;
+      --accent: #74B4DC;
+      --accent-soft: #1C2C36;
+      --sig-none: #E08355;
+      --sig-social: #D7AA4A;
+      --sig-weak: #8FB596;
+      --sig-none-bg: #33211A;
+      --sig-social-bg: #322817;
+      --sig-weak-bg: #1E2A21;
+      --focus: #74B4DC;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #131619;
+    --surface: #1B1F23;
+    --surface-2: #23282D;
+    --ink: #EBEEEA;
+    --ink-2: #A3ADB5;
+    --ink-3: #7C868E;
+    --rule: #2B3136;
+    --rule-2: #3A4147;
+    --accent: #74B4DC;
+    --accent-soft: #1C2C36;
+    --sig-none: #E08355;
+    --sig-social: #D7AA4A;
+    --sig-weak: #8FB596;
+    --sig-none-bg: #33211A;
+    --sig-social-bg: #322817;
+    --sig-weak-bg: #1E2A21;
+    --focus: #74B4DC;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1020px;
+    margin: 0 auto;
+    padding-inline: 20px;
+    padding-block: 40px 72px;
+  }
+
+  /* ---- masthead ---- */
+  .masthead { display: flex; flex-direction: column; gap: 14px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  h1 {
+    font-family: Archivo, "Helvetica Neue", sans-serif;
+    font-weight: 700;
+    font-size: clamp(30px, 6vw, 46px);
+    line-height: 1.02;
+    letter-spacing: -0.025em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .standfirst {
+    max-width: 62ch;
+    color: var(--ink-2);
+    margin: 0;
+    font-size: 16px;
+  }
+
+  /* ---- watch strip ---- */
+  .watch {
+    margin-top: 26px;
+    border: 1px solid var(--rule-2);
+    border-left: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 13px 16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 20px;
+  }
+  .watch-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .pip {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent);
+    flex: none;
+    animation: breathe 3.4s ease-in-out infinite;
+  }
+  @keyframes breathe { 0%,100% { opacity: 1; } 50% { opacity: .32; } }
+  .watch-facts {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--ink-2);
+    font-variant-numeric: tabular-nums;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+  }
+  .watch-facts b { color: var(--ink); font-weight: 500; }
+  .watch-note { font-size: 13px; color: var(--ink-3); max-width: 60ch; flex-basis: 100%; margin: 0; }
+
+  /* ---- tally ---- */
+  .tally {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    margin-top: 22px;
+    min-height: 72px;
+  }
+  .tally div { background: var(--ground); padding: 14px 16px; }
+  .tally .n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 26px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    display: block;
+    line-height: 1.1;
+  }
+  .tally .l { font-size: 12px; color: var(--ink-3); letter-spacing: 0.03em; }
+  .tally .n.fresh { color: var(--accent); }
+
+  /* ---- filters ---- */
+  .controls {
+    margin-top: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--rule-2);
+  }
+  .ctrl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .ctrl-row > .ctrl-label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    width: 58px;
+    flex: none;
+  }
+  button.chip {
+    font: inherit;
+    font-size: 13px;
+    border: 1px solid var(--rule-2);
+    background: transparent;
+    color: var(--ink-2);
+    padding: 5px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  button.chip:hover { border-color: var(--accent); color: var(--ink); }
+  button.chip[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--ground);
+  }
+  button.chip .c {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    opacity: .65;
+    margin-left: 5px;
+  }
+  button.chip.is-fresh { border-color: var(--accent); color: var(--accent); }
+  button.chip.is-fresh[aria-pressed="true"] { color: var(--ground); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .seen-btn {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    background: none;
+    border: 0;
+    border-bottom: 1px solid var(--rule-2);
+    color: var(--ink-3);
+    cursor: pointer;
+    padding: 2px 0;
+  }
+  .seen-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ---- city groups ---- */
+  .city-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin: 40px 0 0;
+    padding-bottom: 8px;
+  }
+  .city-head h2 {
+    font-family: Archivo, sans-serif;
+    font-weight: 600;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+  .city-head .code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--ink-3);
+  }
+
+  /* ---- rows ---- */
+  .row {
+    display: grid;
+    grid-template-columns: 4px 1fr 220px;
+    gap: 0 18px;
+    border-top: 1px solid var(--rule);
+    padding: 18px 0;
+    align-items: start;
+  }
+  .row:last-child { border-bottom: 1px solid var(--rule); }
+  .row.is-new { background: linear-gradient(90deg, var(--accent-soft), transparent 62%); }
+  .stripe { align-self: stretch; min-height: 46px; }
+  .stripe.none { background: var(--sig-none); }
+  .stripe.social { background: var(--sig-social); }
+  .stripe.weak { background: var(--sig-weak); }
+
+  .name-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 9px; }
+  .biz-name {
+    font-family: Archivo, sans-serif;
+    font-weight: 600;
+    font-size: 17.5px;
+    letter-spacing: -0.008em;
+    margin: 0 0 2px;
+  }
+  .flag {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 9.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: var(--ground);
+    padding: 2px 7px;
+    align-self: center;
+  }
+  .meta {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    color: var(--ink-3);
+    letter-spacing: 0.01em;
+    margin-bottom: 9px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 2.5px 8px;
+    margin-bottom: 8px;
+  }
+  .tag.none { background: var(--sig-none-bg); color: var(--sig-none); }
+  .tag.social { background: var(--sig-social-bg); color: var(--sig-social); }
+  .tag.weak { background: var(--sig-weak-bg); color: var(--sig-weak); }
+  .gap { margin: 0 0 6px; color: var(--ink); max-width: 60ch; }
+  .angle {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 14px;
+    max-width: 60ch;
+    border-left: 2px solid var(--rule-2);
+    padding-left: 11px;
+  }
+  .angle b {
+    font-weight: 600;
+    color: var(--ink-3);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    display: block;
+  }
+
+  .actions { display: flex; flex-direction: column; gap: 7px; align-items: flex-start; }
+  .tel {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid var(--rule-2);
+  }
+  .tel:hover { border-color: var(--accent); color: var(--accent); }
+  .src {
+    font-size: 12.5px;
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .src:hover { border-bottom-color: var(--accent); }
+  .src::after { content: " \2197"; font-size: 10px; opacity: .7; }
+
+  button.status {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border: 1px dashed var(--rule-2);
+    background: transparent;
+    color: var(--ink-3);
+    cursor: pointer;
+    margin-top: 3px;
+  }
+  button.status[data-s="Contacted"] { border-style: solid; border-color: var(--accent); color: var(--accent); }
+  button.status[data-s="Replied"] { border-style: solid; background: var(--surface-2); border-color: var(--accent); color: var(--ink); }
+  button.status[data-s="Client"] { border-style: solid; background: var(--accent); border-color: var(--accent); color: var(--ground); }
+  button.status[disabled] { cursor: default; opacity: .6; }
+
+  .empty { padding: 40px 0; color: var(--ink-3); }
+
+  /* ---- skeleton ---- */
+  .skel-row { border-top: 1px solid var(--rule); padding: 18px 0; display: grid; grid-template-columns: 4px 1fr; gap: 0 18px; }
+  .skel-row:last-child { border-bottom: 1px solid var(--rule); }
+  .skel-stripe { background: var(--rule-2); min-height: 46px; }
+  .bar { background: var(--rule); height: 11px; margin-bottom: 9px; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+  /* ---- add panel ---- */
+  .add {
+    margin-top: 44px;
+    border: 1px solid var(--rule-2);
+    background: var(--surface);
+  }
+  .add > summary {
+    cursor: pointer;
+    padding: 13px 16px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    list-style: none;
+  }
+  .add > summary::-webkit-details-marker { display: none; }
+  .add > summary::before { content: "+ "; color: var(--accent); font-weight: 500; }
+  .add[open] > summary::before { content: "\2212 "; }
+  .add[open] > summary { border-bottom: 1px solid var(--rule); }
+  .form { padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 13px; }
+  .form .full { grid-column: 1 / -1; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .field input, .field select, .field textarea {
+    font: inherit;
+    font-size: 14px;
+    padding: 7px 9px;
+    border: 1px solid var(--rule-2);
+    background: var(--ground);
+    color: var(--ink);
+    border-radius: 0;
+  }
+  .field textarea { resize: vertical; min-height: 58px; }
+  .form-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  button.primary {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    background: var(--accent);
+    color: var(--ground);
+    border: 1px solid var(--accent);
+    padding: 8px 18px;
+    cursor: pointer;
+  }
+  button.primary[disabled] { opacity: .5; cursor: default; }
+  .form-msg { font-size: 13px; color: var(--ink-2); }
+  .form-msg.bad { color: var(--sig-none); }
+
+  .notice {
+    margin-top: 26px;
+    border: 1px solid var(--rule-2);
+    background: var(--surface);
+    padding: 14px 16px;
+    color: var(--ink-2);
+    font-size: 14px;
+  }
+  .notice b { font-family: Archivo, sans-serif; color: var(--ink); display: block; margin-bottom: 3px; }
+
+  footer {
+    margin-top: 52px;
+    padding-top: 20px;
+    border-top: 2px solid var(--rule-2);
+    color: var(--ink-3);
+    font-size: 13px;
+    max-width: 66ch;
+  }
+  footer p { margin: 0 0 9px; }
+  footer a { color: var(--accent); }
+
+  @media (max-width: 680px) {
+    .row { grid-template-columns: 4px 1fr; }
+    .actions {
+      grid-column: 2;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 14px;
+      margin-top: 12px;
+    }
+    .ctrl-row > .ctrl-label { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, .pip, .bar { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <span class="eyebrow" id="eyebrow">Calgary &middot; Edmonton &middot; Red Deer &middot; Airdrie</span>
+    <h1>Alberta businesses with no website worth the name</h1>
+    <p class="standfirst" id="standfirst">Verified prospects across construction, personal care, auto, trades, food and finance. Each one was checked past the directory listing: if a real site exists anywhere, it isn't here. Sorted so the coldest openings &mdash; nothing online at all &mdash; come first in each city.</p>
+  </header>
+
+  <section class="watch" aria-live="polite">
+    <span class="watch-label"><span class="pip"></span>Watch</span>
+    <span class="watch-facts" id="watch-facts"><span>Connecting to the list&hellip;</span></span>
+    <p class="watch-note" id="watch-note">A scan runs every Monday morning, sweeps the same directories for businesses that are new or have let their site slip, and files anything it finds here. Nothing is removed automatically.</p>
+  </section>
+
+  <div class="tally" id="tally"></div>
+
+  <div class="controls">
+    <div class="ctrl-row">
+      <span class="ctrl-label">City</span>
+      <span id="city-chips"></span>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">Trade</span>
+      <span id="trade-chips"></span>
+    </div>
+    <div class="ctrl-row">
+      <span class="ctrl-label">Gap</span>
+      <span id="gap-chips"></span>
+    </div>
+    <div class="ctrl-row" id="show-row" hidden>
+      <span class="ctrl-label">Since</span>
+      <span id="show-chips"></span>
+      <button type="button" class="seen-btn" id="seen-btn">Mark all as seen</button>
+    </div>
+  </div>
+
+  <main id="list">
+    <div class="skel-row"><div class="skel-stripe"></div><div><div class="bar" style="width:44%"></div><div class="bar" style="width:28%"></div><div class="bar" style="width:78%"></div></div></div>
+    <div class="skel-row"><div class="skel-stripe"></div><div><div class="bar" style="width:38%"></div><div class="bar" style="width:31%"></div><div class="bar" style="width:66%"></div></div></div>
+    <div class="skel-row"><div class="skel-stripe"></div><div><div class="bar" style="width:49%"></div><div class="bar" style="width:24%"></div><div class="bar" style="width:71%"></div></div></div>
+  </main>
+
+  <details class="add" id="add-panel" hidden>
+    <summary>Add one you spotted yourself</summary>
+    <form class="form" id="add-form">
+      <div class="field"><label for="f-name">Business name</label><input id="f-name" name="name" required autocomplete="off"></div>
+      <div class="field"><label for="f-city">City</label><select id="f-city" name="city"></select></div>
+      <div class="field"><label for="f-trade">Trade</label><select id="f-trade" name="trade"></select></div>
+      <div class="field"><label for="f-gap">What's missing</label><select id="f-gap" name="gap"></select></div>
+      <div class="field"><label for="f-niche">What they do</label><input id="f-niche" name="niche" placeholder="Auto repair" autocomplete="off"></div>
+      <div class="field"><label for="f-addr">Address</label><input id="f-addr" name="addr" autocomplete="off"></div>
+      <div class="field"><label for="f-tel">Phone</label><input id="f-tel" name="tel" placeholder="403-555-0134" autocomplete="off"></div>
+      <div class="field"><label for="f-link-label">Link label</label><input id="f-link-label" name="linkLabel" placeholder="Facebook" autocomplete="off"></div>
+      <div class="field full"><label for="f-link-url">Link address</label><input id="f-link-url" name="linkUrl" type="url" placeholder="https://" autocomplete="off"></div>
+      <div class="field full"><label for="f-note">What you found</label><textarea id="f-note" name="note"></textarea></div>
+      <div class="field full"><label for="f-angle">Your angle</label><textarea id="f-angle" name="angle"></textarea></div>
+      <div class="field full form-actions">
+        <button type="submit" class="primary" id="f-submit">Add to the list</button>
+        <span class="form-msg" id="f-msg"></span>
+      </div>
+    </form>
+  </details>
+
+  <footer>
+    <p><strong>How these were checked.</strong> Pulled from YellowPages.ca category listings for each city, then searched by name to rule out a site the directory just didn't have. A business is on this list only if the search turned up nothing but directories, social pages, or a third-party booking link &mdash; or a site with a real technical fault.</p>
+    <p><strong>The list is shared and live.</strong> New finds and status marks appear for everyone who opens this page, on any device. The blue highlight marks what arrived since you last cleared it, and that part is remembered per browser.</p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var CITIES = ["Calgary", "Edmonton", "Red Deer", "Airdrie"];
+  var AREA = {
+    "Calgary": "403 / 587 / 825", "Edmonton": "780 / 587 / 825",
+    "Red Deer": "403 / 587 / 825", "Airdrie": "403 / 587 / 825"
+  };
+  var TRADES = ["Construction", "Personal care", "Auto", "Trades", "Food", "Finance", "Other"];
+  var GAPS = [
+    { k: "none", label: "No website at all" },
+    { k: "social", label: "Social or booking link only" },
+    { k: "weak", label: "Site with a real fault" }
+  ];
+  var GAP_LABEL = { none: "No website", social: "Social only", weak: "Weak site" };
+  var ORDER = { none: 0, social: 1, weak: 2 };
+  var STATES = ["New", "Contacted", "Replied", "Client"];
+  var SEEN_KEY = "abwebgaps.lastSeen.v2";
+  var LOCAL_STATUS_KEY = "abwebgaps.status.v1";
+
+  var DATA = [];
+  var STATUS = {};
+  var SCAN = null;
+  var db = null;
+  var dbReady = false;
+  var loadFailed = false;
+  var activeCity = null, activeGap = null, activeTrade = null, onlyNew = false;
+  var lastSeen = readSeen();
+
+  function readSeen() {
+    try { return localStorage.getItem(SEEN_KEY) || ""; } catch (e) { return ""; }
+  }
+  function writeSeen(v) {
+    try { localStorage.setItem(SEEN_KEY, v); } catch (e) {}
+  }
+  function readLocalStatus() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_STATUS_KEY) || "{}"); } catch (e) { return {}; }
+  }
+  function writeLocalStatus(s) {
+    try { localStorage.setItem(LOCAL_STATUS_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function slugify(s) {
+    var out = String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return out.slice(0, 80) || ("prospect-" + Date.now());
+  }
+  function fmtDate(iso) {
+    if (!iso) return "";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  }
+  function isNew(b) {
+    if (!b.addedAt || !lastSeen) return false;
+    return b.addedAt > lastSeen;
+  }
+  function newCount() {
+    return DATA.filter(isNew).length;
+  }
+
+  /* ---------------- watch strip ---------------- */
+  function renderWatch() {
+    var box = document.getElementById("watch-facts");
+    box.textContent = "";
+    if (loadFailed) {
+      box.appendChild(el("span", null, "Live list unavailable in this view"));
+      return;
+    }
+    if (!dbReady) {
+      box.appendChild(el("span", null, "Connecting to the list…"));
+      return;
+    }
+    function fact(label, value) {
+      var s = el("span");
+      s.appendChild(document.createTextNode(label + " "));
+      s.appendChild(el("b", null, value));
+      box.appendChild(s);
+    }
+    fact("On the list", String(DATA.length));
+    var auto = DATA.filter(function (b) { return b.source === "scan"; }).length;
+    fact("Found by scan", String(auto));
+    if (SCAN && SCAN.lastRunAt) {
+      fact("Last scan", fmtDate(SCAN.lastRunAt));
+      if (typeof SCAN.lastRunAdded === "number") {
+        fact("Added then", String(SCAN.lastRunAdded));
+      }
+    } else {
+      fact("Last scan", "not run yet");
+    }
+    var n = newCount();
+    if (n) fact("New to you", String(n));
+  }
+
+  /* ---------------- tally ---------------- */
+  function renderTally() {
+    var tally = document.getElementById("tally");
+    tally.textContent = "";
+    CITIES.forEach(function (c) {
+      var d = el("div");
+      d.appendChild(el("span", "n", String(DATA.filter(function (x) { return x.city === c; }).length)));
+      d.appendChild(el("span", "l", c));
+      tally.appendChild(d);
+    });
+    var n = newCount();
+    if (n) {
+      var d2 = el("div");
+      var nv = el("span", "n fresh", String(n));
+      d2.appendChild(nv);
+      d2.appendChild(el("span", "l", "New since your last visit"));
+      tally.appendChild(d2);
+    }
+  }
+
+  /* ---------------- chips ---------------- */
+  function chip(label, count, onClick, isActive, cls) {
+    var b = el("button", "chip" + (cls ? " " + cls : ""));
+    b.type = "button";
+    b.appendChild(document.createTextNode(label));
+    if (count != null) b.appendChild(el("span", "c", String(count)));
+    b.setAttribute("aria-pressed", isActive ? "true" : "false");
+    b.addEventListener("click", onClick);
+    return b;
+  }
+
+  function buildChips() {
+    var cityBox = document.getElementById("city-chips");
+    var tradeBox = document.getElementById("trade-chips");
+    var gapBox = document.getElementById("gap-chips");
+    var showBox = document.getElementById("show-chips");
+    cityBox.textContent = ""; tradeBox.textContent = ""; gapBox.textContent = ""; showBox.textContent = "";
+
+    cityBox.appendChild(chip("All", DATA.length, function () { activeCity = null; render(); }, activeCity === null));
+    CITIES.forEach(function (c) {
+      var n = DATA.filter(function (x) { return x.city === c; }).length;
+      if (!n) return;
+      cityBox.appendChild(chip(c, n, function () { activeCity = (activeCity === c ? null : c); render(); }, activeCity === c));
+    });
+
+    tradeBox.appendChild(chip("All", DATA.length, function () { activeTrade = null; render(); }, activeTrade === null));
+    TRADES.forEach(function (t) {
+      var n = DATA.filter(function (x) { return x.trade === t; }).length;
+      if (!n) return;
+      tradeBox.appendChild(chip(t, n, function () { activeTrade = (activeTrade === t ? null : t); render(); }, activeTrade === t));
+    });
+
+    gapBox.appendChild(chip("Any", DATA.length, function () { activeGap = null; render(); }, activeGap === null));
+    GAPS.forEach(function (g) {
+      var n = DATA.filter(function (x) { return x.gap === g.k; }).length;
+      gapBox.appendChild(chip(g.label, n, function () { activeGap = (activeGap === g.k ? null : g.k); render(); }, activeGap === g.k));
+    });
+
+    var n = newCount();
+    document.getElementById("show-row").hidden = !n;
+    if (n) {
+      showBox.appendChild(chip("New since your last visit", n, function () {
+        onlyNew = !onlyNew; render();
+      }, onlyNew, "is-fresh"));
+    } else {
+      onlyNew = false;
+    }
+  }
+
+  /* ---------------- status ---------------- */
+  function setStatus(id, next, btn) {
+    STATUS[id] = next;
+    btn.setAttribute("data-s", next);
+    btn.textContent = next === "New" ? "Mark contacted" : next;
+    if (db) {
+      db.doc("status/" + id).set({ state: next, updatedAt: new Date().toISOString() })
+        .catch(function () { writeLocalStatus(STATUS); });
+    } else {
+      writeLocalStatus(STATUS);
+    }
+  }
+
+  function statusButton(id) {
+    var cur = STATUS[id] || "New";
+    var b = el("button", "status", cur === "New" ? "Mark contacted" : cur);
+    b.type = "button";
+    b.setAttribute("data-s", cur);
+    b.addEventListener("click", function () {
+      var i = STATES.indexOf(STATUS[id] || "New");
+      setStatus(id, STATES[(i + 1) % STATES.length], b);
+    });
+    return b;
+  }
+
+  /* ---------------- rows ---------------- */
+  function rowNode(b) {
+    var row = el("div", "row" + (isNew(b) ? " is-new" : ""));
+    row.appendChild(el("div", "stripe " + b.gap));
+
+    var main = el("div");
+    var nameLine = el("div", "name-line");
+    nameLine.appendChild(el("h3", "biz-name", b.name));
+    if (isNew(b)) nameLine.appendChild(el("span", "flag", "New"));
+    main.appendChild(nameLine);
+
+    var metaBits = [b.niche, b.addr].filter(Boolean).join("  ·  ");
+    if (b.source === "scan" && b.addedAt) {
+      metaBits += (metaBits ? "  ·  " : "") + "found by scan " + fmtDate(b.addedAt);
+    } else if (b.source === "manual" && b.addedAt) {
+      metaBits += (metaBits ? "  ·  " : "") + "added by hand " + fmtDate(b.addedAt);
+    }
+    main.appendChild(el("div", "meta", metaBits));
+
+    main.appendChild(el("span", "tag " + b.gap, GAP_LABEL[b.gap] || b.gap));
+    if (b.note) main.appendChild(el("p", "gap", b.note));
+    if (b.angle) {
+      var angle = el("p", "angle");
+      angle.appendChild(el("b", null, "Angle"));
+      angle.appendChild(document.createTextNode(b.angle));
+      main.appendChild(angle);
+    }
+    row.appendChild(main);
+
+    var acts = el("div", "actions");
+    if (b.tel) {
+      var t = el("a", "tel", b.tel);
+      t.href = "tel:+1" + String(b.tel).replace(/\D/g, "");
+      acts.appendChild(t);
+    }
+    (b.links || []).forEach(function (pair) {
+      if (!pair || !pair[1]) return;
+      var a = el("a", "src", pair[0] || "Listing");
+      a.href = pair[1];
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      acts.appendChild(a);
+    });
+    acts.appendChild(statusButton(b.id));
+    row.appendChild(acts);
+    return row;
+  }
+
+  /* ---------------- render ---------------- */
+  function render() {
+    renderWatch();
+    renderTally();
+    buildChips();
+    renderStandfirst();
+
+    var list = document.getElementById("list");
+    list.textContent = "";
+
+    if (!dbReady) {
+      if (loadFailed) {
+        var n = el("div", "notice");
+        n.appendChild(el("b", null, "This view can't reach the live list"));
+        n.appendChild(document.createTextNode("The prospects are stored with the artifact rather than in the page, so they load only when it's opened from Claude. Open the artifact link directly and they'll appear."));
+        list.appendChild(n);
+      } else {
+        for (var i = 0; i < 3; i++) {
+          var sk = el("div", "skel-row");
+          sk.appendChild(el("div", "skel-stripe"));
+          var body = el("div");
+          [44, 28, 78].forEach(function (w) {
+            var bar = el("div", "bar");
+            bar.style.width = w + "%";
+            body.appendChild(bar);
+          });
+          sk.appendChild(body);
+          list.appendChild(sk);
+        }
+      }
+      return;
+    }
+
+    var shown = DATA.filter(function (b) {
+      return (!activeCity || b.city === activeCity)
+        && (!activeGap || b.gap === activeGap)
+        && (!activeTrade || b.trade === activeTrade)
+        && (!onlyNew || isNew(b));
+    });
+
+    if (!shown.length) {
+      list.appendChild(el("p", "empty", DATA.length
+        ? "No prospects match that combination."
+        : "The list is empty. Add one below, or wait for the next scan."));
+      return;
+    }
+
+    var groups = CITIES.slice();
+    shown.forEach(function (b) { if (groups.indexOf(b.city) === -1) groups.push(b.city); });
+
+    groups.forEach(function (c) {
+      var group = shown.filter(function (b) { return b.city === c; });
+      if (!group.length) return;
+      group.sort(function (x, y) {
+        var g = (ORDER[x.gap] == null ? 9 : ORDER[x.gap]) - (ORDER[y.gap] == null ? 9 : ORDER[y.gap]);
+        if (g) return g;
+        var a = (y.addedAt || "").localeCompare(x.addedAt || "");
+        if (a) return a;
+        return x.name.localeCompare(y.name);
+      });
+
+      var head = el("div", "city-head");
+      head.appendChild(el("h2", null, c));
+      head.appendChild(el("span", "code", (AREA[c] ? AREA[c] + "  ·  " : "") + group.length + (group.length === 1 ? " prospect" : " prospects")));
+      list.appendChild(head);
+      group.forEach(function (b) { list.appendChild(rowNode(b)); });
+    });
+  }
+
+  function renderStandfirst() {
+    if (!dbReady || !DATA.length) return;
+    var p = document.getElementById("standfirst");
+    p.textContent = DATA.length + " verified prospects across construction, personal care, auto, trades, food and finance. "
+      + "Each one was checked past the directory listing: if a real site exists anywhere, it isn't here. "
+      + "Sorted so the coldest openings — nothing online at all — come first in each city.";
+    var eb = document.getElementById("eyebrow");
+    var when = SCAN && SCAN.lastRunAt ? fmtDate(SCAN.lastRunAt) : "";
+    eb.textContent = "Calgary · Edmonton · Red Deer · Airdrie" + (when ? " — last checked " + when : "");
+  }
+
+  /* ---------------- mark seen ---------------- */
+  document.getElementById("seen-btn").addEventListener("click", function () {
+    var newest = DATA.reduce(function (acc, b) {
+      return (b.addedAt && b.addedAt > acc) ? b.addedAt : acc;
+    }, new Date().toISOString());
+    lastSeen = newest;
+    writeSeen(lastSeen);
+    onlyNew = false;
+    render();
+  });
+
+  /* ---------------- add form ---------------- */
+  function fillSelects() {
+    var city = document.getElementById("f-city");
+    CITIES.forEach(function (c) { city.appendChild(new Option(c, c)); });
+    var trade = document.getElementById("f-trade");
+    TRADES.forEach(function (t) { trade.appendChild(new Option(t, t)); });
+    var gap = document.getElementById("f-gap");
+    GAPS.forEach(function (g) { gap.appendChild(new Option(g.label, g.k)); });
+  }
+  fillSelects();
+
+  document.getElementById("add-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (!db) return;
+    var f = e.target;
+    var msg = document.getElementById("f-msg");
+    var submit = document.getElementById("f-submit");
+    var els = f.elements;
+    var name = els.name.value.trim();
+    if (!name) return;
+
+    var links = [];
+    var lu = els.linkUrl.value.trim();
+    if (lu) links.push([els.linkLabel.value.trim() || "Listing", lu]);
+
+    var body = {
+      name: name,
+      city: els.city.value,
+      trade: els.trade.value,
+      gap: els.gap.value,
+      niche: els.niche.value.trim(),
+      addr: els.addr.value.trim(),
+      tel: els.tel.value.trim(),
+      note: els.note.value.trim(),
+      angle: els.angle.value.trim(),
+      links: links,
+      addedAt: new Date().toISOString(),
+      source: "manual"
+    };
+
+    msg.className = "form-msg";
+    msg.textContent = "Saving…";
+    submit.disabled = true;
+
+    db.doc("prospects/" + slugify(name)).set(body).then(function () {
+      msg.textContent = "Added. It's on the list for everyone.";
+      f.reset();
+      submit.disabled = false;
+    }).catch(function (err) {
+      msg.className = "form-msg bad";
+      msg.textContent = (err && err.code === "quota_exceeded")
+        ? "The list is full. Delete some prospects before adding more."
+        : "That didn't save. Check the fields and try again.";
+      submit.disabled = false;
+    });
+  });
+
+  /* ---------------- boot ---------------- */
+  STATUS = readLocalStatus();
+  render();
+
+  var settled = false;
+  setTimeout(function () {
+    if (!settled) { loadFailed = true; render(); }
+  }, 11000);
+
+  var host = (typeof window !== "undefined" && window.claude) ? window.claude : null;
+  if (!host || typeof host.use !== "function") {
+    settled = true;
+    loadFailed = true;
+    render();
+    return;
+  }
+
+  host.use("db").then(function (store) {
+    settled = true;
+    if (!store) { loadFailed = true; render(); return; }
+    db = store;
+    document.getElementById("add-panel").hidden = false;
+
+    db.collection("prospects").onSnapshot(function (snap) {
+      DATA = snap.docs.map(function (d) {
+        var v = d.data() || {};
+        return {
+          id: d.id, name: v.name || d.id, city: v.city || "Other",
+          gap: v.gap || "none", trade: v.trade || "Other", niche: v.niche || "",
+          addr: v.addr || "", tel: v.tel || "", note: v.note || "", angle: v.angle || "",
+          links: Array.isArray(v.links) ? v.links : [],
+          addedAt: v.addedAt || "", source: v.source || "seed"
+        };
+      });
+      dbReady = true;
+      loadFailed = false;
+      render();
+    }, function () {
+      loadFailed = !dbReady;
+      render();
+    });
+
+    var migrated = false;
+    db.collection("status").onSnapshot(function (snap) {
+      var next = {};
+      snap.docs.forEach(function (d) {
+        var v = d.data() || {};
+        if (v.state) next[d.id] = v.state;
+      });
+
+      // One-time lift of marks made before this list was shared: if nobody
+      // has marked anything in the shared store yet, carry this browser's
+      // own marks up so they are not lost.
+      if (!migrated) {
+        migrated = true;
+        var local = readLocalStatus();
+        var carry = Object.keys(local).filter(function (id) {
+          return local[id] && local[id] !== "New" && !next[id];
+        });
+        if (!snap.docs.length && carry.length) {
+          var stamp = new Date().toISOString();
+          carry.forEach(function (id) {
+            next[id] = local[id];
+            db.doc("status/" + id).set({ state: local[id], updatedAt: stamp, liftedFrom: "browser" })
+              .catch(function () {});
+          });
+        }
+      }
+
+      STATUS = next;
+      if (dbReady) render();
+    }, function () {});
+
+    db.doc("meta/scan").onSnapshot(function (snap) {
+      SCAN = snap.exists ? snap.data() : null;
+      if (dbReady) render();
+    }, function () {});
+  }).catch(function () {
+    settled = true;
+    loadFailed = true;
+    render();
+  });
+})();
+</script>
