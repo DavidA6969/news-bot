@@ -123,7 +123,7 @@ python3 status.py show   trend-research          # print the current record
 directory, so an absolute path works from anywhere:
 
 ```bash
-python3 /home/user/news-bot/status.py start trend-research "..."
+python3 /ABSOLUTE/PATH/TO/news-bot/status.py start trend-research "..."   # <- your real path
 ```
 
 Override the target file with `--file path/to/agents.json` or `AGENT_STATE_FILE`.
@@ -151,6 +151,10 @@ except Exception as exc:
 Save as `.claude/agents/trend-research.md`. The `name` matches the agent's `id` in
 `agents.json` so the two line up.
 
+**Replace `/ABSOLUTE/PATH/TO/news-bot` with the real path to this repo on your
+machine** (`pwd` will tell you). It has to be absolute: a subagent's working directory
+is not guaranteed to be the project root.
+
 ````markdown
 ---
 name: trend-research
@@ -167,25 +171,25 @@ its absolute path — your working directory may not be the project root.
 **1. Before anything else, announce that you have started:**
 
 ```bash
-python3 /home/user/news-bot/status.py start trend-research "Scanning last 7 days in niche"
+python3 /ABSOLUTE/PATH/TO/news-bot/status.py start trend-research "Scanning last 7 days in niche"
 ```
 
 **2. While working, log anything a human would want to see later:**
 
 ```bash
-python3 /home/user/news-bot/status.py log trend-research "Source rate-limited, backing off 30s" --level warn
+python3 /ABSOLUTE/PATH/TO/news-bot/status.py log trend-research "Source rate-limited, backing off 30s" --level warn
 ```
 
 **3. When you succeed, record a one-line summary of what you produced:**
 
 ```bash
-python3 /home/user/news-bot/status.py finish trend-research "3 topics selected, 2 rejected"
+python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish trend-research "3 topics selected, 2 rejected"
 ```
 
 **4. If you cannot complete the task, report the failure instead:**
 
 ```bash
-python3 /home/user/news-bot/status.py fail trend-research "All sources returned 503"
+python3 /ABSOLUTE/PATH/TO/news-bot/status.py fail trend-research "All sources returned 503"
 ```
 
 Call `finish` or `fail` exactly once, as the last thing you do. If you skip it you will
