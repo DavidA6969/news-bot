@@ -1,0 +1,68 @@
+{
+  "updated": "2026-09-14T19:26:46Z",
+  "agents": [
+    {
+      "id": "trend-research",
+      "name": "ATLAS",
+      "role": "Pulls trending topics and filters for saturation",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "dependsOn": []
+    },
+    {
+      "id": "scriptwriting",
+      "name": "SCRIBE",
+      "role": "Turns selected topics into a shot-by-shot script",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "dependsOn": [
+        "trend-research"
+      ]
+    },
+    {
+      "id": "rendering",
+      "name": "FORGE",
+      "role": "Renders the script into a finished video file",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "dependsOn": [
+        "scriptwriting"
+      ]
+    },
+    {
+      "id": "publishing",
+      "name": "HERALD",
+      "role": "Uploads, captions and schedules the finished video",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "dependsOn": [
+        "rendering"
+      ]
+    }
+  ],
+  "events": []
+}

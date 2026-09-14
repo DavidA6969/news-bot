@@ -1,0 +1,6 @@
+# working files created by status.py
+agents.json.lock
+agents.json.lock.d/
+agents.json.tmp.*
+
+node_modules/
