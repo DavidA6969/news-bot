@@ -132,3 +132,13 @@ test('a split hero leads with copy on narrow screens', () => {
   // decorative placeholder on phones.
   assert.ok(!/\.hero__media\{order:-1\}/.test(css), 'hero media must not be reordered above the copy');
 });
+
+test('a failed booking keeps its error visible through the reload', async () => {
+  const js = runtimeJs({ siteId: 's1', apiBase: '/_lk/api/s1', timezone: 'UTC', currency: 'usd' });
+  assert.doesNotThrow(() => new Function(js));
+  // The submit handler reloads availability after a failure; without
+  // keepStatus the reload blanks the message and a 409 ("that slot was just
+  // booked") disappears before the customer can read it.
+  assert.match(js, /await load\(\{ keepStatus: true \}\)/);
+  assert.match(js, /if\(status && !keepStatus\) status\.innerHTML = ''/);
+});

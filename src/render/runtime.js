@@ -168,7 +168,10 @@ if(root){
     renderSlots();
   }
 
-  async function load(){
+  async function load(opts){
+    // After a failed booking the calendar is reloaded to pick up whatever
+    // changed, but the reason it failed must survive that reload.
+    var keepStatus = !!(opts && opts.keepStatus);
     if(state.loading) return;
     state.loading = true;
     state.slot = null;
@@ -185,7 +188,7 @@ if(root){
       state.day = firstOpen ? firstOpen.date : null;
       renderDays();
       renderSlots();
-      if(status) status.innerHTML = '';
+      if(status && !keepStatus) status.innerHTML = '';
     } catch(err){
       calendar.innerHTML = '';
       msg(status, 'err', err.message);
@@ -237,7 +240,7 @@ if(root){
       msg(status,'ok','You are booked for ' + result.appointment.label + '. A confirmation is on its way to ' + body.email + '.');
     } catch(err){
       msg(status,'err', err.message);
-      await load();
+      await load({ keepStatus: true });
     } finally {
       submit.disabled = false;
       submit.textContent = original;
