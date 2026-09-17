@@ -213,18 +213,33 @@ automatically. Prompt-driven calls are used above because they let the agent rep
 
 - **Graph.** Force-directed, but each node is pulled toward a column derived from its
   longest dependency path, so a pipeline reads left to right instead of settling into a
-  blob. The simulation stops once it cools.
+  blob. The simulation stops once it cools, then the view scales to fit the window.
 - **No layout jump.** Each poll compares a topology signature (sorted ids + sorted
   edges). If only statuses changed — the common case — the simulation is never touched
   and only attributes are repainted. A new agent reheats the layout gently; existing
   nodes keep their positions.
-- **Drag** a node to pin it there permanently; **double-click** to release it.
-  *Reset view* clears zoom and all pins.
+- **A running clock under every working node**, ticking once a second independently of
+  the 2s poll, so you can see how long something has been going without clicking it.
+- **Hung agents are caught.** An agent that dies without calling `finish` or `fail`
+  stays `working` forever — the one failure this design can't see in the file itself.
+  So the UI infers it: once a working agent passes `max(2 × avgDurationSec,
+  avgDurationSec + 60s)` it gets a dashed amber ring, its clock turns amber, and the
+  header counts it as **OVERRUNNING**. The dossier says how far past its average it is
+  and why that matters. This is inference in the UI only — nothing is written back to
+  `agents.json`, and the agent's real status is left alone.
+- **Flaky agents are marked** with a small red dot when at least a fifth of their runs
+  have failed (minimum three runs). Hover any node for its full record.
+- **Drag** a node to pin it there permanently; **double-click** to release it. *Fit*
+  re-frames the graph; *Reset view* also releases every pin. Once you pan or zoom by
+  hand the view is yours — polling never yanks it back.
 - **Click** a node for the dossier: full record, live elapsed time while running, and
-  that agent's last 20 events. Escape or a click on the background closes it.
-- **Activity feed** holds the 50 most recent events, newest first. It follows the
-  newest event unless you have scrolled away, in which case it holds your position and
-  offers a *N NEW* pill. Collapsed state is remembered.
+  that agent's last 20 events. Tab to a node and press Enter to do the same from the
+  keyboard. Escape or a click on the background closes it.
+- **Activity feed** holds the 50 most recent events, newest first, and filters to
+  **PROBLEMS** (warnings and errors) when the full stream is too noisy. Click the agent
+  name on any row to open that agent. The feed follows the newest event unless you have
+  scrolled away, in which case it holds your position and offers a *N NEW* pill.
+  Collapsed state and filter are remembered.
 - **Failure is visible.** A missing, unreadable, or malformed `agents.json` shows a
   specific error card naming the problem, with the last known graph dimmed behind it —
   never a silently empty screen. It recovers by itself once the file is valid again.

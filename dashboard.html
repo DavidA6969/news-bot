@@ -64,6 +64,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .leg .lbl{ color:var(--dimmer); }
 .leg .n{ color:var(--dim); }
 .leg.zero{ opacity:.4; }
+.warnchip{ color:var(--blocked); font-size:10.5px; letter-spacing:.1em; }
 #topbar .spacer{ flex:1 1 auto; }
 #meta{ color:var(--dimmer); font-size:10.5px; letter-spacing:.06em; }
 #meta .ok{ color:var(--dim); }
@@ -101,6 +102,23 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .node.selected .ring{ opacity:.45; }
 .pinmark{ fill:var(--dimmer); opacity:0; }
 .node.pinned .pinmark{ opacity:.9; }
+.elapsed{
+  fill:var(--dimmer); font:9.5px var(--mono); letter-spacing:.06em;
+  text-anchor:middle; pointer-events:none; user-select:none;
+}
+.node.status-working .elapsed{ fill:var(--working); }
+.node.overrun .elapsed{ fill:var(--blocked); }
+/* a working agent past its own historical runtime — inferred, not a stored status */
+.overrun-ring{
+  fill:none; stroke:var(--blocked); stroke-width:1; stroke-dasharray:3 5; opacity:0;
+  transform-box:fill-box; transform-origin:50% 50%;
+}
+.node.overrun .overrun-ring{ opacity:.9; animation:spin 12s linear infinite; }
+@keyframes spin{ to{ transform:rotate(360deg); } }
+.scar{ fill:var(--error); opacity:0; }
+.node.flaky .scar{ opacity:.65; }
+.node:focus{ outline:none; }
+.node:focus-visible .core{ stroke:var(--text); stroke-width:2; }
 
 .node.status-idle    .core{ stroke:var(--idle);    fill:#151920; }
 .node.status-working .core{ stroke:var(--working); fill:#101f2b; }
@@ -156,6 +174,8 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 #tip .t-name{ color:var(--text); letter-spacing:.12em; font-size:10.5px; }
 #tip .t-role{ color:var(--dim); font-size:11px; margin-top:3px; }
 #tip .t-id{ color:var(--dimmer); font-size:10px; margin-top:4px; }
+#tip .t-stat{ color:var(--dim); font-size:10.5px; margin-top:5px; }
+#tip .t-warn{ color:var(--blocked); font-size:10.5px; margin-top:5px; }
 
 /* ---------- feed ---------- */
 #feed{ border-top:1px solid var(--line); background:var(--surface); display:flex; flex-direction:column; }
@@ -168,6 +188,10 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 #feed.collapsed .f-chev{ transform:rotate(-90deg); }
 .f-title{ color:var(--dim); letter-spacing:.18em; font-size:10.5px; }
 .f-count{ color:var(--dimmer); font-size:10.5px; }
+.f-filter{ display:flex; margin-left:auto; border:1px solid var(--line); border-radius:3px; overflow:hidden; }
+.f-filter button{ padding:2px 9px; font-size:10px; letter-spacing:.1em; color:var(--dimmer); }
+.f-filter button:hover{ color:var(--dim); }
+.f-filter button.on{ color:var(--text); background:#1a1f27; }
 #feed-list{
   height:176px; overflow-y:auto; overflow-x:hidden;
   border-top:1px solid var(--line-soft); position:relative;
@@ -179,7 +203,8 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .ev{ display:flex; gap:10px; padding:3px 12px 3px 10px; border-left:2px solid transparent; }
 .ev:hover{ background:#14181f; }
 .ev .ts{ color:var(--dimmer); flex:0 0 auto; }
-.ev .who{ color:var(--dim); flex:0 0 auto; letter-spacing:.06em; }
+.ev .who{ color:var(--dim); flex:0 0 auto; letter-spacing:.06em; cursor:pointer; }
+.ev .who:hover{ color:var(--text); }
 .ev .msg{ color:var(--text); flex:1 1 auto; word-break:break-word; }
 .ev.lv-info{ border-left-color:#2b313b; }
 .ev.lv-success{ border-left-color:var(--lv-success); }
@@ -226,6 +251,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .d-v.s-blocked{ color:var(--blocked); } .d-v.s-done{ color:var(--done); }
 .d-v.s-error{ color:var(--error); }
 .d-v.bad{ color:var(--error); }
+.d-hint{ color:var(--blocked); font-size:10.5px; margin-top:7px; line-height:1.45; }
 .chip{
   display:inline-block; margin:2px 4px 2px 0; padding:1px 7px;
   border:1px solid var(--line); border-radius:10px; color:var(--dim); font-size:10.5px; cursor:pointer;
@@ -244,6 +270,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 
 @media (prefers-reduced-motion: reduce){
   .node.status-working .halo{ animation:none; opacity:.16; }
+  .node.overrun .overrun-ring{ animation:none; }
   #dossier{ transition:none; }
 }
 @media (max-width: 620px){
@@ -260,6 +287,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
     <span id="legend"></span>
     <span class="spacer"></span>
     <span id="meta"></span>
+    <button class="tbtn" id="btn-fit" title="Fit the graph to the window">FIT</button>
     <button class="tbtn" id="btn-reset" title="Reset zoom and release pinned nodes">RESET VIEW</button>
   </header>
 
@@ -274,6 +302,10 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
       <span class="f-chev">▾</span>
       <span class="f-title">ACTIVITY</span>
       <span class="f-count" id="feed-count"></span>
+      <span class="f-filter" id="feed-filter">
+        <button type="button" data-filter="all" class="on">ALL</button>
+        <button type="button" data-filter="problems">PROBLEMS</button>
+      </span>
     </div>
     <div id="feed-list">
       <div id="newpill"></div>
@@ -344,6 +376,24 @@ function fmtElapsed(from){
   const m = Math.floor(s/60);   s -= m*60;
   return (h ? pad2(h)+':' : '') + pad2(m) + ':' + pad2(s);
 }
+function elapsedSec(a){
+  const d = parseDate(a.startedAt);
+  return d ? Math.max(0, (Date.now() - d.getTime()) / 1000) : null;
+}
+/* How far past its own historical runtime a working agent is, as a multiple
+   of its average. 0 means "fine". This is inferred in the UI from startedAt
+   and avgDurationSec — it is never written back to agents.json. */
+function overrunBy(a){
+  if(a.status !== 'working') return 0;
+  const avg = a.avgDurationSec, secs = elapsedSec(a);
+  if(avg == null || avg <= 0 || secs == null) return 0;
+  return secs > Math.max(avg * 2, avg + 60) ? secs / avg : 0;
+}
+function isFlaky(a){
+  const total = a.runCount + a.failCount;
+  return a.failCount > 0 && total >= 3 && (a.failCount / total) >= 0.2;
+}
+
 function store(key, val){
   try{
     if(val === undefined) return localStorage.getItem(key);
@@ -484,10 +534,34 @@ let sim = null;
 let nodeSel = d3.select(null);
 let edgeSel = d3.select(null);
 
+let userMovedView = false;
 const zoom = d3.zoom()
   .scaleExtent([0.4, 2.8])
+  .on('start', ev => { if(ev.sourceEvent) userMovedView = true; })
   .on('zoom', ev => zoomLayer.attr('transform', ev.transform));
 svg.call(zoom).on('dblclick.zoom', null);
+
+/* Centre and scale the graph to fill the stage. Only ever called on our own
+   initiative before the viewer has panned or zoomed — once they move the
+   view it is theirs, and only FIT or RESET VIEW takes it back. */
+function fitView(animate){
+  if(!nodeSel || !nodeSel.size()) return;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodeSel.each(d => {
+    if(!isFinite(d.x) || !isFinite(d.y)) return;
+    minX = Math.min(minX, d.x); maxX = Math.max(maxX, d.x);
+    minY = Math.min(minY, d.y); maxY = Math.max(maxY, d.y);
+  });
+  if(!isFinite(minX)) return;
+  const pad = R + 48;
+  minX -= pad; maxX += pad; minY -= pad; maxY += pad;
+  const { W, H } = dims();
+  const k = Math.max(0.4, Math.min(1.75, Math.min(W / (maxX - minX), H / (maxY - minY))));
+  const t = d3.zoomIdentity
+    .translate((W - k * (minX + maxX)) / 2, (H - k * (minY + maxY)) / 2)
+    .scale(k);
+  (animate ? svg.transition().duration(450) : svg).call(zoom.transform, t);
+}
 
 /* longest-path layering; the guard keeps a cyclic graph from looping forever */
 function computeRanks(agents){
@@ -589,13 +663,21 @@ function rebuild(agents, warm){
       g.append('circle').attr('class','ring').attr('r', R + 7);
       g.append('circle').attr('class','core').attr('r', R);
       g.append('circle').attr('class','pip').attr('r', 4.5);
+      g.append('circle').attr('class','overrun-ring').attr('r', R + 7);
       g.append('circle').attr('class','pinmark').attr('r', 1.6).attr('cx', R - 6).attr('cy', -(R - 6));
+      g.append('circle').attr('class','scar').attr('r', 2.2).attr('cx', R - 7).attr('cy', R - 7);
       g.append('text').attr('class','label').attr('y', R + 19);
+      g.append('text').attr('class','elapsed').attr('y', R + 31);
       return g;
     });
 
   nodeSel
+    .attr('tabindex', 0)
+    .attr('role', 'button')
     .call(drag)
+    .on('keydown', (ev, d) => {
+      if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); openDossier(d.id); }
+    })
     .on('click', (ev, d) => { ev.stopPropagation(); if(!d.moved) openDossier(d.id); })
     .on('dblclick', (ev, d) => {                    /* release a pinned node */
       ev.stopPropagation();
@@ -619,7 +701,11 @@ function rebuild(agents, warm){
     .force('y',      d3.forceY(H / 2).strength(0.06))
     .alphaDecay(0.045)
     .on('tick', ticked)
-    .on('end', () => { ticked(); if(sim) sim.stop(); });
+    .on('end', () => {
+      ticked();
+      if(sim) sim.stop();
+      if(!userMovedView) fitView(true);
+    });
 
   sim.alpha(warm ? 0.3 : 1).restart();
 }
@@ -627,9 +713,21 @@ function rebuild(agents, warm){
 function paintNodes(){
   nodeSel
     .attr('class', d => 'node status-' + d.agent.status +
+                        (overrunBy(d.agent) ? ' overrun' : '') +
+                        (isFlaky(d.agent) ? ' flaky' : '') +
                         (d.pinned ? ' pinned' : '') +
-                        (selectedId === d.id ? ' selected' : ''));
+                        (selectedId === d.id ? ' selected' : ''))
+    .attr('aria-label', d => d.agent.name + ', ' + d.agent.status +
+                             (d.agent.currentTask ? ', ' + d.agent.currentTask : ''));
   nodeSel.select('text.label').text(d => d.agent.name.toUpperCase());
+  paintClocks();
+}
+/* the running clock ticks on its own, independent of the 2s poll */
+function paintClocks(){
+  if(!nodeSel.size()) return;
+  nodeSel.select('text.elapsed')
+    .text(d => d.agent.status === 'working' ? fmtElapsed(d.agent.startedAt) : '');
+  nodeSel.classed('overrun', d => overrunBy(d.agent) > 0);
 }
 function paintEdges(){
   edgeSel
@@ -668,6 +766,15 @@ function showTip(ev, d){
   tip.appendChild(el('div','t-name', d.agent.name.toUpperCase()));
   if(d.agent.role) tip.appendChild(el('div','t-role', d.agent.role));
   tip.appendChild(el('div','t-id', d.agent.id + ' · ' + d.agent.status));
+  const a = d.agent;
+  if(a.runCount || a.failCount){
+    tip.appendChild(el('div','t-stat',
+      a.runCount + ' run' + (a.runCount === 1 ? '' : 's') +
+      ' · ' + a.failCount + ' failed' +
+      (a.avgDurationSec != null ? ' · avg ' + fmtDur(a.avgDurationSec) : '')));
+  }
+  const ov = overrunBy(a);
+  if(ov) tip.appendChild(el('div','t-warn', 'Running ' + ov.toFixed(1) + '× its average'));
   tip.classList.add('on');
   moveTip(ev);
 }
@@ -736,11 +843,14 @@ function renderDossier(){
     head.appendChild(top);
     head.appendChild(el('div','d-role','This agent is no longer in agents.json.'));
     dossier.appendChild(head);
+    dossierSig = 'gone:' + selectedId;
     return;
   }
 
   const mine = state.events.filter(e => e.agent === a.id);
-  const sig = JSON.stringify(a) + '|' + mine.length + '|' + (mine.length ? evKey(mine[mine.length-1]) : '');
+  const overrun = overrunBy(a);
+  const sig = JSON.stringify(a) + '|' + mine.length + '|' + (overrun ? 'over' : '') +
+              '|' + (mine.length ? evKey(mine[mine.length-1]) : '');
   if(sig === dossierSig) return;
   dossierSig = sig;
 
@@ -776,6 +886,13 @@ function renderDossier(){
     r.appendChild(v);
     s1.appendChild(r);
     s1.appendChild(drow('STARTED', fmtStamp(a.startedAt)));
+  }
+  if(overrun){
+    s1.appendChild(drow('OVERRUN', overrun.toFixed(1) + '× its average of ' +
+                                   fmtDur(a.avgDurationSec), 's-blocked'));
+    s1.appendChild(el('div','d-hint',
+      'Running well past its usual time. If it died without calling finish or fail, ' +
+      'it will sit here as "working" forever.'));
   }
   s1.appendChild(drow('LAST RUN', a.lastRun ? fmtStamp(a.lastRun) : null));
   s1.appendChild(drow('LAST OUTPUT', a.lastOutput));
@@ -841,6 +958,27 @@ const feedCount = $('#feed-count');
 const newpill   = $('#newpill');
 let feedSig = null;
 let lastSeenKey = null;
+let feedFilter = store('agentops.feedFilter') === 'problems' ? 'problems' : 'all';
+
+function feedRows(){
+  if(!state) return [];
+  const all = newestFirst(state.events);
+  return feedFilter === 'problems'
+    ? all.filter(e => e.level === 'warn' || e.level === 'error')
+    : all;
+}
+$('#feed-filter').addEventListener('click', ev => {
+  ev.stopPropagation();                       /* don't collapse the strip */
+  const btn = ev.target.closest('button[data-filter]');
+  if(!btn) return;
+  feedFilter = btn.getAttribute('data-filter');
+  store('agentops.feedFilter', feedFilter);
+  Array.from(ev.currentTarget.querySelectorAll('button')).forEach(b =>
+    b.classList.toggle('on', b.getAttribute('data-filter') === feedFilter));
+  feedSig = null;
+  lastSeenKey = null;
+  renderFeed();
+});
 
 if(store('agentops.feed') === 'collapsed') feed.classList.add('collapsed');
 $('#feed-head').addEventListener('click', () => {
@@ -855,20 +993,21 @@ newpill.addEventListener('click', ev => {
 });
 feedList.addEventListener('scroll', () => { if(feedList.scrollTop <= 8) markSeen(); });
 function markSeen(){
-  const rows = state ? newestFirst(state.events) : [];
+  const rows = feedRows();
   lastSeenKey = rows.length ? evKey(rows[0]) : null;
   newpill.classList.remove('on');
 }
 
 function renderFeed(){
   if(!state) return;
-  const all  = newestFirst(state.events);
+  const all  = feedRows();
   const rows = all.slice(0, FEED_MAX);
   feedCount.textContent = state.events.length
-    ? (state.events.length > FEED_MAX ? FEED_MAX + ' / ' + state.events.length : String(state.events.length))
+    ? (rows.length < state.events.length ? rows.length + ' / ' + state.events.length
+                                         : String(state.events.length))
     : '';
 
-  const sig = state.events.length + '|' +
+  const sig = feedFilter + '|' + state.events.length + '|' + all.length + '|' +
               rows.slice(0, 3).map(evKey).join('|');
   if(sig === feedSig) return;
   feedSig = sig;
@@ -881,14 +1020,19 @@ function renderFeed(){
   Array.from(feedList.querySelectorAll('.ev, .f-empty')).forEach(n => n.remove());
 
   if(!rows.length){
-    feedList.appendChild(el('div','f-empty','No events yet. Agents append here when they call status.py.'));
+    feedList.appendChild(el('div','f-empty', feedFilter === 'problems'
+      ? 'No warnings or errors. Switch to ALL for the full feed.'
+      : 'No events yet. Agents append here when they call status.py.'));
     return;
   }
   const frag = document.createDocumentFragment();
   rows.forEach(e => {
     const r = el('div','ev lv-' + e.level);
     r.appendChild(el('span','ts',  fmtClock(e.ts)));
-    r.appendChild(el('span','who', e.agent));
+    const who = el('span','who', e.agent);
+    who.title = 'Open ' + e.agent;
+    who.addEventListener('click', () => openDossier(e.agent));
+    r.appendChild(who);
     r.appendChild(el('span','msg', e.message));
     frag.appendChild(r);
   });
@@ -934,13 +1078,20 @@ function renderTop(){
     metaEl.appendChild(el('span','ok', 'SYNCED ' + fmtClock(lastGoodAt)));
     if(state.updated) metaEl.appendChild(el('span', null, ' · FILE ' + fmtClock(state.updated)));
   }
+  const over = state ? state.agents.filter(a => overrunBy(a) > 0).length : 0;
+  if(over){
+    const chip = el('span','warnchip', '\u26a0 ' + over + ' OVERRUNNING');
+    chip.title = 'Working for far longer than their own average run';
+    legend.appendChild(chip);
+  }
 }
 
+$('#btn-fit').addEventListener('click', () => { userMovedView = false; fitView(true); });
 $('#btn-reset').addEventListener('click', () => {
-  svg.transition().duration(350).call(zoom.transform, d3.zoomIdentity);
   nodeById.forEach(n => { n.fx = null; n.fy = null; n.pinned = false; });
+  userMovedView = false;
   paintNodes();
-  if(sim) sim.alpha(0.5).restart();
+  if(sim) sim.alpha(0.5).restart(); else fitView(true);
 });
 
 /* ============================================================
@@ -1111,6 +1262,7 @@ if(typeof d3 === 'undefined'){
   renderTop();
 }else{
   renderTop();
+  setInterval(paintClocks, 1000);
   (async function loop(){
     await poll();
     setTimeout(loop, POLL_MS);
