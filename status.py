@@ -44,6 +44,7 @@ __all__ = [
 STATUSES = ("idle", "working", "blocked", "done", "error")
 LEVELS = ("info", "success", "warn", "error")
 MAX_EVENTS = 500
+MAX_RUNS = 20                # per-agent duration history kept for the trend chart
 LOCK_TIMEOUT = 10.0          # seconds to wait for a contended lock
 LOCK_POLL = 0.02
 
@@ -276,6 +277,24 @@ def _append_event(state: dict, agent_id: str, level: str, message: str, when: da
         del state["events"][:overflow]          # oldest out first
 
 
+def _append_run(agent, seconds, ok, when):
+    """Record one completed run so the dashboard can chart the trend.
+
+    avgDurationSec is a lifetime mean and hides a slow drift; this bounded
+    window is what makes "is this getting slower?" answerable.
+    """
+    if seconds is None:
+        return
+    runs = agent.get("recentRuns")
+    if not isinstance(runs, list):
+        runs = []
+        agent["recentRuns"] = runs
+    runs.append({"ts": _iso(when), "sec": round(float(seconds), 1), "ok": bool(ok)})
+    overflow = len(runs) - MAX_RUNS
+    if overflow > 0:
+        del runs[:overflow]
+
+
 def _num(value, default=0):
     return value if isinstance(value, (int, float)) and not isinstance(value, bool) else default
 
@@ -324,6 +343,8 @@ def finish(agent_id: str, output: str = "") -> dict:
         agent["currentTask"] = None
         agent["startedAt"] = None
 
+        _append_run(agent, duration, True, now)
+
         message = "Finished — %s" % output if output else "Run finished"
         if duration is not None:
             message += " (%ds)" % round(duration)
@@ -338,6 +359,8 @@ def fail(agent_id: str, error: str = "") -> dict:
         state = _read()
         agent = _find(state, agent_id)
         now = _now()
+        started = _parse(agent.get("startedAt"))
+        _append_run(agent, (now - started).total_seconds() if started else None, False, now)
         agent["status"] = "error"
         agent["failCount"] = int(_num(agent.get("failCount"), 0)) + 1
         agent["lastRun"] = _iso(now)
@@ -410,6 +433,7 @@ def register(agent_id: str, name: str = "", role: str = "", depends_on=None) -> 
             "runCount": 0,
             "failCount": 0,
             "avgDurationSec": None,
+            "recentRuns": [],
             "dependsOn": list(depends_on or []),
         }
         state["agents"].append(agent)

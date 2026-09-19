@@ -13,6 +13,7 @@
       "runCount": 0,
       "failCount": 0,
       "avgDurationSec": null,
+      "recentRuns": [],
       "dependsOn": []
     },
     {
@@ -27,6 +28,7 @@
       "runCount": 0,
       "failCount": 0,
       "avgDurationSec": null,
+      "recentRuns": [],
       "dependsOn": [
         "trend-research"
       ]
@@ -43,6 +45,7 @@
       "runCount": 0,
       "failCount": 0,
       "avgDurationSec": null,
+      "recentRuns": [],
       "dependsOn": [
         "scriptwriting"
       ]
@@ -59,6 +62,7 @@
       "runCount": 0,
       "failCount": 0,
       "avgDurationSec": null,
+      "recentRuns": [],
       "dependsOn": [
         "rendering"
       ]

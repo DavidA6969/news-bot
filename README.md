@@ -76,7 +76,8 @@ it turns green — within two seconds, without the layout moving.
 | `startedAt` | drives the live elapsed timer; `null` when not running |
 | `lastRun` / `lastOutput` | set by `finish` (and by `fail`, which records the error) |
 | `runCount` / `failCount` | integers, start at `0` |
-| `avgDurationSec` | rolling mean over completed runs; `null` until the first `finish`, shown as `—` |
+| `avgDurationSec` | lifetime rolling mean over completed runs; `null` until the first `finish`, shown as `—` |
+| `recentRuns` | last 20 runs as `{ts, sec, ok}` — what the trend chart is drawn from. Optional: omit it and the chart is simply absent |
 | `dependsOn` | array of agent ids — **this is what draws the edges** |
 | `events[].level` | `info` · `success` · `warn` · `error`, colour-coded in the feed |
 
@@ -229,6 +230,20 @@ automatically. Prompt-driven calls are used above because they let the agent rep
   `agents.json`, and the agent's real status is left alone.
 - **Flaky agents are marked** with a small red dot when at least a fifth of their runs
   have failed (minimum three runs). Hover any node for its full record.
+- **Blast radius.** When an agent errors or blocks, everything downstream of it is
+  dimmed and counted as **STALLED** — those agents read as `idle`, but they are not
+  idle, they are waiting on a break. The dossier names the agent that caused it.
+- **The tab itself reports trouble.** A dashboard on a second monitor is useless if it
+  only complains inside its own viewport, so the title becomes `(2) Agent Operations`
+  and the favicon turns red while anything needs attention.
+- **A run-duration chart** in the dossier, drawn from `recentRuns`. Bar height is
+  duration; outcome rides a separate marker rail beneath the axis rather than colour,
+  because the done-green and error-red used elsewhere measure ΔE 3.2 under
+  deuteranopia — indistinguishable to a red-green colourblind reader. The median is
+  drawn and labelled, and when the last three runs' median is 1.5× the earlier median
+  the chart says so outright. A lifetime average cannot tell you an agent is degrading;
+  this can.
+- **Screen readers** get status transitions through a polite live region.
 - **Drag** a node to pin it there permanently; **double-click** to release it. *Fit*
   re-frames the graph; *Reset view* also releases every pin. Once you pan or zoom by
   hand the view is yours — polling never yanks it back.

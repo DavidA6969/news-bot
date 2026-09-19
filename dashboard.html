@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Agent Operations</title>
+<style>.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}</style>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5.5' fill='%230c0e12' stroke='%235eb0ef' stroke-width='1.5'/><circle cx='8' cy='8' r='2' fill='%235eb0ef'/></svg>">
 <style>
 :root{
@@ -252,6 +253,31 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 .d-v.s-error{ color:var(--error); }
 .d-v.bad{ color:var(--error); }
 .d-hint{ color:var(--blocked); font-size:10.5px; margin-top:7px; line-height:1.45; }
+.d-hint.stall{ color:var(--dim); }
+
+/* run-history chart: bar height carries duration, the rail below carries
+   outcome. Never hue alone — done-green vs error-red measure ΔE 3.2 under
+   deuteranopia, which is invisible. */
+.chart{ margin-top:4px; }
+.chart .bar{ fill:#3f6a8c; }
+.chart .bar.failed{ fill:var(--error); }
+.chart .bar:hover{ fill:var(--working); }
+.chart .bar.failed:hover{ fill:#f07177; }
+.chart .baseline{ stroke:var(--line); stroke-width:1; }
+.chart .medline{ stroke:#4a5462; stroke-width:1; }
+.chart .medlabel{ fill:var(--dimmer); font:9px var(--mono); }
+.chart .fail-x{ stroke:var(--error); stroke-width:1.25; }
+.chart .hit{ fill:transparent; cursor:default; }
+.chart-cap{ display:flex; gap:12px; margin-top:6px; color:var(--dimmer); font-size:10px; }
+.chart-cap .k{ display:inline-flex; align-items:center; gap:4px; }
+.chart-cap svg{ overflow:visible; }
+.chart-read{ color:var(--dim); font-size:10.5px; margin-top:6px; }
+.chart-read b{ color:var(--blocked); font-weight:400; }
+
+/* an agent that cannot run because something upstream is broken */
+.node.stalled .core, .node.stalled .pip{ opacity:.4; }
+.node.stalled .label{ opacity:.45; }
+.edge.dead{ stroke:#22272f; }
 .chip{
   display:inline-block; margin:2px 4px 2px 0; padding:1px 7px;
   border:1px solid var(--line); border-radius:10px; color:var(--dim); font-size:10.5px; cursor:pointer;
@@ -316,6 +342,7 @@ button{ font:inherit; color:inherit; background:none; border:0; cursor:pointer; 
 <div id="scrim"></div>
 <aside id="dossier" aria-hidden="true"></aside>
 <div id="tip"></div>
+<div id="live" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
 <script>
@@ -389,6 +416,42 @@ function overrunBy(a){
   if(avg == null || avg <= 0 || secs == null) return 0;
   return secs > Math.max(avg * 2, avg + 60) ? secs / avg : 0;
 }
+/* Everything transitively downstream of a broken or blocked agent. Those
+   agents read as "idle", but they are not idle — they are waiting on a
+   failure, and that is the blast radius of the break. */
+function computeStalled(agents){
+  const broken = agents.filter(a => a.status === 'error' || a.status === 'blocked').map(a => a.id);
+  if(!broken.length) return new Map();
+  const children = new Map();
+  agents.forEach(a => a.dependsOn.forEach(d => {
+    if(!children.has(d)) children.set(d, []);
+    children.get(d).push(a.id);
+  }));
+  const cause = new Map();          /* stalled id -> the id that broke */
+  const seen = new Set(broken);
+  let frontier = broken.map(id => [id, id]);
+  while(frontier.length){
+    const next = [];
+    frontier.forEach(([id, root]) => {
+      (children.get(id) || []).forEach(child => {
+        if(seen.has(child)) return;
+        seen.add(child);
+        cause.set(child, root);
+        next.push([child, root]);
+      });
+    });
+    frontier = next;
+  }
+  const byId = new Map(agents.map(a => [a.id, a]));
+  const out = new Map();
+  cause.forEach((root, id) => {
+    const a = byId.get(id);
+    if(a && a.status === 'idle') out.set(id, root);   /* only what hasn't run yet */
+  });
+  return out;
+}
+let stalled = new Map();
+
 function isFlaky(a){
   const total = a.runCount + a.failCount;
   return a.failCount > 0 && total >= 3 && (a.failCount / total) >= 0.2;
@@ -461,6 +524,10 @@ function normalize(raw){
     runCount: num(a.runCount, 0),
     failCount: num(a.failCount, 0),
     avgDurationSec: num(a.avgDurationSec, null),
+    recentRuns: (Array.isArray(a.recentRuns) ? a.recentRuns : [])
+      .filter(r => r && typeof r === 'object' && typeof r.sec === 'number' && isFinite(r.sec) && r.sec >= 0)
+      .map(r => ({ ts: str(r.ts), sec: r.sec, ok: r.ok !== false }))
+      .slice(-20),
     dependsOn: (Array.isArray(a.dependsOn) ? a.dependsOn : [])
                  .filter(d => typeof d === 'string' && d !== a.id && ids.has(d))
   }));
@@ -715,6 +782,7 @@ function paintNodes(){
     .attr('class', d => 'node status-' + d.agent.status +
                         (overrunBy(d.agent) ? ' overrun' : '') +
                         (isFlaky(d.agent) ? ' flaky' : '') +
+                        (stalled.has(d.id) ? ' stalled' : '') +
                         (d.pinned ? ' pinned' : '') +
                         (selectedId === d.id ? ' selected' : ''))
     .attr('aria-label', d => d.agent.name + ', ' + d.agent.status +
@@ -731,7 +799,9 @@ function paintClocks(){
 }
 function paintEdges(){
   edgeSel
-    .attr('class', d => 'edge' + (d.target.agent.status === 'working' ? ' hot' : ''))
+    .attr('class', d => 'edge' +
+                        (d.target.agent.status === 'working' ? ' hot' : '') +
+                        (stalled.has(d.target.id) ? ' dead' : ''))
     .attr('marker-end', d => d.target.agent.status === 'working' ? 'url(#arrow-hot)' : 'url(#arrow)');
 }
 
@@ -850,6 +920,7 @@ function renderDossier(){
   const mine = state.events.filter(e => e.agent === a.id);
   const overrun = overrunBy(a);
   const sig = JSON.stringify(a) + '|' + mine.length + '|' + (overrun ? 'over' : '') +
+              '|' + (stalled.get(a.id) || '') +
               '|' + (mine.length ? evKey(mine[mine.length-1]) : '');
   if(sig === dossierSig) return;
   dossierSig = sig;
@@ -894,6 +965,13 @@ function renderDossier(){
       'Running well past its usual time. If it died without calling finish or fail, ' +
       'it will sit here as "working" forever.'));
   }
+  if(stalled.has(a.id)){
+    const blocker = state.agents.find(o => o.id === stalled.get(a.id));
+    s1.appendChild(drow('STALLED', 'waiting on ' + (blocker ? blocker.name : stalled.get(a.id)) +
+                                   (blocker ? ' (' + blocker.status + ')' : ''), 's-blocked'));
+    s1.appendChild(el('div','d-hint stall',
+      'Idle, but it cannot start until that is fixed.'));
+  }
   s1.appendChild(drow('LAST RUN', a.lastRun ? fmtStamp(a.lastRun) : null));
   s1.appendChild(drow('LAST OUTPUT', a.lastOutput));
   body.appendChild(s1);
@@ -903,6 +981,7 @@ function renderDossier(){
   s2.appendChild(drow('RUNS', a.runCount));
   s2.appendChild(drow('FAILURES', a.failCount, a.failCount > 0 ? 'bad' : null));
   s2.appendChild(drow('AVG DURATION', fmtDur(a.avgDurationSec)));
+  s2.appendChild(runChart(a));
   body.appendChild(s2);
 
   const downstream = state.agents.filter(o => o.dependsOn.indexOf(a.id) !== -1);
@@ -930,6 +1009,116 @@ function renderDossier(){
   dossier.appendChild(body);
   body.scrollTop = keepScroll;
 }
+function median(nums){
+  if(!nums.length) return null;
+  const v = nums.slice().sort((x, y) => x - y), m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+}
+function barPath(x, y, w, h, r){
+  r = Math.max(0, Math.min(r, w / 2, h));
+  return 'M' + x + ',' + (y + h) + 'L' + x + ',' + (y + r) +
+         'Q' + x + ',' + y + ' ' + (x + r) + ',' + y +
+         'L' + (x + w - r) + ',' + y +
+         'Q' + (x + w) + ',' + y + ' ' + (x + w) + ',' + (y + r) +
+         'L' + (x + w) + ',' + (y + h) + 'Z';
+}
+
+/* Duration over the last runs. Bar height is the only magnitude channel;
+   outcome rides a separate marker rail so it survives colour-blindness. */
+function runChart(a){
+  const runs = a.recentRuns;
+  const wrap = el('div','chart');
+  if(runs.length < 2){
+    wrap.appendChild(el('div','chart-read',
+      runs.length ? 'One run recorded — no trend yet.' : 'No completed runs recorded yet.'));
+    return wrap;
+  }
+
+  const anyFail = runs.some(r => !r.ok);
+  const W = 360, GUTTER = 74, PW = W - GUTTER;    /* bars left, median label right */
+  const TOP = 8, BASE = 68, RAIL = 78, PLOT = BASE - TOP;
+  const H = anyFail ? 86 : 72;
+  const svg = d3.create('svg')
+    .attr('viewBox', '0 0 ' + W + ' ' + H)
+    .attr('preserveAspectRatio', 'xMidYMid meet')
+    .attr('role', 'img')
+    .style('width', '100%').style('height', 'auto').style('display', 'block');
+
+  const secs = runs.map(r => r.sec);
+  const peak = Math.max.apply(null, secs) || 1;
+  const med  = median(secs);
+  const slot = PW / runs.length;
+  const barW = Math.max(3, Math.min(24, slot - 2));      /* 2px gap between bars */
+
+  svg.attr('aria-label', runs.length + ' recent runs, median ' + fmtDur(med) +
+    ', ' + runs.filter(r => !r.ok).length + ' failed');
+
+  const medY = BASE - (med / peak) * PLOT;
+  svg.append('line').attr('class','medline')
+     .attr('x1', 0).attr('x2', PW + 5).attr('y1', medY).attr('y2', medY);
+
+  runs.forEach((r, i) => {
+    const h = Math.max(1.5, (r.sec / peak) * PLOT);
+    const x = i * slot + (slot - barW) / 2;
+    svg.append('path')
+       .attr('class', 'bar' + (r.ok ? '' : ' failed'))
+       .attr('d', barPath(x, BASE - h, barW, h, 4));
+    if(!r.ok){                                   /* shape, not just hue */
+      const cx = x + barW / 2, s2 = 3.2;
+      svg.append('path').attr('class','fail-x')
+         .attr('d', 'M' + (cx - s2) + ',' + (RAIL - s2) + 'L' + (cx + s2) + ',' + (RAIL + s2) +
+                    'M' + (cx + s2) + ',' + (RAIL - s2) + 'L' + (cx - s2) + ',' + (RAIL + s2));
+    }
+    const hit = svg.append('rect').attr('class','hit')
+       .attr('x', i * slot).attr('y', 0).attr('width', slot).attr('height', H);
+    hit.on('mouseenter', ev => {
+        tip.textContent = '';
+        const back = runs.length - 1 - i;
+        tip.appendChild(el('div','t-name',
+          back === 0 ? 'LATEST RUN' : back + ' RUN' + (back === 1 ? '' : 'S') + ' AGO'));
+        tip.appendChild(el('div','t-role', fmtDur(r.sec) + ' · ' + (r.ok ? 'finished' : 'failed')));
+        if(r.ts) tip.appendChild(el('div','t-id', fmtStamp(r.ts)));
+        tip.classList.add('on'); moveTip(ev);
+      })
+      .on('mousemove', ev => moveTip(ev))
+      .on('mouseleave', hideTip);
+  });
+
+  svg.append('line').attr('class','baseline')
+     .attr('x1', 0).attr('x2', PW + 5).attr('y1', BASE).attr('y2', BASE);
+  svg.append('text').attr('class','medlabel')
+     .attr('x', W - 2).attr('y', medY + 3).attr('text-anchor','end')
+     .text('med ' + fmtDur(med));
+
+  wrap.appendChild(svg.node());
+
+  const cap = el('div','chart-cap');
+  cap.appendChild(el('span','k', runs.length + ' runs'));
+  const fails = runs.filter(r => !r.ok).length;
+  if(fails){
+    const k = el('span','k');
+    const mark = d3.create('svg').attr('width', 8).attr('height', 8).attr('viewBox','0 0 8 8');
+    mark.append('path').attr('class','fail-x').attr('d','M1,1L7,7M7,1L1,7');
+    k.appendChild(mark.node());
+    k.appendChild(document.createTextNode(fails + ' failed'));
+    cap.appendChild(k);
+  }
+  wrap.appendChild(cap);
+
+  /* the question a lifetime average cannot answer */
+  if(runs.length >= 6){
+    const recent = median(secs.slice(-3)), before = median(secs.slice(0, -3));
+    if(before > 0 && recent / before >= 1.5){
+      const read = el('div','chart-read');
+      read.appendChild(document.createTextNode('Slowing: last 3 runs median '));
+      read.appendChild(el('b', null, fmtDur(recent)));
+      read.appendChild(document.createTextNode(' against ' + fmtDur(before) + ' before.'));
+      wrap.appendChild(read);
+    }
+  }
+  return wrap;
+}
+
 function chipRow(label, agents){
   const r = el('div','d-row');
   r.appendChild(el('div','d-k', label));
@@ -1058,6 +1247,28 @@ function renderFeed(){
    ============================================================ */
 const legend = $('#legend');
 const metaEl = $('#meta');
+/* A dashboard sits on a second monitor. If it only reports trouble inside its
+   own viewport, trouble goes unseen — so the tab itself carries the count. */
+const FAVICON_OK = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>" +
+  "<circle cx='8' cy='8' r='5.5' fill='%230c0e12' stroke='%235eb0ef' stroke-width='1.5'/>" +
+  "<circle cx='8' cy='8' r='2' fill='%235eb0ef'/></svg>";
+const FAVICON_ALERT = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'>" +
+  "<circle cx='8' cy='8' r='5.5' fill='%230c0e12' stroke='%23e05a5f' stroke-width='1.5'/>" +
+  "<circle cx='8' cy='8' r='2.6' fill='%23e05a5f'/></svg>";
+let titleShown = null;
+function setAttention(count){
+  const title = (count ? '(' + count + ') ' : '') + 'Agent Operations';
+  if(title === titleShown) return;
+  titleShown = title;
+  document.title = title;
+  const link = document.querySelector('link[rel="icon"]');
+  if(link) link.setAttribute('href', count ? FAVICON_ALERT : FAVICON_OK);
+}
+
+/* Screen readers get the same transitions the graph animates. */
+const liveEl = $('#live');
+function announce(msg){ if(liveEl) liveEl.textContent = msg; }
+
 function renderTop(){
   const counts = {};
   STATUSES.forEach(s => counts[s] = 0);
@@ -1084,6 +1295,13 @@ function renderTop(){
     chip.title = 'Working for far longer than their own average run';
     legend.appendChild(chip);
   }
+  if(stalled.size){
+    const chip = el('span','warnchip', '\u22ef ' + stalled.size + ' STALLED');
+    chip.title = 'Cannot run until something upstream is fixed';
+    legend.appendChild(chip);
+  }
+  const errors = state ? state.agents.filter(a => a.status === 'error').length : 0;
+  setAttention(fatal ? 1 : errors + over + (state ? state.agents.filter(a => a.status === 'blocked').length : 0));
 }
 
 $('#btn-fit').addEventListener('click', () => { userMovedView = false; fitView(true); });
@@ -1149,6 +1367,7 @@ function showWarnings(list){
 function apply(raw){
   const data = normalize(raw);
   state = data;
+  stalled = computeStalled(data.agents);
   lastGoodAt = new Date().toISOString();
 
   if(!data.agents.length){
@@ -1176,11 +1395,16 @@ function apply(raw){
     }
   }
 
+  const said = [];
   data.agents.forEach(a => {
     const prev = prevStatus.get(a.id);
-    if(prev !== undefined && prev !== 'working' && a.status === 'working') sendPulse(a.id);
+    if(prev !== undefined && prev !== a.status){
+      said.push(a.name + ' ' + a.status);
+      if(prev !== 'working' && a.status === 'working') sendPulse(a.id);
+    }
     prevStatus.set(a.id, a.status);
   });
+  if(said.length) announce(said.join('. '));
   Array.from(prevStatus.keys()).forEach(id => {
     if(!data.agents.some(a => a.id === id)) prevStatus.delete(id);
   });
