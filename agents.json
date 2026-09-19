@@ -2,6 +2,21 @@
   "updated": "2026-09-14T19:26:46Z",
   "agents": [
     {
+      "id": "niche-strategy",
+      "name": "COMPASS",
+      "role": "Decides what the channel is about, and kills ideas that cannot survive",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": []
+    },
+    {
       "id": "trend-research",
       "name": "ATLAS",
       "role": "Pulls trending topics and filters for saturation",
@@ -14,7 +29,9 @@
       "failCount": 0,
       "avgDurationSec": null,
       "recentRuns": [],
-      "dependsOn": []
+      "dependsOn": [
+        "niche-strategy"
+      ]
     },
     {
       "id": "scriptwriting",

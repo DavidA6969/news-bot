@@ -147,6 +147,109 @@ except Exception as exc:
     raise
 ```
 
+## Publishing to YouTube
+
+`youtube.py` uploads a finished render to your own channel through the **YouTube
+Data API v3** with OAuth 2.0. It does not drive youtube.com in a browser and never
+touches your Google password — automating the website breaches YouTube's Terms of
+Service, the API does not. Only the `youtube.upload` scope is requested: enough to
+insert a video, not enough to read analytics, edit other videos, or delete anything.
+
+### Read this before your first upload
+
+**An API project that has not passed YouTube's compliance audit can only create
+private videos.** Ask for `public` and the upload still lands private, the API
+reports success, and [the result cannot be appealed](https://support.google.com/youtube/answer/7300965)
+— the only remedy is to re-upload through an audited client or by hand.
+
+So until you pass [the audit](https://developers.google.com/youtube/v3/guides/quota_and_compliance_audits),
+this pipeline **uploads and stages**; a human publishes. `youtube.py` detects the
+case, exits with code 2, and says so rather than reporting a success you do not have.
+
+Quota is not your constraint. Uploads moved to a dedicated bucket of **100 per day**,
+separate from the 10,000-unit pool. One or two a day is nothing.
+
+### Setup
+
+1. Google Cloud console → new project → enable **YouTube Data API v3**.
+2. OAuth consent screen → External → add yourself as a test user.
+3. Credentials → OAuth client ID → **Desktop app** → save the JSON next to
+   `youtube.py` as `client_secret.json`.
+4. `python3 youtube.py login` — one browser round trip, stores a refresh token in
+   `youtube_token.json` (mode 600).
+
+Both files are git-ignored. Never commit either.
+
+```bash
+python3 youtube.py upload out/video.mp4 --title "..." --dry-run      # validate, send nothing
+python3 youtube.py upload out/video.mp4 --title "..." \
+  --description-file description.txt --tags a b c \
+  --publish-at 2026-09-20T17:00:00Z --agent publishing
+```
+
+`--publish-at` hands the go-live to YouTube, which beats keeping a machine awake to
+press publish. `--agent publishing` mirrors the upload onto the dashboard.
+
+## Release cadence
+
+`schedule.py` decides *when* videos go live — one or two a day inside configured
+windows, never closer together than a minimum gap.
+
+```bash
+python3 schedule.py write-config      # creates schedule.json
+python3 schedule.py plan --days 7     # show the week
+python3 schedule.py next              # the next slot, ISO-8601
+```
+
+To be explicit about what this is and is not: it spaces releases so the channel
+publishes on a rhythm an audience can follow. It is **not** an attempt to look
+un-automated. Your uploads carry your OAuth token, so YouTube knows they are API
+uploads — which is allowed, and needs no disguise. Do not add anything that tries
+to evade platform detection; that would breach the Terms of Service, and cadence
+is not what puts a channel at risk anyway.
+
+What does is content. YouTube's [Inauthentic Content policy](https://support.google.com/youtube/answer/1311392)
+(July 2025, formerly "repetitious content") demonetizes mass-produced, templated,
+minimal-variation content **at any frequency**. Twice a day is fine. Twice a day
+with the nouns swapped is the thing the policy exists to catch. AI-assisted
+production is explicitly fine when the result is original and adds value.
+
+## The agents
+
+`.claude/agents/` holds five subagent definitions. Each reports to the dashboard
+through `status.py`, so a run is visible as it happens.
+
+| agent | id | does |
+| --- | --- | --- |
+| COMPASS | `niche-strategy` | decides what the channel is about, and kills ideas that cannot survive |
+| ATLAS | `trend-research` | picks which specific video to make next |
+| SCRIBE | `scriptwriting` | turns a topic into a shot-by-shot script |
+| FORGE | `rendering` | renders and verifies the file |
+| HERALD | `publishing` | uploads and schedules it |
+
+**Replace `/ABSOLUTE/PATH/TO/news-bot` in each definition with your real path**
+(`pwd` will tell you) — a subagent's working directory is not guaranteed to be the
+project root.
+
+COMPASS is the one worth reading. It does not brainstorm; it argues from evidence.
+Its core test is the **outlier test**: find videos whose views are 10× or more the
+uploading channel's subscriber count in the last 90 days. That ratio means the
+*topic* pulled the video rather than an existing audience, which is the clearest
+available signal of demand that supply is not meeting. Three or more on a theme is
+a real opportunity; zero means nobody wants it or the incumbents already have it
+covered.
+
+It then scores six checks — winnable supply, saturation, repeatability at your
+actual capacity, monetizable audience, durability, and your unfair advantage — and
+applies one **veto**: what does our version add that a template does not? If that
+question has no honest answer, the niche is rejected on the authenticity gate, no
+matter how good the demand looks. A niche that fails there can win views for months
+and then lose monetization all at once.
+
+Every brief ends with a **kill criterion** — a falsifiable threshold like "if the
+first five videos average under 1,000 views in 14 days, stop." Without one you will
+publish into silence for months.
+
 ## Worked example: a Claude Code subagent
 
 Save as `.claude/agents/trend-research.md`. The `name` matches the agent's `id` in

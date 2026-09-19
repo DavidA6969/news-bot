@@ -3,4 +3,8 @@ agents.json.lock
 agents.json.lock.d/
 agents.json.tmp.*
 
+# OAuth credentials — never commit these
+client_secret.json
+youtube_token.json
+
 node_modules/
