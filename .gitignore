@@ -8,3 +8,5 @@ client_secret.json
 youtube_token.json
 
 node_modules/
+__pycache__/
+*.pyc
