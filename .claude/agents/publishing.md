@@ -48,7 +48,17 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    timestamp without sending anything. Fix what it complains about before
    spending an upload.
 
-3. **Upload, scheduled into the slot.**
+3. **Carry the credits.** If the render used fetched footage, the description
+   must include the attribution block:
+
+   ```bash
+   python3 fetch_clips.py attribution render.json >> description.txt
+   ```
+
+   Pexels requires it for API-sourced clips. Leaving it out breaks the licence
+   the footage was used under.
+
+4. **Upload, scheduled into the slot.**
 
    ```bash
    python3 youtube.py upload out/2026-09-19.mp4 \
@@ -60,7 +70,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    keeping a machine awake to press publish: nothing is missed if the box is
    asleep, rebooting, or offline at 17:00.
 
-4. **Close the loop.** As soon as the upload returns a video id, link it to
+5. **Close the loop.** As soon as the upload returns a video id, link it to
    the topic that produced it:
 
    ```bash

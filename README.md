@@ -191,6 +191,34 @@ looks like this:
 }
 ```
 
+### Getting the footage — automatically
+
+You do not place clips by hand. Give each beat a `search` term and let the
+pipeline fetch them:
+
+```bash
+export PEXELS_API_KEY=...      # free: https://www.pexels.com/api/
+export PIXABAY_API_KEY=...     # free: https://pixabay.com/api/docs/
+
+python3 fetch_clips.py autofill render.json      # finds and downloads a clip per beat
+python3 fetch_clips.py attribution render.json   # the credit block for the description
+```
+
+`autofill` writes both the `clip` path and its **real** `license`, so the gate
+below is satisfied by recorded provenance rather than by typing something into a
+field. Two things it does on purpose:
+
+- **Never the same clip twice in one video**, and it avoids footage used in
+  earlier videos. Identical b-roll across uploads is what makes a channel look
+  mass-produced, which is the pattern the Inauthentic Content policy looks for.
+- **Generates the attribution.** Pexels requires crediting the creator when
+  footage comes through their API, so the credit block is produced automatically
+  and HERALD appends it to the description. That is a licence condition, not a
+  courtesy.
+
+Write `search` terms that describe a *filmable scene* — "hands typing at a
+cluttered desk" finds footage; "productivity" does not.
+
 ### Footage you may use
 
 **Every asset needs a `license`, and renders fail without one.** That is not red
@@ -204,7 +232,11 @@ Three independent reasons, any one sufficient: it infringes their copyright, it
 breaches those platforms' terms, and compiling other people's clips with little
 added is exactly what the Inauthentic Content policy demonetizes. `render.py`
 refuses a plan whose licence names a platform URL unless you also set
-`"rights_confirmed": true` to assert in writing that you hold permission.
+`"rights_confirmed": true` to assert in writing that you hold permission, and
+`fetch_clips.py` has no provider that can reach those sites at all.
+
+Stock libraries exist precisely because this need is common, and they solve it
+legally — which is why fetching is wired to them instead.
 
 ## Publishing to YouTube
 

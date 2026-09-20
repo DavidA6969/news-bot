@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -41,7 +42,8 @@ def main():
 
     section("[2] files")
     required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
-                "youtube.py", "performance.py", "render.py", "niche.py"]
+                "youtube.py", "performance.py", "render.py", "niche.py",
+                "fetch_clips.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")
@@ -175,6 +177,18 @@ def main():
             note(OK if "copyright" in str(exc) else FAIL, "ripped footage is refused")
     except Exception as exc:
         note(FAIL, "render.py not usable", str(exc)[:90])
+
+    try:
+        fetch_mod = importlib.import_module("fetch_clips")
+        note(OK if set(fetch_mod.PROVIDERS) == {"pexels", "pixabay"} else FAIL,
+             "clip sources are licensed stock only", ", ".join(sorted(fetch_mod.PROVIDERS)))
+        have = [n for n in sorted(fetch_mod.PROVIDERS)
+                if os.environ.get("%s_API_KEY" % n.upper())]
+        note(OK if have else WARN, "a stock API key is configured",
+             ", ".join(have) if have else
+             "set PEXELS_API_KEY or PIXABAY_API_KEY (both free) to fetch footage")
+    except Exception as exc:
+        note(FAIL, "fetch_clips.py not usable", str(exc)[:90])
 
     section("[10] agent definitions")
     defs = sorted((HERE / ".claude" / "agents").glob("*.md"))

@@ -24,10 +24,37 @@ If one reports `can't open file`, you are somewhere else — `cd` there first.
    That produces one beat per numbered line in the script, each pointing at a
    clip with a placeholder duration.
 
-2. **Fill it in.** For every beat set `clip`, `in` (where in the source to start),
-   `duration`, `caption`, and — this one is not optional — `license`.
+2. **Let it find the footage.** Give each beat a `search` term describing what
+   should be on screen, then:
 
-3. **Build it.**
+   ```bash
+   python3 fetch_clips.py autofill render.json
+   ```
+
+   That searches Pexels and Pixabay, downloads a clip per beat, and writes both
+   the `clip` path and its **real** `license` — so the licence gate is satisfied
+   by provenance rather than by you typing something into the field. It will
+   not hand the same clip to two beats in one video, and it avoids footage used
+   in previous videos, because identical b-roll across uploads is what makes a
+   channel look mass-produced.
+
+   Write `search` terms that describe a *filmable scene* — "hands typing at a
+   cluttered desk" finds footage; "productivity" does not.
+
+   You can still set `clip` and `license` by hand for your own footage; autofill
+   leaves any beat that already has both alone.
+
+3. **Take the credits.**
+
+   ```bash
+   python3 fetch_clips.py attribution render.json
+   ```
+
+   Pexels requires crediting the creator when footage comes through their API.
+   Paste that block into the video description — pass it to HERALD so it ends up
+   in the upload. This is a licence condition, not a courtesy.
+
+4. **Build it.**
 
    ```bash
    python3 render.py build render.json --agent rendering
@@ -36,7 +63,7 @@ If one reports `can't open file`, you are somewhere else — `cd` there first.
    The `--agent` flag reports start, finish and failure to the dashboard for
    you, so you do not need separate `status.py` calls around it.
 
-4. **If you are waiting rather than broken**, say so:
+5. **If you are waiting rather than broken**, say so:
 
    ```bash
    python3 status.py block rendering "Waiting on GPU queue slot"
@@ -51,8 +78,9 @@ If one reports `can't open file`, you are somewhere else — `cd` there first.
 Every asset needs a `license` recording where it came from and why you may use
 it. `render.py` refuses to build without one, and that check is not red tape.
 
-Acceptable: your own recordings, stock you have licensed, public-domain and
-permissively-licensed archives (record the actual URL and licence).
+Acceptable: whatever `fetch_clips.py` returns (Pexels and Pixabay both permit
+commercial reuse), your own recordings, other stock you have licensed, and
+public-domain archives — recording the actual URL and licence.
 
 **Not acceptable: clips taken from someone else's YouTube, TikTok or Instagram.**
 Three separate reasons, any one of which is enough. It infringes their
