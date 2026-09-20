@@ -161,6 +161,51 @@ except Exception as exc:
     raise
 ```
 
+## Making the video
+
+`render.py` builds the file: it trims each source clip to the beat it covers,
+reframes it to vertical, burns in captions from a generated `.ass` file, lays the
+voice track over the top, concatenates and encodes an MP4 — then probes its own
+output and **deletes it rather than hand on** anything silent, truncated, or more
+than 10% off the script's duration.
+
+```bash
+python3 render.py plan script.md --clips assets/ -o render.json
+python3 render.py build render.json --agent rendering
+python3 render.py check out/video.mp4 --expect 44
+```
+
+Needs `ffmpeg` on PATH (macOS `brew install ffmpeg`, Debian `apt install ffmpeg`),
+or set `FFMPEG`, or `pip install imageio-ffmpeg` for a bundled build. A render plan
+looks like this:
+
+```json
+{
+  "output": "out/2026-09-20.mp4",
+  "width": 1080, "height": 1920, "fps": 30,
+  "audio": { "path": "voice.m4a", "license": "own recording" },
+  "beats": [
+    { "clip": "assets/desk-01.mp4", "license": "CC0 — pexels.com/video/12345",
+      "in": 1.0, "duration": 3.5, "caption": "Most side projects die in week two." }
+  ]
+}
+```
+
+### Footage you may use
+
+**Every asset needs a `license`, and renders fail without one.** That is not red
+tape — it is the single biggest risk to this channel.
+
+Acceptable: your own recordings, stock you have licensed, public-domain and
+permissively-licensed archives. Record the real URL and licence.
+
+**Not acceptable: clips taken from someone else's YouTube, TikTok or Instagram.**
+Three independent reasons, any one sufficient: it infringes their copyright, it
+breaches those platforms' terms, and compiling other people's clips with little
+added is exactly what the Inauthentic Content policy demonetizes. `render.py`
+refuses a plan whose licence names a platform URL unless you also set
+`"rights_confirmed": true` to assert in writing that you hold permission.
+
 ## Publishing to YouTube
 
 `youtube.py` uploads a finished render to your own channel through the **YouTube
@@ -203,6 +248,31 @@ python3 youtube.py upload out/video.mp4 --title "..." \
 
 `--publish-at` hands the go-live to YouTube, which beats keeping a machine awake to
 press publish. `--agent publishing` mirrors the upload onto the dashboard.
+
+## One niche, held
+
+A channel that changes subject every few weeks never builds an audience — the
+people one video brings in are not the people the next is for, so nothing
+compounds. `niche.py` keeps **exactly one** committed niche on disk and makes
+every agent read it.
+
+```bash
+python3 niche.py set --name "..." --audience "..." --format "..." \
+  --why "..." --keywords focus productivity "side project"
+python3 niche.py show
+python3 niche.py check "Bitcoin price prediction"   # in niche, or not
+python3 niche.py history
+```
+
+`set` refuses if a niche already exists — there is never a list. Changing it takes
+a deliberate `switch` with a written reason, and that is **refused inside the
+first 30 days or under 10 published videos**, because before then the numbers
+cannot tell you whether the niche or the execution was wrong. Every switch is
+recorded with how long the old one was held, and after two the history says
+plainly that the switching is the problem rather than the niches.
+
+ATLAS gates every candidate topic through `niche.py check`. Off-niche means
+reframe it or drop it — never publish it anyway because the demand looks good.
 
 ## Learning from results
 
@@ -272,10 +342,10 @@ through `status.py`, so a run is visible as it happens.
 
 | agent | id | does |
 | --- | --- | --- |
-| COMPASS | `niche-strategy` | decides what the channel is about, and kills ideas that cannot survive |
+| COMPASS | `niche-strategy` | commits the channel to **one** niche, and kills ideas that cannot survive |
 | ATLAS | `trend-research` | picks which specific video to make next |
 | SCRIBE | `scriptwriting` | turns a topic into a shot-by-shot script |
-| FORGE | `rendering` | renders and verifies the file |
+| FORGE | `rendering` | clips the footage into a finished video, and verifies it |
 | HERALD | `publishing` | uploads, schedules it, and records it for the feedback loop |
 
 All commands in the definitions are relative and run from the project root, so

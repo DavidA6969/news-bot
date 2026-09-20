@@ -40,8 +40,8 @@ def main():
         note(FAIL, "python 3.9+ required", "found %d.%d" % sys.version_info[:2])
 
     section("[2] files")
-    required = ["agents.json", "dashboard.html", "status.py",
-                "schedule.py", "youtube.py", "performance.py"]
+    required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
+                "youtube.py", "performance.py", "render.py", "niche.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")
@@ -135,7 +135,48 @@ def main():
     except Exception as exc:
         note(FAIL, "performance.py not usable", str(exc)[:90])
 
-    section("[8] agent definitions")
+    section("[8] niche")
+    try:
+        niche_mod = importlib.import_module("niche")
+        data = niche_mod.load()
+        one = data.get("niche")
+        if one is None:
+            note(WARN, "no niche committed yet",
+                 "run niche-strategy, or: python3 niche.py set --name ...")
+        else:
+            note(OK, "exactly one niche committed", one["name"])
+            note(OK if one.get("keywords") else WARN, "niche has gating keywords",
+                 ", ".join(one.get("keywords") or []) or "none — ATLAS cannot gate topics")
+        switches = sum(1 for r in data.get("history", []) if r.get("action") == "switch")
+        note(OK if switches < 2 else WARN, "niche is being held, not churned",
+             "%d switch(es)" % switches if switches else "no switches")
+    except Exception as exc:
+        note(FAIL, "niche.py not usable", str(exc)[:90])
+
+    section("[9] renderer")
+    try:
+        render_mod = importlib.import_module("render")
+        try:
+            binary = render_mod.ffmpeg_bin()
+            note(OK, "ffmpeg found", binary)
+        except Exception as exc:
+            note(FAIL, "ffmpeg missing", str(exc)[:110])
+        # the licence gate must actually refuse, not just warn
+        try:
+            render_mod.validate_plan({"beats": [{"clip": __file__, "duration": 1}]})
+            note(FAIL, "unlicensed footage is refused", "it was accepted")
+        except render_mod.RenderError as exc:
+            note(OK if "license" in str(exc) else FAIL, "unlicensed footage is refused")
+        try:
+            render_mod.validate_plan({"beats": [
+                {"clip": __file__, "duration": 1, "license": "from youtube.com/watch?v=x"}]})
+            note(FAIL, "ripped footage is refused", "it was accepted")
+        except render_mod.RenderError as exc:
+            note(OK if "copyright" in str(exc) else FAIL, "ripped footage is refused")
+    except Exception as exc:
+        note(FAIL, "render.py not usable", str(exc)[:90])
+
+    section("[10] agent definitions")
     defs = sorted((HERE / ".claude" / "agents").glob("*.md"))
     if not defs:
         note(FAIL, "no agent definitions", "expected .claude/agents/*.md")
@@ -158,7 +199,7 @@ def main():
             problems.append("still contains a placeholder path")
         note(OK if not problems else FAIL, path.name, "; ".join(problems))
 
-    section("[9] dashboard")
+    section("[11] dashboard")
     try:
         page = (HERE / "dashboard.html").read_text(encoding="utf-8")
         note(OK if "agents.json" in page else FAIL, "reads agents.json")
@@ -170,7 +211,7 @@ def main():
     except Exception as exc:
         note(FAIL, "dashboard.html unreadable", str(exc)[:90])
 
-    section("[10] secrets")
+    section("[12] secrets")
     ignore = (HERE / ".gitignore").read_text(encoding="utf-8") if (HERE / ".gitignore").exists() else ""
     for secret in ("client_secret.json", "youtube_token.json"):
         note(OK if secret in ignore else FAIL, "%s is git-ignored" % secret)

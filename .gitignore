@@ -7,6 +7,10 @@ agents.json.tmp.*
 schedule_state.json
 performance.json
 performance.md
+niche.json
+render.json
+out/
+assets/
 
 # OAuth credentials — never commit these
 client_secret.json

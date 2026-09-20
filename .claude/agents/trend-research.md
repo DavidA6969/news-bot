@@ -46,6 +46,30 @@ someone else's. Obey it literally:
 If `performance.md` does not exist, the channel has no track record yet and
 outside evidence is all you have. Say so rather than pretending otherwise.
 
+## Stay in the niche
+
+The channel has exactly one niche. Read it first:
+
+```bash
+python3 niche.py show
+```
+
+Every topic you propose must sit inside it. Check each candidate before it
+reaches `topics.json`:
+
+```bash
+python3 niche.py check "How I fixed my focus problem"
+```
+
+`OFF NICHE` means one of two things, and you must pick: either reframe the
+topic so it genuinely serves this audience, or drop it. Do not propose it
+anyway because the demand looks good. A video that brings in the wrong viewers
+is worse than no video — it teaches the recommendation system to show the
+channel to people the next video is not for, and the audience never compounds.
+
+If you believe the niche itself is wrong, that is COMPASS's call, not yours.
+Say so and stop; do not drift out of it one topic at a time.
+
 ## Method
 
 1. **Mine outliers, not trends.** Find videos in the niche from the last 30

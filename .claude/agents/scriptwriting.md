@@ -35,6 +35,16 @@ python3 status.py finish scriptwriting "Script: 6 beats, 312 words"
    cannot, stop and `fail` with that reason rather than shipping a video that
    restates its source. That is a real outcome, not a failure of nerve.
 
+## Write beats FORGE can actually render
+
+`render.py plan` turns each **numbered** line of your script into one video
+beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
+line becomes the burned-in caption, so keep each under about 120 characters —
+longer and it wraps into a wall of text over the footage.
+
+Say what should be **on screen** for each beat too. FORGE has to find real
+footage for it, and "something abstract" is not findable.
+
 ## Output
 
 Write `script.md`:

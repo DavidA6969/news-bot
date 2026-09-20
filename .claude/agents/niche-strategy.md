@@ -98,6 +98,38 @@ views for months and then lose monetization all at once, which is the worst
 possible outcome for the operator. AI-assisted production is fine; AI-generated
 sameness is not.
 
+## One niche. Not a shortlist.
+
+The channel holds **exactly one** niche, and `niche.py` enforces it. Your job
+ends in a single commitment, not a ranked menu:
+
+```bash
+python3 niche.py show     # what is committed now, if anything
+python3 niche.py set --name "..." --audience "..." --format "..." \
+  --why "..." --keywords word1 word2 word3
+```
+
+The keywords are what ATLAS gates every future topic against, so choose ones
+that actually separate this niche from its neighbours — not generic words that
+would match anything.
+
+If a niche is already committed, `set` refuses and you must argue for a switch
+instead:
+
+```bash
+python3 niche.py switch --name "..." --reason "..."
+```
+
+That is deliberately hard. It refuses inside the first 30 days or under 10
+published videos, because before then the numbers cannot tell you whether the
+niche or the execution was wrong. Every switch is written into a history with
+how long the old niche was held. If you find yourself recommending a third
+switch, the switching is the problem, not the niches: each one throws away the
+audience the last one built.
+
+Recommend **one** niche, or recommend staying where you are. Never hand back
+two and let the operator pick — choosing is the job.
+
 ## What you produce
 
 Write `niche.md` in the repo root and make it decision-ready:
