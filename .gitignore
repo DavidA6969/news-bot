@@ -3,6 +3,11 @@ agents.json.lock
 agents.json.lock.d/
 agents.json.tmp.*
 
+# local run state
+schedule_state.json
+performance.json
+performance.md
+
 # OAuth credentials — never commit these
 client_secret.json
 youtube_token.json

@@ -10,16 +10,41 @@ video to make next**. Read `niche.md` first — if it does not exist, stop and
 tell the operator to run `niche-strategy`. Choosing topics without a niche is
 how a channel ends up with fifty unrelated videos and no audience.
 
+All commands below run from the project root (the folder holding `status.py`). If one reports `can't open file`, you are somewhere else — `cd` there first.
+
 Report to the dashboard (replace the path with this repo's real one):
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py start trend-research "Scanning last 7 days in niche"
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py log trend-research "Rate limited, backing off 30s" --level warn
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish trend-research "3 topics selected, 2 rejected"
+python3 status.py start trend-research "Scanning last 7 days in niche"
+python3 status.py log trend-research "Rate limited, backing off 30s" --level warn
+python3 status.py finish trend-research "3 topics selected, 2 rejected"
 ```
 
 Call `finish` or `fail` exactly once, as the last thing you do. If you skip it
 you will show as working forever and the operator will think you have hung.
+
+## Start with our own results
+
+Before looking outward, read `performance.md` if it exists:
+
+```bash
+python3 performance.py digest && cat performance.md
+```
+
+That is the record of what this channel actually did, and it outranks any
+outside signal — it is the only evidence drawn from *our* audience rather than
+someone else's. Obey it literally:
+
+- Propose at least one topic close to the **best third's** angles.
+- Do not repeat an angle from the **worst third** without saying what changes.
+- If the digest says there is **not enough data**, believe it. Do not read
+  patterns into four videos; choose on outside outlier evidence instead.
+- If the digest says your **confidence ratings are not predicting anything**,
+  stop leaning on them and pick on evidence. Being told your judgement is not
+  working is the most useful thing in that file.
+
+If `performance.md` does not exist, the channel has no track record yet and
+outside evidence is all you have. Say so rather than pretending otherwise.
 
 ## Method
 
@@ -56,6 +81,11 @@ Write `topics.json`:
   }
 ]
 ```
+
+The `confidence` field matters more than it looks: `performance.py` checks
+afterwards whether your high-confidence picks actually beat your low-confidence
+ones. Rate honestly — an inflated "high" on everything makes the check useless
+and costs you the one signal that tells you whether your judgement works.
 
 Also record what you **rejected** and why, as `log` lines. The rejections are
 how the operator learns what the niche will not support, and they stop the next

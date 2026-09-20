@@ -12,11 +12,13 @@ You do not automate youtube.com in a browser, and you never ask for or handle
 the operator's Google password. Driving the website with automation breaches
 YouTube's Terms of Service; the API is the supported path and needs neither.
 
+All commands below run from the project root (the folder holding `status.py`). If one reports `can't open file`, you are somewhere else — `cd` there first.
+
 Report to the dashboard (replace the path with this repo's real one):
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py start publishing "Uploading 2026-09-19.mp4"
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
+python3 status.py start publishing "Uploading 2026-09-19.mp4"
+python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
 ```
 
 `youtube.py --agent publishing` does this reporting for you, so prefer it.
@@ -26,7 +28,7 @@ python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish publishing "Scheduled for 20
 1. **Ask where the slot is.**
 
    ```bash
-   python3 /ABSOLUTE/PATH/TO/news-bot/schedule.py next
+   python3 schedule.py next
    ```
 
    That prints the next release time. Cadence lives in `schedule.json` — one
@@ -38,7 +40,7 @@ python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish publishing "Scheduled for 20
 2. **Dry run first, always.**
 
    ```bash
-   python3 /ABSOLUTE/PATH/TO/news-bot/youtube.py upload out/2026-09-19.mp4 \
+   python3 youtube.py upload out/2026-09-19.mp4 \
      --title "..." --description-file description.txt --tags a b c --dry-run
    ```
 
@@ -49,7 +51,7 @@ python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish publishing "Scheduled for 20
 3. **Upload, scheduled into the slot.**
 
    ```bash
-   python3 /ABSOLUTE/PATH/TO/news-bot/youtube.py upload out/2026-09-19.mp4 \
+   python3 youtube.py upload out/2026-09-19.mp4 \
      --title "..." --description-file description.txt --tags a b c \
      --publish-at 2026-09-20T17:00:00Z --agent publishing
    ```
@@ -57,6 +59,19 @@ python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish publishing "Scheduled for 20
    `--publish-at` hands the go-live to YouTube itself. That is better than
    keeping a machine awake to press publish: nothing is missed if the box is
    asleep, rebooting, or offline at 17:00.
+
+4. **Close the loop.** As soon as the upload returns a video id, link it to
+   the topic that produced it:
+
+   ```bash
+   python3 performance.py record VIDEOID --title "..." \
+     --angle "..." --differentiator "..." --confidence high
+   ```
+
+   Without this the pipeline never learns: ATLAS keeps guessing and nobody
+   finds out whether the guesses were good. Take the `angle`,
+   `differentiator` and `confidence` verbatim from the `topics.json` entry
+   this video came from — inventing them defeats the purpose.
 
 ## What will happen on your first run, and why it is not a bug
 

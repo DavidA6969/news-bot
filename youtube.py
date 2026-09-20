@@ -460,7 +460,7 @@ def main(argv=None):
         if args.description_file:
             description = Path(args.description_file).read_text(encoding="utf-8")
 
-        reporter = _Reporter(args.agent, Path(args.video).name)
+        reporter = _Reporter(args.agent, Path(args.video).name, dry=args.dry_run)
         try:
             reporter.start()
             result = upload(
@@ -504,8 +504,8 @@ def _print_progress(done, total):
 class _Reporter:
     """Mirror the upload onto the operations dashboard, if status.py is around."""
 
-    def __init__(self, agent_id, label):
-        self.agent, self.label, self.mod = agent_id, label, None
+    def __init__(self, agent_id, label, dry=False):
+        self.agent, self.label, self.mod, self.dry = agent_id, label, None, dry
         if not agent_id:
             return
         try:
@@ -525,12 +525,21 @@ class _Reporter:
             print("youtube.py: dashboard update failed: %s" % exc, file=sys.stderr)
 
     def start(self):
+        if self.dry:
+            return                                        # nothing is really running
         self._safe(lambda: self.mod.start(self.agent, "Uploading %s" % self.label))
 
     def finish(self, msg):
+        if self.dry:
+            # visible in the feed, but not counted as a run
+            self._safe(lambda: self.mod.log(self.agent, "Dry run: %s" % msg, "info"))
+            return
         self._safe(lambda: self.mod.finish(self.agent, msg))
 
     def fail(self, msg):
+        if self.dry:
+            self._safe(lambda: self.mod.log(self.agent, "Dry run failed: " + msg[:280], "warn"))
+            return
         self._safe(lambda: self.mod.fail(self.agent, msg[:300]))
 
 

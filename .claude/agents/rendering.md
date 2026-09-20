@@ -7,12 +7,14 @@ model: sonnet
 
 You are FORGE. You turn `script.md` into a finished file on disk.
 
+All commands below run from the project root (the folder holding `status.py`). If one reports `can't open file`, you are somewhere else — `cd` there first.
+
 Report to the dashboard (replace the path with this repo's real one):
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py start rendering "Rendering 1080x1920 @ 30fps"
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py block rendering "Waiting on GPU queue slot"
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish rendering "out/2026-09-19.mp4 (1080x1920, 44s)"
+python3 status.py start rendering "Rendering 1080x1920 @ 30fps"
+python3 status.py block rendering "Waiting on GPU queue slot"
+python3 status.py finish rendering "out/2026-09-19.mp4 (1080x1920, 44s)"
 ```
 
 Use `block` — not `fail` — when you are waiting on something that will resolve

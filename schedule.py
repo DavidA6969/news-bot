@@ -21,6 +21,7 @@ creates one with the defaults below.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -33,7 +34,8 @@ try:
 except ImportError:                                       # pragma: no cover
     ZoneInfo = None
 
-__all__ = ["load_config", "plan", "next_slot", "ScheduleError", "DEFAULT_CONFIG"]
+__all__ = ["load_config", "plan", "next_slot", "claim_slot", "claimed",
+           "ScheduleError", "DEFAULT_CONFIG"]
 
 DEFAULT_CONFIG = {
     "timezone": "UTC",
@@ -47,9 +49,14 @@ DEFAULT_CONFIG = {
     "skip_weekdays": [],
     # Upper bound, so a config typo can never schedule a flood.
     "max_per_day": 3,
+    # Per-install salt. Each day's slots are derived from salt + date, so the
+    # plan for a given day is fixed: asking twice gets the same answer.
+    "salt": "news-bot",
 }
 
 CONFIG_PATH = Path(__file__).resolve().parent / "schedule.json"
+STATE_PATH = Path(__file__).resolve().parent / "schedule_state.json"
+CLAIM_HISTORY_DAYS = 60
 
 
 class ScheduleError(RuntimeError):
@@ -146,6 +153,17 @@ def load_config(path=None):
 # --------------------------------------------------------------------------
 # planning
 # --------------------------------------------------------------------------
+def _day_seed(salt, day):
+    """A stable seed for one calendar day.
+
+    Seeding per day rather than per call is what makes the schedule a schedule:
+    the same date always yields the same slots, however many days you ask for
+    and whenever you ask.
+    """
+    digest = hashlib.sha256(("%s|%s" % (salt, day.isoformat())).encode("utf-8")).hexdigest()
+    return int(digest[:16], 16)
+
+
 def _pick_count(counts, rng):
     options = sorted(counts)
     weights = [counts[n] for n in options]
@@ -161,7 +179,7 @@ def plan(days=7, start=None, seed=None, config=None, now=None):
     cfg = config if config and "_windows" in config else load_config()
     if days < 1:
         return []
-    rng = random.Random(seed)
+    salt = str(seed) if seed is not None else str(cfg.get("salt", "news-bot"))
     tz = cfg["_tz"]
     gap = timedelta(hours=float(cfg.get("min_gap_hours", 0)))
 
@@ -173,6 +191,7 @@ def plan(days=7, start=None, seed=None, config=None, now=None):
         day = first + timedelta(days=offset)
         if day.weekday() in cfg["_skip"]:
             continue
+        rng = random.Random(_day_seed(salt, day))      # fixed per calendar day
         count = _pick_count(cfg["_counts"], rng)
         for window_index in range(count):
             w_start, w_end = cfg["_windows"][window_index]
@@ -192,10 +211,85 @@ def plan(days=7, start=None, seed=None, config=None, now=None):
     return slots
 
 
-def next_slot(seed=None, config=None, now=None):
-    """The next publish time, or None if nothing is scheduled in the next 14 days."""
-    upcoming = plan(days=14, seed=seed, config=config, now=now)
-    return upcoming[0] if upcoming else None
+def _load_state(path=None):
+    path = Path(path) if path else STATE_PATH
+    if not path.exists():
+        return {"claimed": []}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ScheduleError("%s is not valid JSON (%s)" % (path, exc)) from exc
+    if not isinstance(data, dict) or not isinstance(data.get("claimed"), list):
+        raise ScheduleError('%s must contain {"claimed": [...]}' % path)
+    return data
+
+
+def _save_state(data, path=None):
+    path = Path(path) if path else STATE_PATH
+    tmp = path.with_name(path.name + ".tmp.%d" % os.getpid())
+    tmp.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
+def claimed(state_path=None):
+    """The slots already handed out, as aware UTC datetimes."""
+    out = []
+    for raw in _load_state(state_path)["claimed"]:
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        out.append(dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc))
+    return out
+
+
+def next_slot(seed=None, config=None, now=None, state_path=None, skip_claimed=True):
+    """The next unclaimed publish time, or None if none in the next 14 days."""
+    now = now or datetime.now(timezone.utc)
+    taken = set(claimed(state_path)) if skip_claimed else set()
+    for when in plan(days=14, seed=seed, config=config, now=now):
+        if when not in taken:
+            return when
+    return None
+
+
+def claim_slot(seed=None, config=None, now=None, state_path=None):
+    """Take the next free slot and record it, so it is not handed out twice.
+
+    Without this, two runs on the same day are told to publish at the same
+    moment — the plan is stable, which is exactly why it repeats itself.
+    """
+    now = now or datetime.now(timezone.utc)
+    when = next_slot(seed=seed, config=config, now=now, state_path=state_path)
+    if when is None:
+        return None
+    state = _load_state(state_path)
+    cutoff = now - timedelta(days=CLAIM_HISTORY_DAYS)
+    kept = []
+    for raw in state["claimed"]:
+        try:
+            dt = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if not dt.tzinfo:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt >= cutoff:
+            kept.append(_iso(dt))
+    kept.append(_iso(when))
+    state["claimed"] = sorted(set(kept))
+    _save_state(state, state_path)
+    return when
+
+
+def release_slot(when, state_path=None):
+    """Give a claimed slot back (an upload that failed, say)."""
+    state = _load_state(state_path)
+    target = _iso(when if isinstance(when, datetime)
+                  else datetime.fromisoformat(str(when).replace("Z", "+00:00")))
+    before = len(state["claimed"])
+    state["claimed"] = [c for c in state["claimed"] if c != target]
+    _save_state(state, state_path)
+    return before != len(state["claimed"])
 
 
 # --------------------------------------------------------------------------
@@ -217,7 +311,12 @@ def main(argv=None):
     p_plan = sub.add_parser("plan", parents=[common], help="print the upcoming publish slots")
     p_plan.add_argument("--days", type=int, default=7)
 
-    sub.add_parser("next", parents=[common], help="print the next publish time only")
+    sub.add_parser("next", parents=[common], help="peek at the next free publish time")
+    sub.add_parser("claim", parents=[common],
+                   help="take the next free slot and record it, so it is not reused")
+    p_rel = sub.add_parser("release", parents=[common], help="give a claimed slot back")
+    p_rel.add_argument("slot", help="the ISO-8601 slot to release")
+    sub.add_parser("claimed", parents=[common], help="list slots already taken")
     sub.add_parser("write-config", parents=[common], help="write schedule.json with the defaults")
 
     args = parser.parse_args(argv)
@@ -227,7 +326,10 @@ def main(argv=None):
             if target.exists():
                 print("schedule.py: %s already exists — not overwriting" % target, file=sys.stderr)
                 return 1
-            target.write_text(json.dumps(DEFAULT_CONFIG, indent=2) + "\n", encoding="utf-8")
+            fresh = dict(DEFAULT_CONFIG)
+            # a per-install salt, so two channels do not publish in lockstep
+            fresh["salt"] = hashlib.sha256(os.urandom(16)).hexdigest()[:16]
+            target.write_text(json.dumps(fresh, indent=2) + "\n", encoding="utf-8")
             print("wrote %s" % target)
             return 0
 
@@ -235,12 +337,39 @@ def main(argv=None):
         if args.command == "next":
             when = next_slot(seed=args.seed, config=cfg)
             if when is None:
-                print("schedule.py: nothing scheduled in the next 14 days", file=sys.stderr)
+                print("schedule.py: no free slot in the next 14 days — "
+                      "every one is already claimed", file=sys.stderr)
                 return 1
             print(_iso(when))
             return 0
 
+        if args.command == "claim":
+            when = claim_slot(seed=args.seed, config=cfg)
+            if when is None:
+                print("schedule.py: no free slot in the next 14 days — "
+                      "every one is already claimed", file=sys.stderr)
+                return 1
+            print(_iso(when))
+            return 0
+
+        if args.command == "release":
+            if release_slot(args.slot):
+                print("released %s" % args.slot)
+                return 0
+            print("schedule.py: %s was not claimed" % args.slot, file=sys.stderr)
+            return 1
+
+        if args.command == "claimed":
+            taken = claimed()
+            if not taken:
+                print("no slots claimed")
+                return 0
+            for when in sorted(taken):
+                print(_iso(when))
+            return 0
+
         slots = plan(days=args.days, seed=args.seed, config=cfg)
+        taken = set(claimed())
         if not slots:
             print("schedule.py: no slots in the next %d days" % args.days, file=sys.stderr)
             return 1
@@ -252,7 +381,8 @@ def main(argv=None):
             if label != day:
                 day = label
                 print(label)
-            print("  %s local   %s" % (local.strftime("%H:%M"), _iso(when)))
+            print("  %s local   %s%s" % (local.strftime("%H:%M"), _iso(when),
+                                         "   [claimed]" if when in taken else ""))
         per_day = {}
         for when in slots:
             per_day.setdefault(when.astimezone(tz).date(), 0)

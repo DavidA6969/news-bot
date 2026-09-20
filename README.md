@@ -13,6 +13,20 @@ dashboard.html   the UI (open in a browser)
 status.py        the writer helper your agents call
 ```
 
+## Check it first
+
+```bash
+python3 selfcheck.py
+```
+
+Verifies the whole setup: the state file parses and its dependencies resolve,
+`status.py` can take its lock, the schedule is stable and within its cap, every
+agent definition names a real agent and carries no leftover placeholder path, the
+dashboard is wired to the right file, and **no credential is committed**.
+
+`FAIL` means broken. `WARN` means a step you have not done yet (credentials, a
+first upload) and is expected on a fresh clone.
+
 ## Run it
 
 ```bash
@@ -124,7 +138,7 @@ python3 status.py show   trend-research          # print the current record
 directory, so an absolute path works from anywhere:
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py start trend-research "..."   # <- your real path
+python3 status.py start trend-research "..."   # <- your real path
 ```
 
 Override the target file with `--file path/to/agents.json` or `AGENT_STATE_FILE`.
@@ -190,16 +204,53 @@ python3 youtube.py upload out/video.mp4 --title "..." \
 `--publish-at` hands the go-live to YouTube, which beats keeping a machine awake to
 press publish. `--agent publishing` mirrors the upload onto the dashboard.
 
+## Learning from results
+
+Without this the pipeline is blind: COMPASS picks a niche, ATLAS picks topics, and
+nothing ever finds out whether any of it worked.
+
+```bash
+python3 performance.py record VIDEOID --title "..." --angle "..." --confidence high
+python3 performance.py refresh          # needs a Data API key, not OAuth
+python3 performance.py digest           # writes performance.md
+```
+
+HERALD records each upload against the topic that produced it. `refresh` reads
+public view counts, which needs only a **Data API key** — no extra permission on
+your account. `digest` writes `performance.md`, which ATLAS reads *before* choosing
+the next topics.
+
+Three things make the digest worth reading:
+
+- **Views are normalised by age**, so a week-old video is comparable to a new one.
+- **Videos with no statistics yet** (private, scheduled) are excluded and said so,
+  never counted as zero — counting them would poison every average.
+- **It checks whether ATLAS's own confidence ratings predict anything.** If the
+  high-confidence picks are not beating the low-confidence ones, it says so and
+  tells the agent to stop leaning on them. A pipeline that cannot notice its own
+  judgement is useless is not learning, it is accumulating files.
+
+Below five measured videos it refuses to draw patterns and says why. Four data
+points cannot tell you anything, and pretending otherwise is how a channel gets
+abandoned one bad week in.
+
 ## Release cadence
 
 `schedule.py` decides *when* videos go live — one or two a day inside configured
 windows, never closer together than a minimum gap.
 
 ```bash
-python3 schedule.py write-config      # creates schedule.json
+python3 schedule.py write-config      # creates schedule.json with a per-install salt
 python3 schedule.py plan --days 7     # show the week
-python3 schedule.py next              # the next slot, ISO-8601
+python3 schedule.py next              # peek at the next free slot
+python3 schedule.py claim             # take it, so it is not handed out twice
+python3 schedule.py release <slot>    # give one back after a failed upload
 ```
+
+Each day's slots are derived from `salt + date`, so **the plan for a given day is
+fixed**: asking twice gets the same answer, and planning 7 days or 14 agrees about
+the days they share. `claim` records a slot in `schedule_state.json` so two runs on
+the same day cannot both be told to publish at the same moment.
 
 To be explicit about what this is and is not: it spaces releases so the channel
 publishes on a rhythm an audience can follow. It is **not** an attempt to look
@@ -225,11 +276,11 @@ through `status.py`, so a run is visible as it happens.
 | ATLAS | `trend-research` | picks which specific video to make next |
 | SCRIBE | `scriptwriting` | turns a topic into a shot-by-shot script |
 | FORGE | `rendering` | renders and verifies the file |
-| HERALD | `publishing` | uploads and schedules it |
+| HERALD | `publishing` | uploads, schedules it, and records it for the feedback loop |
 
-**Replace `/ABSOLUTE/PATH/TO/news-bot` in each definition with your real path**
-(`pwd` will tell you) — a subagent's working directory is not guaranteed to be the
-project root.
+All commands in the definitions are relative and run from the project root, so
+there is nothing to edit before first use. `selfcheck.py` fails if a definition
+still carries a placeholder path or names an agent that is not in `agents.json`.
 
 COMPASS is the one worth reading. It does not brainstorm; it argues from evidence.
 Its core test is the **outlier test**: find videos whose views are 10× or more the
@@ -255,9 +306,8 @@ publish into silence for months.
 Save as `.claude/agents/trend-research.md`. The `name` matches the agent's `id` in
 `agents.json` so the two line up.
 
-**Replace `/ABSOLUTE/PATH/TO/news-bot` with the real path to this repo on your
-machine** (`pwd` will tell you). It has to be absolute: a subagent's working directory
-is not guaranteed to be the project root.
+Commands are relative to the project root, which is where a subagent's shell
+starts. No path editing is needed.
 
 ````markdown
 ---
@@ -269,31 +319,32 @@ model: sonnet
 
 You are ATLAS, the trend research stage of the video pipeline.
 
-Report your status to the operations dashboard as you work. Always call the helper by
-its absolute path — your working directory may not be the project root.
+Report your status to the operations dashboard as you work. All commands below run
+from the project root (the folder holding `status.py`); if one reports `can't open
+file`, `cd` there first.
 
 **1. Before anything else, announce that you have started:**
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py start trend-research "Scanning last 7 days in niche"
+python3 status.py start trend-research "Scanning last 7 days in niche"
 ```
 
 **2. While working, log anything a human would want to see later:**
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py log trend-research "Source rate-limited, backing off 30s" --level warn
+python3 status.py log trend-research "Source rate-limited, backing off 30s" --level warn
 ```
 
 **3. When you succeed, record a one-line summary of what you produced:**
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py finish trend-research "3 topics selected, 2 rejected"
+python3 status.py finish trend-research "3 topics selected, 2 rejected"
 ```
 
 **4. If you cannot complete the task, report the failure instead:**
 
 ```bash
-python3 /ABSOLUTE/PATH/TO/news-bot/status.py fail trend-research "All sources returned 503"
+python3 status.py fail trend-research "All sources returned 503"
 ```
 
 Call `finish` or `fail` exactly once, as the last thing you do. If you skip it you will
