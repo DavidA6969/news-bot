@@ -43,7 +43,7 @@ def main():
     section("[2] files")
     required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
                 "youtube.py", "performance.py", "render.py", "niche.py",
-                "fetch_clips.py"]
+                "fetch_clips.py", "style.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")
@@ -177,6 +177,24 @@ def main():
             note(OK if "copyright" in str(exc) else FAIL, "ripped footage is refused")
     except Exception as exc:
         note(FAIL, "render.py not usable", str(exc)[:90])
+
+    try:
+        style_mod = importlib.import_module("style")
+        look = style_mod.current()
+        if look.get("_default"):
+            note(WARN, "no style committed", "using the default; run: python3 style.py init")
+        else:
+            note(OK, "one editing style committed",
+                 "%s v%d" % (look.get("name", "?"), look.get("version", 0)))
+        fmt = look["format"]
+        note(OK, "every video uses one format",
+             "%dx%d @ %dfps" % (fmt["width"], fmt["height"], fmt["fps"]))
+        changes = sum(1 for r in style_mod.load().get("history", [])
+                      if r.get("action") == "set")
+        note(OK if changes < 6 else WARN, "the look is holding still",
+             "%d change(s)" % changes)
+    except Exception as exc:
+        note(FAIL, "style.py not usable", str(exc)[:90])
 
     try:
         fetch_mod = importlib.import_module("fetch_clips")

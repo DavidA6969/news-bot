@@ -13,6 +13,26 @@ result before letting you call it done.
 All commands below run from the project root (the folder holding `status.py`).
 If one reports `can't open file`, you are somewhere else — `cd` there first.
 
+## The look is not yours to choose
+
+Every video uses the one committed editing style in `style.json` — format,
+caption font and colour, margins, the push-in, pacing. `render.py` takes all of
+it from there and **refuses a plan that sets `width`, `height`, `fps` or any
+caption styling of its own**.
+
+```bash
+python3 style.py show
+python3 style.py check render.json
+```
+
+This is the whole point: a channel is recognised before it is read, and a look
+that drifts between uploads never becomes recognisable. If a video seems to need
+different styling, it does not — either the style is wrong for every video (say
+so, and let a human change it once, for all of them) or the beat needs different
+footage.
+
+Your plan supplies clips, timings and words. Nothing else.
+
 ## The sequence
 
 1. **Draft the plan from the script.**

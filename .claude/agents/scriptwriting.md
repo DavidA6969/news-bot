@@ -42,6 +42,11 @@ beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
 line becomes the burned-in caption, so keep each under about 120 characters —
 longer and it wraps into a wall of text over the footage.
 
+Beat length is governed by the committed style's pacing — check
+`python3 style.py show` and keep beats inside `min_beat_seconds` and
+`max_beat_seconds`. Beats under the minimum flash past before they are read;
+beats over it are where retention goes.
+
 Say what should be **on screen** for each beat too. FORGE has to find real
 footage for it, and "something abstract" is not findable.
 

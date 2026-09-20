@@ -40,7 +40,14 @@ import sys
 import tempfile
 from pathlib import Path
 
-__all__ = ["build", "load_plan", "probe", "RenderError", "ffmpeg_bin"]
+__all__ = ["build", "load_plan", "probe", "RenderError", "ffmpeg_bin", "the_style"]
+
+
+def the_style():
+    """The one committed editing style. Every visual decision comes from here."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import style as style_mod
+    return style_mod.current()
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_W, DEFAULT_H, DEFAULT_FPS = 1080, 1920, 30
@@ -169,12 +176,18 @@ def validate_plan(plan, base=None):
     if not isinstance(beats, list) or not beats:
         raise RenderError('the plan needs a non-empty "beats" array')
 
-    plan.setdefault("width", DEFAULT_W)
-    plan.setdefault("height", DEFAULT_H)
-    plan.setdefault("fps", DEFAULT_FPS)
+    look = the_style()
     for key in ("width", "height", "fps"):
-        if not isinstance(plan[key], int) or plan[key] <= 0:
-            raise RenderError('"%s" must be a positive integer' % key)
+        if key in plan and plan[key] != look["format"][key]:
+            raise RenderError(
+                'the plan sets %s=%r but the committed style says %r. Every video '
+                "uses one style — change it in style.json if you mean to change it "
+                "for all of them, not here for one." % (key, plan[key], look["format"][key]))
+    plan["width"] = look["format"]["width"]
+    plan["height"] = look["format"]["height"]
+    plan["fps"] = look["format"]["fps"]
+    plan["_style"] = look
+    plan["_styleVersion"] = look.get("version", 0)
 
     total = 0.0
     for i, beat in enumerate(beats):
@@ -225,6 +238,26 @@ def validate_plan(plan, base=None):
 # --------------------------------------------------------------------------
 # captions
 # --------------------------------------------------------------------------
+def _beat_filter(w, h, fps, push, duration):
+    """Reframe to the style's format, and apply its push-in.
+
+    The slow push is what stops a run of stock clips reading as a slideshow;
+    because it comes from the style it is identical in every video.
+    """
+    chain = ("scale=%d:%d:force_original_aspect_ratio=increase,"
+             "crop=%d:%d,fps=%d,setsar=1" % (w, h, w, h, fps))
+    if push > 0:
+        frames = max(1, int(round(duration * fps)))
+        step = push / frames
+        # Driven off `on` (the output frame counter), not the accumulating `zoom`
+        # variable: with d=1 zoom resets on every input frame, so the usual
+        # zoom+step recipe silently produces no motion at all.
+        chain += (",zoompan=z='min(1+%.8f*on,%.4f)':d=1"
+                  ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                  ":s=%dx%d:fps=%d" % (step, 1.0 + push, w, h, fps))
+    return chain
+
+
 def _ass_time(seconds):
     seconds = max(0.0, seconds)
     h = int(seconds // 3600)
@@ -239,23 +272,29 @@ def _ass_escape(text):
 
 
 def build_subtitles(plan, path):
-    """An .ass file so captions are burned in with real styling.
+    """An .ass file built entirely from the committed style.
 
     The subtitles filter is used rather than drawtext because it handles
     wrapping and timing, and many ffmpeg builds ship without libfreetype.
     """
+    import style as style_mod
+    look = plan.get("_style") or the_style()
+    caps = look["captions"]
     w, h = plan["width"], plan["height"]
-    size = max(28, int(h * 0.035))
-    margin = int(h * 0.14)
+    size = max(12, int(h * caps["size_pct"] / 100.0))
+    outline = max(0, int(round(h * caps["outline_pct"] / 100.0)))
+    margin_v = int(h * caps["margin_bottom_pct"] / 100.0)
+    margin_h = int(w * caps["side_margin_pct"] / 100.0)
     lines = [
         "[Script Info]", "ScriptType: v4.00+",
         "PlayResX: %d" % w, "PlayResY: %d" % h, "WrapStyle: 0", "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, "
         "Bold, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        "Style: Caption,DejaVu Sans,%d,&H00FFFFFF,&H00000000,&H80000000,"
-        "-1,1,%d,1,2,%d,%d,%d,1" % (size, max(2, size // 12),
-                                    int(w * 0.08), int(w * 0.08), margin),
+        "Style: Caption,%s,%d,%s,%s,&H80000000,%d,1,%d,1,2,%d,%d,%d,1" % (
+            caps["font"], size,
+            style_mod.ass_colour(caps["colour"]), style_mod.ass_colour(caps["outline"]),
+            -1 if caps.get("bold") else 0, outline, margin_h, margin_h, margin_v),
         "", "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
@@ -263,6 +302,8 @@ def build_subtitles(plan, path):
     any_caption = False
     for beat in plan["beats"]:
         caption = (beat.get("caption") or "").strip()
+        if caps.get("uppercase"):
+            caption = caption.upper()
         if caption:
             any_caption = True
             lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
@@ -287,7 +328,11 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                           "or choose another name." % out)
 
     ff = ffmpeg_bin()
+    look = plan["_style"]
     w, h, fps = plan["width"], plan["height"], plan["fps"]
+    push = float(look["motion"].get("push_in", 0) or 0)
+    crf = str(look["encode"]["crf"])
+    preset = str(look["encode"]["preset"])
     reporter = _Reporter(agent, out.name)
     reporter.start(len(plan["beats"]))
 
@@ -303,9 +348,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                 ff, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", "%.3f" % beat["in"], "-t", "%.3f" % beat["duration"],
                 "-i", beat["_path"],
-                "-vf", ("scale=%d:%d:force_original_aspect_ratio=increase,"
-                        "crop=%d:%d,fps=%d,setsar=1" % (w, h, w, h, fps)),
-                "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
+                "-vf", _beat_filter(w, h, fps, push, beat["duration"]),
+                "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
                 "-pix_fmt", "yuv420p", str(part),
             ], "trimming beat %d" % (i + 1))
             got = probe(part)
@@ -334,7 +378,7 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             escaped = str(subs).replace("\\", "/").replace(":", r"\:")
             args += ["-vf", "subtitles='%s'" % escaped]
             progress("  burning in captions")
-        args += ["-c:v", "libx264", "-preset", "medium", "-crf", "20",
+        args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
                  "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if audio:
             # the video is the reference length; trim or pad the track to match
@@ -368,7 +412,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
 
         result = {"output": str(out), "duration": round(got["duration"], 2),
                   "beats": len(parts), "size": got["size"],
-                  "resolution": "%dx%d" % (w, h), "audio": got["audio"]}
+                  "resolution": "%dx%d" % (w, h), "audio": got["audio"],
+                  "styleVersion": plan["_styleVersion"]}
         reporter.finish(result)
         return result
     except RenderError as exc:
@@ -401,8 +446,8 @@ def plan_from_script(script_path, clips_dir, output="out/video.mp4"):
 
     clips = sorted([p for p in Path(clips_dir).glob("*")
                     if p.suffix.lower() in (".mp4", ".mov", ".mkv", ".webm")])
-    plan = {"output": output, "width": DEFAULT_W, "height": DEFAULT_H,
-            "fps": DEFAULT_FPS, "beats": []}
+    look = the_style()
+    plan = {"output": output, "styleVersion": look.get("version", 0), "beats": []}
     for i, caption in enumerate(beats):
         plan["beats"].append({
             "clip": str(clips[i % len(clips)]) if clips else "REPLACE-with-a-clip.mp4",

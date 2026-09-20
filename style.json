@@ -1,0 +1,45 @@
+{
+  "style": {
+    "name": "vertical-caption",
+    "format": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30
+    },
+    "captions": {
+      "font": "DejaVu Sans",
+      "size_pct": 3.6,
+      "bold": true,
+      "uppercase": false,
+      "colour": "FFFFFF",
+      "outline": "000000",
+      "outline_pct": 0.28,
+      "margin_bottom_pct": 14.0,
+      "side_margin_pct": 8.0
+    },
+    "motion": {
+      "push_in": 0.1
+    },
+    "transition": {
+      "kind": "cut",
+      "seconds": 0.0
+    },
+    "pacing": {
+      "min_beat_seconds": 1.5,
+      "max_beat_seconds": 7.0
+    },
+    "encode": {
+      "crf": 20,
+      "preset": "medium"
+    },
+    "version": 1,
+    "committedAt": "2026-09-20T18:01:24Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-20T18:01:24Z",
+      "action": "init",
+      "version": 1
+    }
+  ]
+}

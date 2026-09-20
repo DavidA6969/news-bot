@@ -191,6 +191,34 @@ looks like this:
 }
 ```
 
+### One editing style
+
+Every video uses the single committed look in `style.json`. `render.py` takes the
+format, caption styling, margins, push-in, pacing and encode settings from it, and
+**refuses a render plan that sets any of them itself**.
+
+```bash
+python3 style.py init                        # write style.json
+python3 style.py show
+python3 style.py set captions.uppercase true # one field, versioned and recorded
+python3 style.py check render.json           # does this plan respect the style?
+python3 style.py history
+```
+
+A plan supplies clips, timings and words. It cannot set `width`, `height`, `fps`
+or caption styling — try and the render fails naming the conflict. Change the look
+once in `style.json` and every future video moves together; each render records
+the `styleVersion` it used, so you can tell when the look changed.
+
+The style also carries a slow **push-in** on every clip (`motion.push_in`). It is
+subtle, but it is what stops a run of stock footage reading as a slideshow, and
+because it comes from the style it is identical in every video. Set it to `0` for
+static framing.
+
+`pacing` is advice rather than a block: `style.py check` flags beats under
+`min_beat_seconds` (they flash past before they are read) or over
+`max_beat_seconds` (where retention goes), but will not stop the render.
+
 ### Getting the footage — automatically
 
 You do not place clips by hand. Give each beat a `search` term and let the
