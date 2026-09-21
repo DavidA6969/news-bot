@@ -44,6 +44,20 @@ python3 status.py finish etsy-promo "3 posts drafted, 1 video brief handed to AT
 - **Never invent scarcity or discounts** that are not real. Etsy polices
   misleading sales, and buyers remember.
 
+## Close the loop
+
+Once a listing is live, record it so LOOM learns from it:
+
+```bash
+python3 performance.py record --scope etsy LISTING_ID --title "..." \
+  --angle "..." --confidence high
+python3 performance.py refresh --scope etsy --shop-id <id>
+```
+
+Take `angle` and `confidence` verbatim from the `products.json` entry the
+listing came from. Without this the shop keeps guessing and never finds out
+whether the guesses were good.
+
 ## What you produce
 
 Write `promo.md`: the drafted posts, the Etsy Ads test with its budget and stop

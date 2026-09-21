@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""Hold the channel to exactly one niche.
+"""Hold each business to exactly one niche.
 
-A channel that changes subject every few weeks never builds an audience: the
-people a video brings in are not the people the next one is for, so nothing
-compounds. This keeps a single committed niche on disk, makes every agent read
-it, and makes changing it a deliberate act that costs you an explanation and
-gets written into a history you can look back at.
+An audience that cannot say what you do does not come back: the people one
+video or listing brings in are not the people the next is for, so nothing
+compounds. This keeps a single committed niche per business, makes every agent
+read it, and makes changing it a deliberate act that costs you an explanation
+and is written into a history you can look back at.
 
-    python3 niche.py set --name "..." --audience "..." --format "..." --why "..."
-    python3 niche.py show
-    python3 niche.py check "a candidate topic"      # in-niche or not
-    python3 niche.py switch --name "..." --reason "..."   # deliberate, recorded
+There are two businesses here and they are separate: the video channel and the
+Etsy shop. Each holds exactly one niche, and they need not be related — though
+if they are, CRIER can promote the shop through the channel.
+
+    python3 niche.py set --scope etsy --name "..." --audience "..." --why "..."
+    python3 niche.py show --scope etsy
+    python3 niche.py check --scope etsy "a candidate product"
+    python3 niche.py switch --scope etsy --name "..." --reason "..."
     python3 niche.py history
+
+``--scope`` defaults to ``youtube``.
 """
 
 from __future__ import annotations
@@ -23,13 +29,22 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-__all__ = ["load", "current", "set_niche", "switch", "NicheError"]
+__all__ = ["load", "current", "set_niche", "switch", "check", "NicheError", "SCOPES"]
+
+
+def _scope(name):
+    name = (name or DEFAULT_SCOPE).strip().lower()
+    if name not in SCOPES:
+        raise NicheError("scope must be one of %s (got %r)" % (", ".join(SCOPES), name))
+    return name
 
 HERE = Path(__file__).resolve().parent
 STORE = HERE / "niche.json"
 # Below this, a switch is almost always impatience rather than evidence.
 SETTLE_DAYS = 30
 MIN_VIDEOS_BEFORE_SWITCH = 10
+SCOPES = ("youtube", "etsy")
+DEFAULT_SCOPE = "youtube"
 
 
 class NicheError(RuntimeError):
@@ -47,7 +62,7 @@ def _iso(dt):
 def load(path=None):
     path = Path(path) if path else STORE
     if not path.exists():
-        return {"niche": None, "history": []}
+        return {"niches": {}, "history": []}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -57,10 +72,20 @@ def load(path=None):
     data.setdefault("history", [])
     if not isinstance(data["history"], list):
         raise NicheError('%s has a "history" that is not an array' % path)
-    niche = data.get("niche")
-    if niche is not None and (not isinstance(niche, dict) or not niche.get("name")):
-        raise NicheError('%s has a "niche" without a name. There is exactly one '
-                         "niche or none — never a list." % path)
+
+    # a file from before there were two businesses held one unscoped niche
+    if "niche" in data:
+        legacy = data.pop("niche")
+        data.setdefault("niches", {})
+        if legacy:
+            data["niches"].setdefault(DEFAULT_SCOPE, legacy)
+    data.setdefault("niches", {})
+    if not isinstance(data["niches"], dict):
+        raise NicheError('%s has a "niches" that is not an object' % path)
+    for scope, niche in data["niches"].items():
+        if niche is not None and (not isinstance(niche, dict) or not niche.get("name")):
+            raise NicheError('%s: the %s niche has no name. Each scope holds exactly '
+                             "one niche or none — never a list." % (path, scope))
     return data
 
 
@@ -71,23 +96,26 @@ def _save(data, path=None):
     os.replace(tmp, path)
 
 
-def current(path=None):
-    """The one committed niche, or None."""
-    return load(path).get("niche")
+def current(path=None, scope=None):
+    """The one committed niche for a scope, or None."""
+    return load(path)["niches"].get(_scope(scope))
 
 
-def set_niche(name, audience="", video_format="", why="", keywords=None, path=None):
-    """Commit to a niche. Refuses if one is already set — use switch()."""
+def set_niche(name, audience="", video_format="", why="", keywords=None, path=None,
+              scope=None):
+    """Commit a scope to a niche. Refuses if one is already set — use switch()."""
+    scope = _scope(scope)
     if not (name or "").strip():
         raise NicheError("a niche needs a name")
     data = load(path)
-    if data.get("niche"):
+    if data["niches"].get(scope):
         raise NicheError(
-            'already committed to "%s". There is only ever one niche. If you '
-            "genuinely mean to change it, use: python3 niche.py switch --name ... "
-            "--reason ..." % data["niche"]["name"]
+            'the %s side is already committed to "%s". Each business holds only '
+            "ever one niche. If you genuinely mean to change it: python3 niche.py "
+            "switch --scope %s --name ... --reason ..."
+            % (scope, data["niches"][scope]["name"], scope)
         )
-    data["niche"] = {
+    data["niches"][scope] = {
         "name": name.strip(),
         "audience": (audience or "").strip(),
         "format": (video_format or "").strip(),
@@ -95,10 +123,10 @@ def set_niche(name, audience="", video_format="", why="", keywords=None, path=No
         "keywords": [k.strip().lower() for k in (keywords or []) if k.strip()],
         "committedAt": _iso(_now()),
     }
-    data["history"].append({"at": _iso(_now()), "action": "set",
-                            "name": data["niche"]["name"], "reason": why or ""})
+    data["history"].append({"at": _iso(_now()), "action": "set", "scope": scope,
+                            "name": data["niches"][scope]["name"], "reason": why or ""})
     _save(data, path)
-    return data["niche"]
+    return data["niches"][scope]
 
 
 def _days_since(iso_value):
@@ -114,15 +142,16 @@ def _days_since(iso_value):
 
 
 def switch(name, reason, audience="", video_format="", keywords=None,
-           force=False, path=None, videos_published=None):
-    """Change niche. Deliberate, explained, and recorded."""
+           force=False, path=None, videos_published=None, scope=None):
+    """Change a scope's niche. Deliberate, explained, and recorded."""
+    scope = _scope(scope)
     if not (reason or "").strip():
         raise NicheError("a switch needs --reason. If you cannot say why in a "
                          "sentence, it is impatience rather than evidence.")
     data = load(path)
-    old = data.get("niche")
+    old = data["niches"].get(scope)
     if not old:
-        return set_niche(name, audience, video_format, reason, keywords, path)
+        return set_niche(name, audience, video_format, reason, keywords, path, scope)
     if old["name"].strip().lower() == (name or "").strip().lower():
         raise NicheError("already on that niche")
 
@@ -143,10 +172,11 @@ def switch(name, reason, audience="", video_format="", keywords=None,
             )
 
     data["history"].append({
-        "at": _iso(_now()), "action": "switch", "from": old["name"], "name": name.strip(),
+        "at": _iso(_now()), "action": "switch", "scope": scope,
+        "from": old["name"], "name": name.strip(),
         "reason": reason.strip(), "heldForDays": round(age, 1) if age is not None else None,
     })
-    data["niche"] = {
+    data["niches"][scope] = {
         "name": name.strip(),
         "audience": (audience or old.get("audience", "")).strip(),
         "format": (video_format or old.get("format", "")).strip(),
@@ -155,15 +185,15 @@ def switch(name, reason, audience="", video_format="", keywords=None,
         "committedAt": _iso(_now()),
     }
     _save(data, path)
-    return data["niche"]
+    return data["niches"][scope]
 
 
-def check(topic, path=None):
-    """Does a candidate topic plausibly sit in the committed niche?
+def check(topic, path=None, scope=None):
+    """Does a candidate plausibly sit in that scope's committed niche?
 
     Keyword overlap only — a hint, not a judge. The agent still has to think.
     """
-    niche = current(path)
+    niche = current(path, scope)
     if not niche:
         return {"niche": None, "verdict": "no niche committed",
                 "detail": "run niche.py set, or have COMPASS do it"}
@@ -185,23 +215,27 @@ def check(topic, path=None):
 
 
 def main(argv=None):
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--scope", choices=list(SCOPES), default=DEFAULT_SCOPE,
+                        help="which business (default: %s)" % DEFAULT_SCOPE)
+
     parser = argparse.ArgumentParser(prog="niche.py", description=__doc__.splitlines()[0])
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_set = sub.add_parser("set", help="commit to the one niche")
+    p_set = sub.add_parser("set", parents=[common], help="commit that business to its one niche")
     p_set.add_argument("--name", required=True)
     p_set.add_argument("--audience", default="")
     p_set.add_argument("--format", dest="video_format", default="")
     p_set.add_argument("--why", default="")
     p_set.add_argument("--keywords", nargs="*", default=[])
 
-    sub.add_parser("show", help="print the committed niche")
-    sub.add_parser("history", help="every commitment and switch so far")
+    sub.add_parser("show", parents=[common], help="print the committed niche")
+    sub.add_parser("history", help="every commitment and switch, both businesses")
 
-    p_chk = sub.add_parser("check", help="is a candidate topic in the niche?")
+    p_chk = sub.add_parser("check", parents=[common], help="is a candidate in the niche?")
     p_chk.add_argument("topic")
 
-    p_sw = sub.add_parser("switch", help="change niche, deliberately")
+    p_sw = sub.add_parser("switch", parents=[common], help="change niche, deliberately")
     p_sw.add_argument("--name", required=True)
     p_sw.add_argument("--reason", required=True)
     p_sw.add_argument("--audience", default="")
@@ -213,13 +247,13 @@ def main(argv=None):
     try:
         if args.command == "set":
             got = set_niche(args.name, args.audience, args.video_format,
-                            args.why, args.keywords)
-            print('committed to "%s"' % got["name"])
+                            args.why, args.keywords, scope=args.scope)
+            print('%s committed to "%s"' % (args.scope, got["name"]))
         elif args.command == "show":
-            got = current()
+            got = current(scope=args.scope)
             if not got:
-                print("no niche committed yet — run: python3 niche.py set --name ...",
-                      file=sys.stderr)
+                print("no %s niche committed yet — run: python3 niche.py set --scope %s "
+                      "--name ..." % (args.scope, args.scope), file=sys.stderr)
                 return 1
             print(json.dumps(got, indent=2))
         elif args.command == "history":
@@ -228,19 +262,23 @@ def main(argv=None):
                 print("no history yet")
                 return 0
             for row in data["history"]:
+                scope = row.get("scope", DEFAULT_SCOPE)
                 if row.get("action") == "switch":
-                    print("%s  switched from %s to %s after %s days — %s" % (
-                        row["at"], row.get("from"), row.get("name"),
+                    print("%s  [%s] switched from %s to %s after %s days — %s" % (
+                        row["at"], scope, row.get("from"), row.get("name"),
                         row.get("heldForDays"), row.get("reason")))
                 else:
-                    print("%s  committed to %s" % (row["at"], row.get("name")))
-            switches = sum(1 for r in data["history"] if r.get("action") == "switch")
-            if switches >= 2:
-                print("\n%d switches so far. Each one restarts the audience from "
-                      "nothing — that pattern, not the niche, is usually what stops "
-                      "a channel growing." % switches)
+                    print("%s  [%s] committed to %s" % (row["at"], scope, row.get("name")))
+            for scope in SCOPES:
+                switches = sum(1 for r in data["history"]
+                               if r.get("action") == "switch"
+                               and r.get("scope", DEFAULT_SCOPE) == scope)
+                if switches >= 2:
+                    print("\n%s has switched %d times. Each one restarts the audience "
+                          "from nothing — that pattern, not the niche, is usually what "
+                          "stops a business growing." % (scope, switches))
         elif args.command == "check":
-            got = check(args.topic)
+            got = check(args.topic, scope=args.scope)
             print("%s: %s" % (got["verdict"].upper(), got["detail"]))
             return 0 if got["verdict"] in ("in niche", "unknown") else 2
         else:
@@ -252,8 +290,9 @@ def main(argv=None):
             except Exception:
                 pass
             got = switch(args.name, args.reason, args.audience, args.video_format,
-                         args.keywords, args.force, videos_published=videos)
-            print('switched to "%s"' % got["name"])
+                         args.keywords, args.force, videos_published=videos,
+                         scope=args.scope)
+            print('%s switched to "%s"' % (args.scope, got["name"]))
         return 0
     except NicheError as exc:
         print("niche.py: %s" % exc, file=sys.stderr)

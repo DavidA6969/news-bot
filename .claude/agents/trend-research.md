@@ -51,14 +51,14 @@ outside evidence is all you have. Say so rather than pretending otherwise.
 The channel has exactly one niche. Read it first:
 
 ```bash
-python3 niche.py show
+python3 niche.py show --scope youtube
 ```
 
 Every topic you propose must sit inside it. Check each candidate before it
 reaches `topics.json`:
 
 ```bash
-python3 niche.py check "How I fixed my focus problem"
+python3 niche.py check --scope youtube "How I fixed my focus problem"
 ```
 
 `OFF NICHE` means one of two things, and you must pick: either reframe the

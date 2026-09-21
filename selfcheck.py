@@ -120,38 +120,44 @@ def main():
     except Exception as exc:
         note(FAIL, "youtube.py not usable", str(exc)[:90])
 
-    section("[7] performance loop")
+    section("[7] performance loops")
     try:
         perf = importlib.import_module("performance")
         store = perf.load()
-        n = len(store["videos"])
-        note(OK, "performance.py readable", "%d video(s) tracked" % n)
-        measured = sum(1 for v in store["videos"] if v.get("checks"))
-        if n == 0:
-            note(WARN, "nothing published yet", "the loop is open until HERALD records a video")
-        elif measured < perf.MIN_FOR_PATTERNS:
-            note(WARN, "not enough measured videos to learn from",
-                 "%d of %d needed" % (measured, perf.MIN_FOR_PATTERNS))
-        else:
-            note(OK, "enough data to draw conclusions", "%d measured" % measured)
+        for scope in perf.SCOPES:
+            tracked = perf.items(store, scope)
+            noun = perf.NOUN[scope][1]
+            measured = sum(1 for v in tracked if v.get("checks"))
+            if not tracked:
+                note(WARN, "%s: nothing recorded yet" % scope,
+                     "the loop stays open until %s are recorded" % noun)
+            elif measured < perf.MIN_FOR_PATTERNS:
+                note(WARN, "%s: too few measured to learn from" % scope,
+                     "%d of %d needed" % (measured, perf.MIN_FOR_PATTERNS))
+            else:
+                note(OK, "%s: enough data to draw conclusions" % scope,
+                     "%d measured" % measured)
     except Exception as exc:
         note(FAIL, "performance.py not usable", str(exc)[:90])
 
-    section("[8] niche")
+    section("[8] niches")
     try:
         niche_mod = importlib.import_module("niche")
         data = niche_mod.load()
-        one = data.get("niche")
-        if one is None:
-            note(WARN, "no niche committed yet",
-                 "run niche-strategy, or: python3 niche.py set --name ...")
-        else:
-            note(OK, "exactly one niche committed", one["name"])
-            note(OK if one.get("keywords") else WARN, "niche has gating keywords",
-                 ", ".join(one.get("keywords") or []) or "none — ATLAS cannot gate topics")
-        switches = sum(1 for r in data.get("history", []) if r.get("action") == "switch")
-        note(OK if switches < 2 else WARN, "niche is being held, not churned",
-             "%d switch(es)" % switches if switches else "no switches")
+        for scope in niche_mod.SCOPES:
+            one = data["niches"].get(scope)
+            if one is None:
+                note(WARN, "%s: no niche committed" % scope,
+                     "python3 niche.py set --scope %s --name ..." % scope)
+                continue
+            note(OK, "%s: exactly one niche" % scope, one["name"])
+            note(OK if one.get("keywords") else WARN, "%s: gating keywords" % scope,
+                 ", ".join(one.get("keywords") or []) or "none — topics cannot be gated")
+            switches = sum(1 for r in data.get("history", [])
+                           if r.get("action") == "switch"
+                           and r.get("scope", niche_mod.DEFAULT_SCOPE) == scope)
+            note(OK if switches < 2 else WARN, "%s: held, not churned" % scope,
+                 "%d switch(es)" % switches if switches else "no switches")
     except Exception as exc:
         note(FAIL, "niche.py not usable", str(exc)[:90])
 

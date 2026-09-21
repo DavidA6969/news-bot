@@ -74,7 +74,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    the topic that produced it:
 
    ```bash
-   python3 performance.py record VIDEOID --title "..." \
+   python3 performance.py record --scope youtube VIDEOID --title "..." \
      --angle "..." --differentiator "..." --confidence high
    ```
 

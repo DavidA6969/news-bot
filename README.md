@@ -309,7 +309,21 @@ python3 youtube.py upload out/video.mp4 --title "..." \
 `--publish-at` hands the go-live to YouTube, which beats keeping a machine awake to
 press publish. `--agent publishing` mirrors the upload onto the dashboard.
 
-## One niche, held
+## One niche each, held
+
+There are two businesses here and they hold **separate** niches. `niche.py` is
+scoped; `--scope` defaults to `youtube`.
+
+```bash
+python3 niche.py set  --scope etsy --name "..." --keywords linen apron kitchen
+python3 niche.py show --scope etsy
+python3 niche.py check --scope etsy "Bitcoin mug"
+python3 niche.py history                      # both businesses, interleaved
+```
+
+Each scope holds exactly one niche and switching is refused inside 30 days or
+under 10 published items, per scope. A file written before the shop existed
+migrates its single niche into the `youtube` scope automatically.
 
 A channel that changes subject every few weeks never builds an audience — the
 people one video brings in are not the people the next is for, so nothing
@@ -339,11 +353,22 @@ reframe it or drop it — never publish it anyway because the demand looks good.
 Without this the pipeline is blind: COMPASS picks a niche, ATLAS picks topics, and
 nothing ever finds out whether any of it worked.
 
+Both businesses have one, kept in separate books:
+
 ```bash
-python3 performance.py record VIDEOID --title "..." --angle "..." --confidence high
-python3 performance.py refresh          # needs a Data API key, not OAuth
-python3 performance.py digest           # writes performance.md
+python3 performance.py record --scope youtube VIDEOID --title "..." --confidence high
+python3 performance.py refresh --scope youtube          # Data API key, not OAuth
+python3 performance.py digest  --scope youtube          # writes performance.md
+
+python3 performance.py record --scope etsy LISTING_ID --title "..." --confidence high
+python3 performance.py refresh --scope etsy --shop-id <id>
+python3 performance.py digest  --scope etsy             # writes performance-etsy.md
 ```
+
+The Etsy side reads listing **views and favourites** through the same OAuth the
+listing client uses — no extra scope, and unlike sales it needs no billing
+permission. Each digest is written for its own reader (ATLAS or LOOM) and in its
+own vocabulary, and the two never share a file.
 
 HERALD records each upload against the topic that produced it. `refresh` reads
 public view counts, which needs only a **Data API key** — no extra permission on
@@ -455,6 +480,7 @@ The Etsy shop is a second chain, independent of the video one:
 
 | agent | id | does |
 | --- | --- | --- |
+| WARP | `etsy-niche` | commits the shop to **one** niche, independent of the channel's |
 | LOOM | `etsy-product` | decides what the shop makes, on demand evidence and a margin that survives fees |
 | KILN | `etsy-supplier` | finds and vets production partners, and records the disclosure |
 | STALL | `etsy-listing` | writes and posts the draft listing |

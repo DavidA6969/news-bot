@@ -16,6 +16,36 @@ python3 status.py start etsy-product "Evaluating 3 product candidates"
 python3 status.py finish etsy-product "1 recommended: linen split apron"
 ```
 
+## Stay inside the shop's niche
+
+WARP committed the shop to one niche. Read it, and gate every candidate:
+
+```bash
+python3 niche.py show --scope etsy
+python3 niche.py check --scope etsy "linen split apron"
+```
+
+`OFF NICHE` means reframe it into the niche or drop it. A shop page of
+unrelated categories converts worse than a page of one, and buyers who arrive
+for one thing will not come back for something unrelated.
+
+## Start with what the shop has already sold
+
+```bash
+python3 performance.py digest --scope etsy && cat performance-etsy.md
+```
+
+That is the record of listings this shop has actually run: views per day,
+normalised by age, with the best and worst thirds and their angles. It outranks
+any outside research, because it is the only evidence drawn from *our* buyers.
+Obey it literally — propose at least one product near the best third, and do not
+repeat a worst-third angle without saying what changes. If it says there is not
+enough data, believe it.
+
+Rate `confidence` honestly: the digest checks afterwards whether your
+high-confidence picks actually beat your low-confidence ones, and an inflated
+"high" on everything makes that check useless.
+
 ## The rule that shapes everything
 
 Etsy is for things you **make or design**. It prohibits dropshipping and

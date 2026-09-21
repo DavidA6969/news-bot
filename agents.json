@@ -85,6 +85,21 @@
       ]
     },
     {
+      "id": "etsy-niche",
+      "name": "WARP",
+      "role": "Commits the shop to one niche, and kills what cannot survive Etsy's rules",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": []
+    },
+    {
       "id": "etsy-product",
       "name": "LOOM",
       "role": "Decides what the shop makes and sells next",
@@ -97,7 +112,9 @@
       "failCount": 0,
       "avgDurationSec": null,
       "recentRuns": [],
-      "dependsOn": []
+      "dependsOn": [
+        "etsy-niche"
+      ]
     },
     {
       "id": "etsy-supplier",

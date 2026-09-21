@@ -50,6 +50,21 @@ beats over it are where retention goes.
 Say what should be **on screen** for each beat too. FORGE has to find real
 footage for it, and "something abstract" is not findable.
 
+## The thumbnail is part of the script, not an afterthought
+
+More videos die on the thumbnail and title than on anything you write. A viewer
+decides in about a second, before a word is heard, and a good script behind a
+bad thumbnail is simply not watched.
+
+So every script ends with a **thumbnail brief**: what is in frame, the three or
+four words of overlay text (never a sentence — it is read at thumbnail size),
+and what makes it different from the outlier this video is modelled on. Write
+the brief as an instruction someone could shoot from, not a mood.
+
+If the topic cannot produce a thumbnail you would click, say so and `fail`.
+That is a real finding about the topic, not a failure of nerve — ATLAS should
+hear it, because it means the angle has no visual hook.
+
 ## Output
 
 Write `script.md`:
@@ -61,6 +76,7 @@ Write `script.md`:
 - **Close** — one line; a call to action only if it is earned
 - **Description** — 2–3 sentences for the YouTube description, plus 5–8 tags
 - **Word count and estimated runtime** (~150 words per minute)
+- **Thumbnail brief** — the frame, the overlay words, and why it earns a click
 
 Flag anything you are unsure of as a factual claim needing a check. Do not
 invent statistics, quotes, dates or sources. If you need a number you do not

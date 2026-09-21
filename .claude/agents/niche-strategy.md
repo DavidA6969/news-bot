@@ -100,13 +100,13 @@ sameness is not.
 
 ## One niche. Not a shortlist.
 
-The channel holds **exactly one** niche, and `niche.py` enforces it. Your job
+The channel holds **exactly one** niche, and `niche.py` enforces it. It is scoped: the channel's niche is independent of the Etsy shop's, and the two need not be related. Your job
 ends in a single commitment, not a ranked menu:
 
 ```bash
-python3 niche.py show     # what is committed now, if anything
-python3 niche.py set --name "..." --audience "..." --format "..." \
-  --why "..." --keywords word1 word2 word3
+python3 niche.py show --scope youtube    # what is committed now, if anything
+python3 niche.py set --scope youtube --name "..." --audience "..." \
+  --format "..." --why "..." --keywords word1 word2 word3
 ```
 
 The keywords are what ATLAS gates every future topic against, so choose ones
@@ -117,7 +117,7 @@ If a niche is already committed, `set` refuses and you must argue for a switch
 instead:
 
 ```bash
-python3 niche.py switch --name "..." --reason "..."
+python3 niche.py switch --scope youtube --name "..." --reason "..."
 ```
 
 That is deliberately hard. It refuses inside the first 30 days or under 10

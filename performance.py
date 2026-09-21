@@ -32,11 +32,21 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-__all__ = ["record", "refresh", "digest", "load", "PerformanceError"]
+__all__ = ["record", "refresh", "digest", "load", "PerformanceError", "SCOPES"]
+
+SCOPES = ("youtube", "etsy")
+DEFAULT_SCOPE = "youtube"
+# what each scope calls the thing it publishes, so the digest reads naturally
+NOUN = {"youtube": ("video", "videos"), "etsy": ("listing", "listings")}
 
 HERE = Path(__file__).resolve().parent
 STORE = HERE / "performance.json"
 DIGEST = HERE / "performance.md"
+
+
+def _digest_path(scope):
+    return HERE / ("performance.md" if scope == DEFAULT_SCOPE
+                   else "performance-%s.md" % scope)
 API = "https://www.googleapis.com/youtube/v3/videos"
 
 # Below this many measured videos, differences between them are noise. Saying
@@ -66,17 +76,41 @@ def _parse(value):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+def _scope(name):
+    name = (name or DEFAULT_SCOPE).strip().lower()
+    if name not in SCOPES:
+        raise PerformanceError("scope must be one of %s (got %r)" % (", ".join(SCOPES), name))
+    return name
+
+
 def load(path=None):
     path = Path(path) if path else STORE
     if not path.exists():
-        return {"updated": None, "videos": []}
+        return {"updated": None, "scopes": {}}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise PerformanceError("%s is not valid JSON (%s)" % (path, exc)) from exc
-    if not isinstance(data, dict) or not isinstance(data.get("videos"), list):
-        raise PerformanceError('%s must contain {"videos": [...]}' % path)
+    if not isinstance(data, dict):
+        raise PerformanceError("%s must contain a JSON object" % path)
+    # a file from before the Etsy shop existed held one flat list of videos
+    if "videos" in data:
+        legacy = data.pop("videos")
+        data.setdefault("scopes", {})
+        if isinstance(legacy, list) and legacy:
+            data["scopes"].setdefault(DEFAULT_SCOPE, {"items": legacy})
+    data.setdefault("scopes", {})
+    if not isinstance(data["scopes"], dict):
+        raise PerformanceError('%s has a "scopes" that is not an object' % path)
+    for name, bucket in data["scopes"].items():
+        if not isinstance(bucket, dict) or not isinstance(bucket.get("items"), list):
+            raise PerformanceError('%s: scope %s must hold {"items": [...]}' % (path, name))
     return data
+
+
+def items(data, scope):
+    """The tracked records for one scope, creating the bucket if needed."""
+    return data["scopes"].setdefault(_scope(scope), {"items": []})["items"]
 
 
 def _save(data, path=None):
@@ -88,12 +122,13 @@ def _save(data, path=None):
 
 
 def record(video_id, title="", angle="", differentiator="", confidence="",
-           published_at=None, path=None):
-    """Link a published video to the topic decision that produced it."""
+           published_at=None, path=None, scope=None):
+    """Link a published item to the decision that produced it."""
+    scope = _scope(scope)
     if not video_id or not str(video_id).strip():
-        raise PerformanceError("a video id is required")
+        raise PerformanceError("an id is required")
     data = load(path)
-    for entry in data["videos"]:
+    for entry in items(data, scope):
         if entry.get("videoId") == video_id:
             entry.update({k: v for k, v in {
                 "title": title, "angle": angle,
@@ -110,7 +145,7 @@ def record(video_id, title="", angle="", differentiator="", confidence="",
         "publishedAt": published_at or _iso(_now()),
         "checks": [],
     }
-    data["videos"].append(entry)
+    items(data, scope).append(entry)
     _save(data, path)
     return entry
 
@@ -145,25 +180,64 @@ def _fetch(ids, api_key, opener=None):
     return {vid: found.get(vid) for vid in ids}
 
 
-def refresh(api_key=None, path=None, opener=None):
-    """Fetch current statistics for every tracked video."""
-    api_key = api_key or os.environ.get("YOUTUBE_API_KEY")
-    if not api_key:
-        raise PerformanceError(
-            "no API key. Create one in the Google Cloud console (Credentials → "
-            "API key) and pass --api-key, or set YOUTUBE_API_KEY."
-        )
+def _fetch_etsy(ids, shop_id, transport=None, token=None, token_path=None):
+    """Listing views and favourites, through the Etsy client.
+
+    Views are the closest thing Etsy gives you to the signal that matters, and
+    unlike sales they need no extra OAuth scope.
+    """
+    sys.path.insert(0, str(HERE))
+    import etsy as etsy_mod
+    found = {}
+    for listing_id in ids:
+        try:
+            got = etsy_mod._call("GET", "/shops/%s/listings/%s" % (shop_id, listing_id),
+                                 None, token, transport, token_path)
+        except Exception as exc:
+            found[listing_id] = None
+            if "404" in str(exc):
+                continue
+            raise PerformanceError("Etsy: %s" % exc) from exc
+        found[listing_id] = {
+            "views": int(got.get("views", 0) or 0),
+            "likes": int(got.get("num_favorers", 0) or 0),
+            "comments": 0,
+            "privacy": "public" if got.get("state") == "active" else got.get("state"),
+            "publishedAt": None,
+        }
+    return found
+
+
+def refresh(api_key=None, path=None, opener=None, scope=None, shop_id=None,
+            transport=None, token=None, token_path=None):
+    """Fetch current statistics for everything tracked in a scope."""
+    scope = _scope(scope)
     data = load(path)
-    ids = [v["videoId"] for v in data["videos"] if v.get("videoId")]
+    tracked = items(data, scope)
+    ids = [v["videoId"] for v in tracked if v.get("videoId")]
     if not ids:
         return {"checked": 0, "public": 0, "pending": 0}
 
     seen, public, pending = {}, 0, 0
-    for i in range(0, len(ids), 50):                 # the API takes 50 at a time
-        seen.update(_fetch(ids[i:i + 50], api_key, opener))
+    if scope == "etsy":
+        shop_id = shop_id or os.environ.get("ETSY_SHOP_ID")
+        if not shop_id:
+            raise PerformanceError(
+                "no shop id. Find it with `python3 etsy.py whoami`, then pass "
+                "--shop-id or set ETSY_SHOP_ID.")
+        seen = _fetch_etsy(ids, shop_id, transport, token, token_path)
+    else:
+        api_key = api_key or os.environ.get("YOUTUBE_API_KEY")
+        if not api_key:
+            raise PerformanceError(
+                "no API key. Create one in the Google Cloud console (Credentials → "
+                "API key) and pass --api-key, or set YOUTUBE_API_KEY."
+            )
+        for i in range(0, len(ids), 50):              # the API takes 50 at a time
+            seen.update(_fetch(ids[i:i + 50], api_key, opener))
 
     when = _iso(_now())
-    for entry in data["videos"]:
+    for entry in tracked:
         stats = seen.get(entry["videoId"])
         if not stats:
             entry["state"] = "unavailable"           # deleted, or wrong id
@@ -211,37 +285,42 @@ def _median(values):
     return v[m] if len(v) % 2 else (v[m - 1] + v[m]) / 2
 
 
-def digest(path=None, out=None, now=None):
-    """Write performance.md. Returns the text."""
+def digest(path=None, out=None, now=None, scope=None):
+    """Write the digest for a scope. Returns the text."""
+    scope = _scope(scope)
+    one, many = NOUN[scope]
     data = load(path)
     now = now or _now()
     measured = []
-    for entry in data["videos"]:
+    for entry in items(data, scope):
         rate = _views_per_day(entry, now)
         if rate is not None:
             measured.append((rate, entry))
     measured.sort(key=lambda pair: pair[0], reverse=True)
 
-    lines = ["# What actually worked", "",
-             "Generated %s from performance.json. ATLAS reads this before picking topics." % _iso(now),
+    reader = "ATLAS" if scope == "youtube" else "LOOM"
+    lines = ["# What actually worked — %s" % scope, "",
+             "Generated %s from performance.json. %s reads this before choosing."
+             % (_iso(now), reader),
              ""]
-    pending = [v for v in data["videos"] if v.get("state") in ("not yet public", "unavailable")]
+    pending = [v for v in items(data, scope)
+               if v.get("state") in ("not yet public", "unavailable")]
     if pending:
-        lines += ["%d video(s) have no statistics yet (private, scheduled, or unavailable) "
-                  "and are excluded — they are not counted as zero." % len(pending), ""]
+        lines += ["%d %s have no statistics yet (private, scheduled, or unavailable) "
+                  "and are excluded — they are not counted as zero." % (len(pending), many), ""]
 
     if not measured:
-        lines += ["## No measured videos yet", "",
+        lines += ["## No measured %s yet" % many, "",
                   "Nothing to learn from. Publish, then run `performance.py refresh`.",
-                  "Until then, choose topics on evidence from other channels, not from ours.", ""]
+                  "Until then, choose on outside evidence, not on ours.", ""]
         text = "\n".join(lines)
-        (Path(out) if out else DIGEST).write_text(text, encoding="utf-8")
+        (Path(out) if out else _digest_path(scope)).write_text(text, encoding="utf-8")
         return text
 
     rates = [r for r, _ in measured]
     mid = _median(rates)
     lines += ["## The record", "",
-              "| video | views/day | views | age (d) | confidence ATLAS gave it |",
+              "| %s | views/day | views | age (d) | confidence given |" % one,
               "| --- | ---: | ---: | ---: | --- |"]
     for rate, entry in measured:
         last = _latest(entry)
@@ -250,14 +329,14 @@ def digest(path=None, out=None, now=None):
         lines.append("| %s | %.1f | %d | %.1f | %s |" % (
             (entry.get("title") or entry["videoId"])[:52],
             rate, last["views"], age, entry.get("confidence") or "—"))
-    lines += ["", "Median: **%.1f views/day** across %d video(s)." % (mid, len(measured)), ""]
+    lines += ["", "Median: **%.1f views/day** across %d %s." % (mid, len(measured), many), ""]
 
     if len(measured) < MIN_FOR_PATTERNS:
         lines += ["## Not enough data to draw a pattern", "",
-                  "%d measured video(s); patterns drawn from fewer than %d are noise. "
-                  "Do not change direction on this. Keep choosing topics on outlier "
-                  "evidence from other channels, and re-read this once there are %d."
-                  % (len(measured), MIN_FOR_PATTERNS, MIN_FOR_PATTERNS), ""]
+                  "%d measured %s; patterns drawn from fewer than %d are noise. "
+                  "Do not change direction on this. Keep choosing on outside "
+                  "evidence, and re-read once there are %d."
+                  % (len(measured), many, MIN_FOR_PATTERNS, MIN_FOR_PATTERNS), ""]
     else:
         third = max(1, len(measured) // 3)
         best, worst = measured[:third], measured[-third:]
@@ -272,26 +351,27 @@ def digest(path=None, out=None, now=None):
                 (entry.get("title") or entry["videoId"])[:60], rate,
                 entry.get("angle") or "not recorded"))
         spread = (best[0][0] / worst[-1][0]) if worst[-1][0] > 0 else float("inf")
-        lines += ["", "The best video is **%.1f×** the worst. %s" % (
+        lines += ["", "The best %s is **%.1f×** the worst. %s" % (one,
             spread,
-            "That gap is large enough that topic choice is doing real work — study the "
+            "That gap is large enough that the choice is doing real work — study the "
             "best third's angles." if spread >= 3 else
-            "That gap is small; topic choice is not yet the limiting factor. Look at "
-            "titles, thumbnails and hooks before blaming topic selection."), ""]
+            ("That gap is small; the choice is not yet the limiting factor. Look at "
+             + ("titles, thumbnails and hooks" if scope == "youtube"
+                else "the first photo, the title and the price")
+             + " before blaming selection.")), ""]
 
-        # Is ATLAS's own confidence worth anything? If not, say so.
-        lines += _calibration(measured)
+        lines += _calibration(measured, reader)
 
     lines += ["## Instructions for the next run", "",
               "1. Propose at least one topic close to the best third's angles.",
               "2. Do not repeat an angle from the worst third without saying what changes.",
               "3. If a topic resembles one already here, say which and what will differ.", ""]
     text = "\n".join(lines)
-    (Path(out) if out else DIGEST).write_text(text, encoding="utf-8")
+    (Path(out) if out else _digest_path(scope)).write_text(text, encoding="utf-8")
     return text
 
 
-def _calibration(measured):
+def _calibration(measured, reader="ATLAS"):
     """Did high-confidence picks actually do better than low-confidence ones?"""
     buckets = {}
     for rate, entry in measured:
@@ -300,7 +380,7 @@ def _calibration(measured):
             buckets.setdefault(conf, []).append(rate)
     if len(buckets) < 2 or sum(len(v) for v in buckets.values()) < MIN_FOR_PATTERNS:
         return []
-    out = ["## Is ATLAS's confidence worth anything?", ""]
+    out = ["## Is %s's confidence worth anything?" % reader, ""]
     for name in ("high", "medium", "low"):
         if name in buckets:
             out.append("- %s: median %.1f views/day across %d video(s)"
@@ -328,9 +408,13 @@ def _calibration(measured):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="performance.py",
                                      description=__doc__.splitlines()[0])
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--scope", choices=list(SCOPES), default=DEFAULT_SCOPE,
+                        help="which business (default: %s)" % DEFAULT_SCOPE)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_rec = sub.add_parser("record", help="link a published video to its topic")
+    p_rec = sub.add_parser("record", parents=[common],
+                           help="link a published item to the decision behind it")
     p_rec.add_argument("video_id")
     p_rec.add_argument("--title", default="")
     p_rec.add_argument("--angle", default="")
@@ -338,25 +422,27 @@ def main(argv=None):
     p_rec.add_argument("--confidence", default="", choices=["", "high", "medium", "low"])
     p_rec.add_argument("--published-at", default=None)
 
-    p_ref = sub.add_parser("refresh", help="fetch current statistics")
+    p_ref = sub.add_parser("refresh", parents=[common], help="fetch current statistics")
     p_ref.add_argument("--api-key", default=None)
+    p_ref.add_argument("--shop-id", default=None, help="Etsy shop id (etsy scope)")
 
-    sub.add_parser("digest", help="write performance.md")
+    sub.add_parser("digest", parents=[common], help="write the digest")
     sub.add_parser("show", help="print the raw store")
 
     args = parser.parse_args(argv)
     try:
         if args.command == "record":
             entry = record(args.video_id, args.title, args.angle, args.differentiator,
-                           args.confidence, args.published_at)
-            print("recorded %s" % entry["videoId"])
+                           args.confidence, args.published_at, scope=args.scope)
+            print("recorded %s in %s" % (entry["videoId"], args.scope))
         elif args.command == "refresh":
-            got = refresh(args.api_key)
-            print("checked %d video(s): %d public, %d without statistics yet"
-                  % (got["checked"], got["public"], got["pending"]))
+            got = refresh(args.api_key, scope=args.scope, shop_id=args.shop_id)
+            noun = NOUN[args.scope][1]
+            print("checked %d %s: %d public, %d without statistics yet"
+                  % (got["checked"], noun, got["public"], got["pending"]))
         elif args.command == "digest":
-            digest()
-            print("wrote %s" % DIGEST)
+            digest(scope=args.scope)
+            print("wrote %s" % _digest_path(args.scope))
         else:
             print(json.dumps(load(), indent=2))
         return 0
