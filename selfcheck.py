@@ -43,7 +43,7 @@ def main():
     section("[2] files")
     required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
                 "youtube.py", "performance.py", "render.py", "niche.py",
-                "fetch_clips.py", "style.py"]
+                "fetch_clips.py", "style.py", "etsy.py", "suppliers.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")
@@ -208,7 +208,46 @@ def main():
     except Exception as exc:
         note(FAIL, "fetch_clips.py not usable", str(exc)[:90])
 
-    section("[10] agent definitions")
+    section("[10] etsy shop")
+    try:
+        etsy = importlib.import_module("etsy")
+        note(OK if etsy.SCOPES == "listings_r listings_w shops_r" else FAIL,
+             "requests only listing and shop-read scopes", etsy.SCOPES)
+        # the reselling gate has to refuse, not warn
+        try:
+            etsy.build_listing(title="t", description="d", price=1.0, quantity=1,
+                               taxonomy_id=1, who_made="someone_else",
+                               when_made="made_to_order")
+            note(FAIL, "reselling is refused", "it was accepted")
+        except etsy.ResellRefused:
+            note(OK, "reselling is refused")
+        etsy.build_listing(title="t", description="d", price=1.0, quantity=1,
+                           taxonomy_id=1, who_made="i_did", when_made="made_to_order")
+        note(OK, "your own design passes")
+        note(OK if (HERE / "etsy_token.json").exists() else WARN, "shop connected",
+             "" if (HERE / "etsy_token.json").exists()
+             else "run: python3 etsy.py login (needs ETSY_API_KEY)")
+
+        sup = importlib.import_module("suppliers")
+        partners = sup.load()["partners"]
+        if not partners:
+            note(WARN, "no production partners recorded",
+                 "etsy-supplier records them; listings need one unless you make it yourself")
+        else:
+            ready = [p["id"] for p in partners if sup.ready(p["id"])[0]]
+            note(OK, "production partners recorded",
+                 "%d of %d ready to list against" % (len(ready), len(partners)))
+        try:
+            sup.add("AliExpress store 99", "Shenzhen", "ships", path=HERE / ".selfcheck-tmp.json")
+            note(FAIL, "dropship sources are refused", "one was accepted")
+        except sup.SupplierError:
+            note(OK, "dropship sources are refused")
+        finally:
+            (HERE / ".selfcheck-tmp.json").unlink(missing_ok=True)
+    except Exception as exc:
+        note(FAIL, "etsy tooling not usable", str(exc)[:90])
+
+    section("[11] agent definitions")
     defs = sorted((HERE / ".claude" / "agents").glob("*.md"))
     if not defs:
         note(FAIL, "no agent definitions", "expected .claude/agents/*.md")
@@ -231,7 +270,7 @@ def main():
             problems.append("still contains a placeholder path")
         note(OK if not problems else FAIL, path.name, "; ".join(problems))
 
-    section("[11] dashboard")
+    section("[12] dashboard")
     try:
         page = (HERE / "dashboard.html").read_text(encoding="utf-8")
         note(OK if "agents.json" in page else FAIL, "reads agents.json")
@@ -243,14 +282,15 @@ def main():
     except Exception as exc:
         note(FAIL, "dashboard.html unreadable", str(exc)[:90])
 
-    section("[12] secrets")
+    section("[13] secrets")
     ignore = (HERE / ".gitignore").read_text(encoding="utf-8") if (HERE / ".gitignore").exists() else ""
-    for secret in ("client_secret.json", "youtube_token.json"):
+    for secret in ("client_secret.json", "youtube_token.json", "etsy_token.json"):
         note(OK if secret in ignore else FAIL, "%s is git-ignored" % secret)
     try:
         tracked = subprocess.run(["git", "ls-files"], cwd=str(HERE),
                                  capture_output=True, text=True, timeout=20).stdout.split()
-        leaked = [f for f in tracked if f in ("client_secret.json", "youtube_token.json")]
+        leaked = [f for f in tracked
+                  if f in ("client_secret.json", "youtube_token.json", "etsy_token.json")]
         note(OK if not leaked else FAIL, "no credential is committed",
              "" if not leaked else "TRACKED: " + ", ".join(leaked))
     except Exception:

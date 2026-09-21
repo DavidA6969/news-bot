@@ -644,6 +644,38 @@ function computeRanks(agents){
   }
   return rank;
 }
+/* Separate pipelines share a graph but not a storyline. Without this they
+   interleave down the middle and their edges cross each other, which reads as
+   one tangled system rather than two tidy ones. */
+function computeBands(agents){
+  const neighbours = new Map(agents.map(a => [a.id, []]));
+  agents.forEach(a => a.dependsOn.forEach(d => {
+    if(neighbours.has(d)){ neighbours.get(d).push(a.id); neighbours.get(a.id).push(d); }
+  }));
+  const band = new Map();
+  let next = 0;
+  agents.forEach(a => {
+    if(band.has(a.id)) return;
+    const queue = [a.id];
+    band.set(a.id, next);
+    while(queue.length){
+      const id = queue.shift();
+      (neighbours.get(id) || []).forEach(other => {
+        if(band.has(other)) return;
+        band.set(other, next);
+        queue.push(other);
+      });
+    }
+    next++;
+  });
+  return { band: band, count: Math.max(1, next) };
+}
+function bandY(index, count, H){
+  if(count <= 1) return H / 2;
+  const pad = Math.min(140, H * 0.16);
+  return pad + (index + 0.5) * ((H - 2 * pad) / count);
+}
+
 function colX(rank, maxRank, W){
   if(maxRank <= 0) return W / 2;
   const pad  = Math.min(170, Math.max(70, W * 0.12));
@@ -694,6 +726,7 @@ function rebuild(agents, warm){
   const ranks = computeRanks(agents);
   let maxRank = 0;
   agents.forEach(a => { maxRank = Math.max(maxRank, ranks.get(a.id)); });
+  const bands = computeBands(agents);
 
   const live = new Set(agents.map(a => a.id));
   Array.from(nodeById.keys()).forEach(id => { if(!live.has(id)) nodeById.delete(id); });
@@ -704,11 +737,13 @@ function rebuild(agents, warm){
     if(!n){
       n = { id: a.id };
       n.x = colX(ranks.get(a.id), maxRank, W) + (Math.random() - 0.5) * 40;
-      n.y = H / 2 + (Math.random() - 0.5) * Math.min(220, H * 0.5);
+      n.y = bandY(bands.band.get(a.id) || 0, bands.count, H) + (Math.random() - 0.5) * 60;
       nodeById.set(a.id, n);
     }
     n.agent = a;
     n.rank = ranks.get(a.id);
+    n.band = bands.band.get(a.id) || 0;
+    n.bandCount = bands.count;
     return n;
   });
 
@@ -765,7 +800,8 @@ function rebuild(agents, warm){
     .force('charge', d3.forceManyBody().strength(-900).distanceMax(750))
     .force('collide',d3.forceCollide(R + 30))
     .force('x',      d3.forceX(d => colX(d.rank, maxRank, W)).strength(maxRank > 0 ? 0.28 : 0.09))
-    .force('y',      d3.forceY(H / 2).strength(0.06))
+    .force('y',      d3.forceY(d => bandY(d.band, d.bandCount, H))
+                       .strength(bands.count > 1 ? 0.22 : 0.06))
     .alphaDecay(0.045)
     .on('tick', ticked)
     .on('end', () => {
@@ -1471,8 +1507,11 @@ window.addEventListener('resize', () => {
     const { W, H } = dims();
     let maxRank = 0;
     nodeById.forEach(n => { maxRank = Math.max(maxRank, n.rank || 0); });
+    let bandCount = 1;
+    nodeById.forEach(n => { bandCount = Math.max(bandCount, (n.bandCount || 1)); });
     sim.force('x', d3.forceX(d => colX(d.rank, maxRank, W)).strength(maxRank > 0 ? 0.28 : 0.09));
-    sim.force('y', d3.forceY(H / 2).strength(0.06));
+    sim.force('y', d3.forceY(d => bandY(d.band || 0, bandCount, H))
+                     .strength(bandCount > 1 ? 0.22 : 0.06));
     sim.alpha(0.15).restart();
   }, 180);
 });

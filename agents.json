@@ -83,6 +83,72 @@
       "dependsOn": [
         "rendering"
       ]
+    },
+    {
+      "id": "etsy-product",
+      "name": "LOOM",
+      "role": "Decides what the shop makes and sells next",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": []
+    },
+    {
+      "id": "etsy-supplier",
+      "name": "KILN",
+      "role": "Finds and vets production partners who build our design",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": [
+        "etsy-product"
+      ]
+    },
+    {
+      "id": "etsy-listing",
+      "name": "STALL",
+      "role": "Writes and posts the listing, with the partner disclosed",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": [
+        "etsy-supplier"
+      ]
+    },
+    {
+      "id": "etsy-promo",
+      "name": "CRIER",
+      "role": "Promotes the listing through channels the shop owns",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": [
+        "etsy-listing"
+      ]
     }
   ],
   "events": []

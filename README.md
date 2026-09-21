@@ -395,6 +395,49 @@ minimal-variation content **at any frequency**. Twice a day is fine. Twice a day
 with the nouns swapped is the thing the policy exists to catch. AI-assisted
 production is explicitly fine when the result is original and adds value.
 
+## The Etsy shop
+
+A second pipeline, independent of the video one. It shows as its own band on the
+dashboard.
+
+```bash
+export ETSY_API_KEY=<keystring>     # etsy.com/developers/register
+python3 etsy.py login
+python3 suppliers.py add --name "..." --location "..." --role "..."
+python3 etsy.py draft --title "..." --price 44.00 --taxonomy 1234 \
+  --partner linen-works --dry-run
+```
+
+### The rule the whole thing is shaped around
+
+[Etsy prohibits dropshipping and reselling](https://help.etsy.com/hc/en-us/articles/23948763872151-Does-Etsy-Allow-Drop-Shipping-or-Reselling).
+Sourcing ready-made goods and listing them as your own gets shops suspended, and
+it is not a grey area.
+
+What *is* allowed is a **production partner**: a manufacturer making something
+**you designed**, [disclosed by name, location and role](https://www.etsy.com/legal/handmade/).
+Failing to disclose one is treated the same as selling prohibited items.
+
+So the tools enforce that shape rather than advising it:
+
+- `etsy.py` **refuses** a listing declaring `who_made="someone_else"` on a
+  non-supply, non-vintage item, because that describes reselling. "Vintage" is
+  derived from Etsy's 20-year rule against the current year, not matched against
+  a hardcoded list, so it stays correct as the calendar moves.
+- `suppliers.py` **refuses** to record a "partner" whose details point at a
+  sourcing marketplace — that is a reseller relationship, not a manufacturer.
+- A partner cannot be listed against until a **sample has been received** and
+  the partner is registered in Etsy Shop Manager. Listing a product you have
+  never held is how a shop earns its first one-star review.
+- `--partner` pulls the disclosure sentence and appends it to the description
+  automatically, and sends Etsy the partner id.
+
+Listings are created as **drafts**. A human checks the photos and price before
+anything goes live; there is no publish path here, deliberately.
+
+Note that Etsy's API needs approval: a Personal App first, then
+[Commercial Access is a separate, manually reviewed request](https://developers.etsy.com/documentation/essentials/rate-limits/).
+
 ## The agents
 
 `.claude/agents/` holds five subagent definitions. Each reports to the dashboard
@@ -407,6 +450,15 @@ through `status.py`, so a run is visible as it happens.
 | SCRIBE | `scriptwriting` | turns a topic into a shot-by-shot script |
 | FORGE | `rendering` | clips the footage into a finished video, and verifies it |
 | HERALD | `publishing` | uploads, schedules it, and records it for the feedback loop |
+
+The Etsy shop is a second chain, independent of the video one:
+
+| agent | id | does |
+| --- | --- | --- |
+| LOOM | `etsy-product` | decides what the shop makes, on demand evidence and a margin that survives fees |
+| KILN | `etsy-supplier` | finds and vets production partners, and records the disclosure |
+| STALL | `etsy-listing` | writes and posts the draft listing |
+| CRIER | `etsy-promo` | promotes it through channels the shop owns |
 
 All commands in the definitions are relative and run from the project root, so
 there is nothing to edit before first use. `selfcheck.py` fails if a definition

@@ -10,12 +10,16 @@ performance.md
 niche.json
 render.json
 clips_used.json
+suppliers.json
+products.json
+promo.md
 out/
 assets/
 
 # OAuth credentials — never commit these
 client_secret.json
 youtube_token.json
+etsy_token.json
 
 node_modules/
 __pycache__/
