@@ -37,9 +37,12 @@ import re
 import shutil
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 __all__ = ["beats_from_script", "speak", "fit_plan", "build_track", "attach",
+           "measure_words", "annotate_plan",
            "available_engines", "usable_engines", "VoiceError"]
 
 HERE = Path(__file__).resolve().parent
@@ -66,6 +69,79 @@ def _duration(path):
 # --------------------------------------------------------------------------
 # engines
 # --------------------------------------------------------------------------
+ELEVEN_HOST = "https://api.elevenlabs.io"
+ELEVEN_MODEL = "eleven_multilingual_v2"
+# ElevenLabs' own "Rachel" -- a real default beats making the operator hunt for
+# an id before they can hear anything.
+ELEVEN_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"
+
+
+def _elevenlabs(text, out_path, settings, opener=None):
+    """ElevenLabs text-to-speech. Needs ELEVENLABS_API_KEY.
+
+    By some distance the best-sounding option here, and the only one that costs
+    money and needs the network. Everything else in this pipeline runs offline,
+    so it is opt-in rather than the default.
+    """
+    key = os.environ.get("ELEVENLABS_API_KEY", "").strip()
+    if not key:
+        raise VoiceError(
+            "ElevenLabs needs an API key. Set ELEVENLABS_API_KEY (they are on "
+            "elevenlabs.io under your profile). Every other engine here runs "
+            "offline and for nothing, so this one is never picked for you.")
+    voice_id = (settings.get("elevenlabs_voice_id")
+                or os.environ.get("ELEVENLABS_VOICE_ID") or ELEVEN_DEFAULT_VOICE)
+    body = json.dumps({
+        "text": text,
+        "model_id": settings.get("elevenlabs_model") or ELEVEN_MODEL,
+        "voice_settings": {
+            "stability": float(settings.get("elevenlabs_stability", 0.45)),
+            "similarity_boost": float(settings.get("elevenlabs_similarity", 0.75)),
+            "style": float(settings.get("elevenlabs_style", 0.0)),
+            "use_speaker_boost": True,
+        },
+    }).encode("utf-8")
+    url = "%s/v1/text-to-speech/%s" % (ELEVEN_HOST, voice_id)
+    request = urllib.request.Request(url, data=body, method="POST", headers={
+        "xi-api-key": key, "Content-Type": "application/json",
+        "Accept": "audio/mpeg",
+    })
+    try:
+        audio = (opener or _open_url)(request)
+    except urllib.error.HTTPError as exc:
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", "replace")[:200]
+        except Exception:
+            pass
+        if exc.code == 401:
+            raise VoiceError("ElevenLabs rejected the API key (401). %s" % detail)
+        if exc.code == 422:
+            raise VoiceError("ElevenLabs rejected the request (422) — usually an "
+                             "unknown voice id %r. %s" % (voice_id, detail))
+        if exc.code == 429:
+            raise VoiceError("ElevenLabs rate-limited or out of quota (429). %s" % detail)
+        raise VoiceError("ElevenLabs returned HTTP %d. %s" % (exc.code, detail))
+    except urllib.error.URLError as exc:
+        raise VoiceError("could not reach ElevenLabs: %s. Every other engine "
+                         "here works offline." % exc.reason)
+    if len(audio) < 512:
+        raise VoiceError("ElevenLabs returned %d bytes — not audio" % len(audio))
+    mp3 = Path(out_path).with_suffix(".eleven.mp3")
+    mp3.write_bytes(audio)
+    # mp3 in, wav out: the rest of the pipeline works in wav
+    subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", str(mp3), "-ar", str(SAMPLE_RATE), "-ac", "1",
+                    str(out_path)], check=True)
+    mp3.unlink(missing_ok=True)
+    return out_path
+
+
+def _open_url(request, timeout=60):
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        return response.read()
+
+
 def available_engines():
     """Every engine this machine knows about, best first, as (name, note, usable).
 
@@ -85,6 +161,9 @@ def available_engines():
                                    ".onnx voice model", False))
     except ImportError:
         pass
+    if os.environ.get("ELEVENLABS_API_KEY", "").strip():
+        found.insert(0, ("elevenlabs", "best quality; needs the network and costs "
+                                       "money per character", True))
     if shutil.which("pico2wave"):
         found.append(("pico2wave", "clear and close to natural, no model to download",
                       True))
@@ -239,6 +318,8 @@ def _synthesise(engine, text, out_path, voice=None, settings=None):
                                   capture_output=True, text=True)
         if proc.returncode != 0:
             raise VoiceError("espeak-ng failed: %s" % (proc.stderr or "").strip()[-300:])
+    elif engine == "elevenlabs":
+        _elevenlabs(text, out_path, settings)
     elif engine == "pico2wave":
         # SVOX Pico. No rate control of its own, so the style's
         # words_per_minute is honoured below by measuring what it actually did.
@@ -411,6 +492,66 @@ def build_track(plan_path, clips, out_path, pad=PAD_SECONDS):
         raise VoiceError("the track came out %.2fs but the cut is %.2fs — refusing "
                          "to hand over audio that would drift" % (got, want_total))
     return {"path": str(out_path), "duration": round(got, 2)}
+
+
+def measure_words(script_path, out_dir=None, engine=None, voice=None, style=None):
+    """How long the engine takes to say each word, line by line.
+
+    Guessing this from spelling is a losing game -- English syllable counting
+    without a dictionary gets "video" and "creative" wrong, and those errors
+    land the on-screen word next to the spoken one rather than on it. The
+    engine already knows: ask it.
+
+    A word said alone runs longer than the same word in a sentence, but these
+    are only used as relative weights inside a beat whose total length is
+    already measured, so the stretch cancels out.
+
+    Returns [[(word, seconds), ...], ...], one list per beat. Falls back to
+    None when no engine can speak, and the caller then estimates.
+    """
+    beats = beats_from_script(script_path)
+    if engine is None:
+        options = [n for n, _ in usable_engines()]
+        if not options:
+            return None
+        engine = options[0]
+    settings = _voice_style(style)
+    tmp = Path(out_dir or (HERE / "voice")) / "_words"
+    tmp.mkdir(parents=True, exist_ok=True)
+    measured = []
+    for b, line in enumerate(beats, 1):
+        words = [w for w in re.split(r"\s+", line.strip()) if w]
+        row = []
+        for i, word in enumerate(words, 1):
+            target = tmp / ("b%02d_w%03d.wav" % (b, i))
+            try:
+                _synthesise(engine, word, target, voice, settings)
+                row.append((word, _duration(target)))
+            except (VoiceError, subprocess.CalledProcessError):
+                row.append((word, None))       # caller estimates this one
+            finally:
+                target.unlink(missing_ok=True)
+        measured.append(row)
+    shutil.rmtree(tmp, ignore_errors=True)
+    return measured
+
+
+def annotate_plan(plan_path, measured):
+    """Write per-word speaking times onto each beat, for the caption builder."""
+    path = Path(plan_path)
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    beats = plan.get("beats") or []
+    if len(measured) != len(beats):
+        raise VoiceError("measured %d lines but the plan has %d beats"
+                         % (len(measured), len(beats)))
+    written = 0
+    for beat, row in zip(beats, measured):
+        usable = [[w, round(s, 3)] for w, s in row if s and s > 0]
+        if len(usable) == len(row) and usable:
+            beat["words"] = usable
+            written += 1
+    path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    return written
 
 
 def attach(plan_path, track_path, licence="original narration"):

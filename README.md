@@ -251,11 +251,18 @@ Any one engine is enough. `voice.py` picks the best one present:
 
 | engine | quality | install |
 | --- | --- | --- |
-| `recorded` | your own voice — best there is | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
-| `piper` | best synthetic, offline | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
+| `elevenlabs` | the best there is, and the only one that costs money | `export ELEVENLABS_API_KEY=...` |
+| `recorded` | your own voice — free, and better than any synthesiser for commentary | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
+| `piper` | best offline synthetic | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
 | `pico2wave` | clear and close to natural, no model to download | `apt install libttspico-utils` |
 | `espeak-ng` | robotic, but everywhere | `apt install espeak-ng` |
 | `say` | decent, built in | macOS only, nothing to install |
+
+ElevenLabs is **opt-in and never picked for you**: every other engine here runs
+offline and for nothing, and this one bills per character. Set the key and it
+becomes the first choice; unset it and it disappears from the list. The voice,
+model and stability live in `style.json` under `voice.elevenlabs_*`, so the
+channel keeps one voice the same way it keeps one look.
 
 espeak-ng improves a lot with MBROLA diphone voices —
 `apt install mbrola mbrola-en1`, then set `voice.engine_voice` to `mb-en1`.
@@ -269,6 +276,31 @@ rather than failing at render time. It **exits non-zero unless something can
 actually speak** — piper installed without a voice model is present and useless,
 and a check that cannot tell those apart reports green and then fails on the
 first line.
+
+### Captions that arrive with the voice
+
+`captions.mode` is `word` by default: one word on screen at a time, snapping to
+full size as it is spoken. There is then nothing to read ahead of the narration,
+which is what holds someone who arrived by accident rather than by choice.
+`line` shows the whole spoken line for the length of its beat, which reads
+better for a slower, denser video.
+
+The timings are **measured, not guessed**. `voice.py measure_words` asks the
+engine that is about to narrate how long it takes to say each word, and those
+durations become the word's share of the beat:
+
+```bash
+python3 voice.py narrate script.md render.json   # also writes per-word timings
+```
+
+Estimating this from spelling was the first attempt and it is a losing game:
+counting syllables without a dictionary gets `video`, `creative` and
+`everything` wrong, and each error slides the highlight off the word being
+said. The syllable estimate survives only as the fallback for recorded
+narration or a machine with no engine installed.
+
+`captions.pop_ms` is how fast each word snaps up. Set it to `0` for no
+animation.
 
 ### The voice is part of the style
 
@@ -322,6 +354,16 @@ picture — at 1.0 the whole source frame is visible but small on a phone. The
 blurred fill is the standard way to put landscape footage in a vertical frame
 without recomposing it, and it reads as deliberate, which a half-visible subject
 does not.
+
+**The push-in moves the picture, not the frame.** Zooming the finished
+composite drags the blurred fill and the strip's own hard edges along with it,
+and a straight edge creeping against a still background reads as a shake far
+more than the image inside it ever does. Measured on a held frame: the blurred
+region used to change in every one of 115 frames, and is now pixel-identical in
+all of them. The zoom is also run on an oversampled frame, because `zoompan`
+rounds its crop origin to whole pixels — on a slow push the ideal origin creeps
+by a fraction of a pixel, so the rounded value sticks, jumps, sticks, and that
+stutter is the rest of the shake.
 
 ### One editing style
 

@@ -53,6 +53,12 @@ DEFAULT_STYLE = {
         "outline_pct": 0.28,         # of frame height
         "margin_bottom_pct": 14.0,
         "side_margin_pct": 8.0,
+        # "line" shows the whole spoken line for the length of its beat.
+        # "word" shows one word at a time, arriving as it is said -- there is
+        # then nothing on screen to read ahead of the voice, which is what
+        # holds someone who arrived by accident.
+        "mode": "word",
+        "pop_ms": 110,                # how quickly a word snaps to full size
     },
     # a slow push on every clip: subtle, but it is what stops stock footage
     # reading as a slideshow. 0 turns it off.
@@ -83,6 +89,12 @@ DEFAULT_STYLE = {
         "word_gap_ms": 8,               # a little air between words
         "highpass_hz": 85,              # cut rumble below the voice
         "lowpass_hz": 8500,             # take the fizz off synthesised speech
+        # ElevenLabs, when ELEVENLABS_API_KEY is set. Opt-in: it is the best
+        # sounding option and the only one that needs the network and a card.
+        "elevenlabs_voice_id": "",      # blank uses their default voice
+        "elevenlabs_model": "eleven_multilingual_v2",
+        "elevenlabs_stability": 0.45,
+        "elevenlabs_similarity": 0.75,
         "compress": True,               # even out the level line to line
         "loudness_lufs": -16.0,         # consistent level against the footage
     },
@@ -92,6 +104,7 @@ _NUMERIC = {
     "format.width": (240, 4320), "format.height": (240, 4320), "format.fps": (12, 60),
     "captions.size_pct": (1.0, 12.0), "captions.outline_pct": (0.0, 2.0),
     "captions.margin_bottom_pct": (0.0, 60.0), "captions.side_margin_pct": (0.0, 30.0),
+    "captions.pop_ms": (0, 600),
     "format.blur_zoom": (1.0, 2.0),
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
@@ -100,6 +113,7 @@ _NUMERIC = {
     "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
+    "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")
@@ -150,6 +164,9 @@ def _validate(style):
             raise StyleError("%s must be a number (got %r)" % (dotted, value))
         if not low <= value <= high:
             raise StyleError("%s is %g; it must be between %g and %g" % (dotted, value, low, high))
+    mode = style["captions"].get("mode", "line")
+    if mode not in ("line", "word"):
+        raise StyleError('captions.mode must be "line" or "word" (got %r)' % mode)
     fit = style["format"].get("fit", "auto")
     if fit not in ("auto", "crop", "blur"):
         raise StyleError('format.fit must be "auto", "crop" or "blur" (got %r)' % fit)

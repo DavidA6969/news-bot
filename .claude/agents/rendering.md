@@ -123,11 +123,18 @@ Your plan supplies clips, timings and words. Nothing else.
    ```
 
    `narrate` synthesises one clip per beat, measures how long each line
-   **actually takes to say**, rewrites the beats' durations to match, and points
-   the plan's `audio` at the assembled track. Do this *before* building: the
-   voice sets the timings, so building first means cutting to durations the
-   narration does not fit, and captions that land near the words instead of on
-   them.
+   **actually takes to say**, rewrites the beats' durations to match, points
+   the plan's `audio` at the assembled track, and records how long each
+   individual **word** takes so the captions land on the word being spoken. Do
+   this *before* building: the voice sets the timings, so building first means
+   cutting to durations the narration does not fit, and captions that land near
+   the words instead of on them.
+
+   If the operator has set `ELEVENLABS_API_KEY`, that engine is chosen first
+   and each line costs money. Everything else runs offline and free. Do not
+   set that key yourself, and do not switch engines mid-channel: the voice is
+   part of the style, and a channel whose narrator changes between uploads is
+   as unrecognisable as one whose captions change font.
 
    If it reports a beat that needs longer than `max_beat_seconds` to say, the
    **line** is too long for the pacing. Send it back to SCRIBE rather than

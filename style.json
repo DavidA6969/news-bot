@@ -10,14 +10,16 @@
     },
     "captions": {
       "font": "DejaVu Sans",
-      "size_pct": 4.6,
+      "size_pct": 10.0,
       "bold": true,
       "uppercase": false,
       "colour": "FFFFFF",
       "outline": "000000",
       "outline_pct": 0.28,
-      "margin_bottom_pct": 14.0,
-      "side_margin_pct": 8.0
+      "margin_bottom_pct": 18.0,
+      "side_margin_pct": 8.0,
+      "mode": "word",
+      "pop_ms": 110
     },
     "motion": {
       "push_in": 0.1
@@ -37,8 +39,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 8,
-    "committedAt": "2026-09-22T04:23:10Z",
+    "version": 13,
+    "committedAt": "2026-09-22T04:48:36Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -53,7 +55,11 @@
       "highpass_hz": 85,
       "lowpass_hz": 8500,
       "compress": true,
-      "loudness_lufs": -16.0
+      "loudness_lufs": -16.0,
+      "elevenlabs_voice_id": "",
+      "elevenlabs_model": "eleven_multilingual_v2",
+      "elevenlabs_stability": 0.45,
+      "elevenlabs_similarity": 0.75
     }
   },
   "history": [
@@ -132,6 +138,50 @@
       "from": 1.2,
       "to": 1.4,
       "version": 8
+    },
+    {
+      "at": "2026-09-22T04:45:10Z",
+      "action": "upgrade",
+      "added": [
+        "captions.mode",
+        "captions.pop_ms"
+      ],
+      "version": 9
+    },
+    {
+      "at": "2026-09-22T04:45:10Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 4.6,
+      "to": 7.0,
+      "version": 10
+    },
+    {
+      "at": "2026-09-22T04:46:48Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 7.0,
+      "to": 10.0,
+      "version": 11
+    },
+    {
+      "at": "2026-09-22T04:46:48Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 14.0,
+      "to": 18.0,
+      "version": 12
+    },
+    {
+      "at": "2026-09-22T04:48:36Z",
+      "action": "upgrade",
+      "added": [
+        "voice.elevenlabs_voice_id",
+        "voice.elevenlabs_model",
+        "voice.elevenlabs_stability",
+        "voice.elevenlabs_similarity"
+      ],
+      "version": 13
     }
   ]
 }

@@ -383,6 +383,38 @@ def choose_fit(fit, w, h, src_w=None, src_h=None):
     return "blur" if source / target > BLUR_ABOVE else "crop"
 
 
+# zoompan recomputes its crop window every frame and rounds the origin to whole
+# pixels. On a slow push the ideal origin creeps by a fraction of a pixel, so
+# the rounded value sticks, jumps, sticks -- a stutter rather than a drift.
+# Running it on an oversampled frame makes that snap a fraction of an output
+# pixel. 2x measured a little over half the jitter of 1x; 4x is not better
+# enough to pay four times the pixels for.
+PUSH_OVERSAMPLE = 2
+
+
+def _strip_size(w, h, zoom, src_w, src_h):
+    """The visible picture's size inside a blurred fill, in output pixels."""
+    fw = min(int(round(w * max(1.0, zoom))) // 2 * 2, h)
+    if not (src_w and src_h):
+        return fw, h
+    scale = min(fw / float(src_w), h / float(src_h))
+    sw = min(int(round(src_w * scale)) // 2 * 2, w)
+    sh = min(int(round(src_h * scale)) // 2 * 2, h)
+    return max(2, sw), max(2, sh)
+
+
+def _push(w, h, fps, push, duration):
+    """A slow zoom towards the centre of a w x h image, oversampled."""
+    if push <= 0:
+        return ""
+    frames = max(1, int(round(duration * fps)))
+    step = push / frames
+    big_w, big_h = w * PUSH_OVERSAMPLE, h * PUSH_OVERSAMPLE
+    return (",scale=%d:%d,zoompan=z='min(1+%.8f*on,%.4f)':d=1"
+            ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            ":s=%dx%d:fps=%d" % (big_w, big_h, step, 1.0 + push, w, h, fps))
+
+
 def _reframe(w, h, mode, zoom=1.0):
     """Fill the frame, either by cropping the sides or by blurring behind."""
     if mode != "blur":
@@ -398,7 +430,7 @@ def _reframe(w, h, mode, zoom=1.0):
             "[__bg]scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,"
             "gblur=sigma=%d,eq=brightness=-0.13:saturation=0.9[__bgb];"
             "[__fg]scale=%d:%d:force_original_aspect_ratio=decrease,"
-            "crop='min(iw,%d)':'min(ih,%d)'[__fgs];"
+            "crop='min(iw,%d)':'min(ih,%d)'%%s[__fgs];"
             "[__bgb][__fgs]overlay=(W-w)/2:(H-h)/2"
             % (w, h, w, h, max(8, int(w / 38)), fw, h, w, h))
 
@@ -409,19 +441,23 @@ def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
 
     The slow push is what stops a run of stock clips reading as a slideshow;
     because it comes from the style it is identical in every video.
+
+    Where the picture sits in a blurred fill, the push goes on the PICTURE and
+    not on the finished frame. Zooming the composite drags the strip's own
+    edges across a static background, and a hard edge creeping against
+    stillness reads as a shake far more than the image inside it ever does.
     """
     mode = choose_fit(fit, w, h, src_w, src_h)
-    chain = "%s,fps=%d,setsar=1" % (_reframe(w, h, mode, blur_zoom), fps)
-    if push > 0:
-        frames = max(1, int(round(duration * fps)))
-        step = push / frames
-        # Driven off `on` (the output frame counter), not the accumulating `zoom`
-        # variable: with d=1 zoom resets on every input frame, so the usual
-        # zoom+step recipe silently produces no motion at all.
-        chain += (",zoompan=z='min(1+%.8f*on,%.4f)':d=1"
-                  ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-                  ":s=%dx%d:fps=%d" % (step, 1.0 + push, w, h, fps))
-    return chain
+    if mode == "blur":
+        sw, sh = _strip_size(w, h, blur_zoom, src_w, src_h)
+        chain = _reframe(w, h, mode, blur_zoom) % _push(sw, sh, fps, push, duration)
+        return "%s,fps=%d,setsar=1" % (chain, fps)
+    chain = _reframe(w, h, mode, blur_zoom)
+    # Driven off `on` (the output frame counter), not the accumulating `zoom`
+    # variable: with d=1 zoom resets on every input frame, so the usual
+    # zoom+step recipe silently produces no motion at all.
+    chain += _push(w, h, fps, push, duration)
+    return "%s,fps=%d,setsar=1" % (chain, fps)
 
 
 def _source_size(beat):
@@ -451,6 +487,56 @@ def _ass_escape(text):
             .replace("\n", "\\N"))
 
 
+def _syllables(word):
+    """Rough syllable count. Speaking time tracks syllables far better than
+    letters: "strengths" is one beat and "areas" is three."""
+    cleaned = re.sub(r"[^a-z]", "", word.lower())
+    if not cleaned:
+        return 1
+    # y is counted only as a final syllable after a consonant. Treating it as a
+    # plain vowel merges it with its neighbours -- "players" becomes one group
+    # ("aye") and so reads as one syllable instead of two.
+    count = len(re.findall(r"[aeiou]+", cleaned))
+    if cleaned.endswith("y") and len(cleaned) > 1 and cleaned[-2] not in "aeiou":
+        count += 1
+    if cleaned.endswith("e") and count > 1 and not cleaned.endswith(("le", "ee", "ye")):
+        count -= 1                                   # silent final e
+    return max(1, count)
+
+
+def word_timings(caption, start, duration, gap_weight=0.45, measured=None):
+    """When each word lands, spread across the beat by how long it takes to say.
+
+    The beat's length is already the measured length of the narration for that
+    line, so the words only have to be apportioned within it.
+
+    `measured` is [[word, seconds], ...] from voice.py, which timed each word on
+    the engine that is going to say it. When it is present it is used, because
+    an estimate from spelling is exactly that. The syllable weighting is the
+    fallback for recorded narration or a machine with no engine installed.
+    """
+    words = [w for w in re.split(r"\s+", (caption or "").strip()) if w]
+    if not words or duration <= 0:
+        return []
+    weights = None
+    if measured and len(measured) == len(words):
+        got = [float(pair[1]) for pair in measured if len(pair) > 1 and pair[1]]
+        if len(got) == len(words) and all(v > 0 for v in got):
+            weights = got
+    if weights is None:
+        weights = [_syllables(w) + gap_weight for w in words]
+    total = sum(weights) or 1.0
+    out, at = [], 0.0
+    for word, weight in zip(words, weights):
+        share = duration * weight / total
+        out.append((word, start + at, start + min(duration, at + share)))
+        at += share
+    # absorb rounding into the last word so the line always fills its beat
+    last_word, last_start, _ = out[-1]
+    out[-1] = (last_word, last_start, start + duration)
+    return out
+
+
 def build_subtitles(plan, path):
     """An .ass file built entirely from the committed style.
 
@@ -478,6 +564,8 @@ def build_subtitles(plan, path):
         "", "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
+    mode = caps.get("mode", "line")
+    pop = int(caps.get("pop_ms", 110) or 0)
     at = 0.0
     any_caption = False
     for beat in plan["beats"]:
@@ -486,8 +574,25 @@ def build_subtitles(plan, path):
             caption = caption.upper()
         if caption:
             any_caption = True
-            lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
-                _ass_time(at), _ass_time(at + beat["duration"]), _ass_escape(caption)))
+            if mode == "word":
+                # one word at a time, each snapping up to full size as it is
+                # said. Nothing to read ahead of the voice, which is what makes
+                # it hold a viewer who arrived by accident.
+                for word, w_start, w_end in word_timings(
+                        caption, at, beat["duration"], measured=beat.get("words")):
+                    # A single word carrying a full stop reads as a typo rather
+                    # than as punctuation. ? and ! stay: they carry tone, and a
+                    # one-word question without its mark is a different line.
+                    word = re.sub(r"[.,;:]+$", "", word) or word
+                    effect = ""
+                    if pop > 0:
+                        effect = ("{\\fscx74\\fscy74\\t(0,%d,\\fscx106\\fscy106)"
+                                  "\\t(%d,%d,\\fscx100\\fscy100)}" % (pop, pop, pop * 2))
+                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
+                        _ass_time(w_start), _ass_time(w_end), effect, _ass_escape(word)))
+            else:
+                lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
+                    _ass_time(at), _ass_time(at + beat["duration"]), _ass_escape(caption)))
         at += beat["duration"]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
     return any_caption
