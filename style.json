@@ -42,8 +42,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 19,
-    "committedAt": "2026-09-22T04:59:58Z",
+    "version": 20,
+    "committedAt": "2026-09-22T14:40:42Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -62,7 +62,10 @@
       "elevenlabs_voice_id": "",
       "elevenlabs_model": "eleven_multilingual_v2",
       "elevenlabs_stability": 0.45,
-      "elevenlabs_similarity": 0.75
+      "elevenlabs_similarity": 0.75,
+      "kokoro_voice": "am_michael",
+      "kokoro_language": "en-us",
+      "kokoro_speed": 1.0
     }
   },
   "history": [
@@ -234,6 +237,16 @@
       "from": 5.4,
       "to": 5.0,
       "version": 19
+    },
+    {
+      "at": "2026-09-22T14:40:42Z",
+      "action": "upgrade",
+      "added": [
+        "voice.kokoro_voice",
+        "voice.kokoro_language",
+        "voice.kokoro_speed"
+      ],
+      "version": 20
     }
   ]
 }

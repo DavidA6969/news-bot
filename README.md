@@ -252,11 +252,29 @@ Any one engine is enough. `voice.py` picks the best one present:
 | engine | quality | install |
 | --- | --- | --- |
 | `elevenlabs` | the best there is, and the only one that costs money | `export ELEVENLABS_API_KEY=...` |
-| `recorded` | your own voice — free, and better than any synthesiser for commentary | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
-| `piper` | best offline synthetic | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
-| `pico2wave` | clear and close to natural, no model to download | `apt install libttspico-utils` |
+| `recorded` | your own voice — free, and still better than any synthesiser for commentary | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
+| **`kokoro`** | **neural, offline, free — the best voice here that costs nothing** | `pip install numpy onnxruntime`, point `KOKORO_MODEL`/`KOKORO_VOICES` at the weights |
+| `piper` | neural, offline | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
+| `pico2wave` | intelligible, and audibly a 2010 synthesiser | `apt install libttspico-utils` |
 | `espeak-ng` | robotic, but everywhere | `apt install espeak-ng` |
 | `say` | decent, built in | macOS only, nothing to install |
+
+**Kokoro is the one to use if you are not recording yourself.** It is a small
+neural model that runs on CPU with no network and no account, and it is not in
+the same category as the others: given the same line, an offline speech
+recogniser transcribed Kokoro's output word-perfect and heard pico2wave's
+"rabbit" as "thread".
+
+```bash
+export KOKORO_MODEL=/path/to/kokoro-quantized.onnx     # ~92MB
+export KOKORO_VOICES=/path/to/voices                   # one .bin per voice
+python3 style.py set voice.kokoro_voice am_michael
+```
+
+The weights are a download, not part of this repo, and `voice.py engines` says
+plainly when they are missing rather than failing at render time. Voices run
+`af_*`/`am_*` American, `bf_*`/`bm_*` British; `tokenizer.json` must sit beside
+the `.onnx`. espeak-ng does the phonemising — the voice you hear is Kokoro's.
 
 ElevenLabs is **opt-in and never picked for you**: every other engine here runs
 offline and for nothing, and this one bills per character. Set the key and it

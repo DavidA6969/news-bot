@@ -69,6 +69,112 @@ def _duration(path):
 # --------------------------------------------------------------------------
 # engines
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# Kokoro: a neural voice that runs offline
+# --------------------------------------------------------------------------
+KOKORO_SR = 24000
+_KOKORO_CACHE = {}
+
+
+def kokoro_paths():
+    """(model, voices_dir) for the local Kokoro weights, or (None, None).
+
+    Set KOKORO_MODEL to the .onnx and KOKORO_VOICES to the directory of
+    per-voice .bin files. The weights are ~92MB and are not in this repo --
+    they are a download, like a piper voice, not source.
+    """
+    model = os.environ.get("KOKORO_MODEL", "").strip()
+    voices = os.environ.get("KOKORO_VOICES", "").strip()
+    if model and voices and Path(model).is_file() and Path(voices).is_dir():
+        return Path(model), Path(voices)
+    return None, None
+
+
+def _kokoro_session(model_path):
+    """One session per process: loading 92MB of weights per line is not free."""
+    key = str(model_path)
+    if key not in _KOKORO_CACHE:
+        import onnxruntime                                   # optional dependency
+        _KOKORO_CACHE[key] = onnxruntime.InferenceSession(
+            str(model_path), providers=["CPUExecutionProvider"])
+    return _KOKORO_CACHE[key]
+
+
+def _kokoro_vocab(model_path):
+    key = "vocab:" + str(model_path)
+    if key not in _KOKORO_CACHE:
+        tok = Path(model_path).parent / "tokenizer.json"
+        if not tok.exists():
+            raise VoiceError("Kokoro needs tokenizer.json beside %s" % model_path)
+        _KOKORO_CACHE[key] = json.loads(tok.read_text(encoding="utf-8"))["model"]["vocab"]
+    return _KOKORO_CACHE[key]
+
+
+def _ipa(text, lang="en-us"):
+    """Text to the IPA Kokoro is conditioned on, via espeak-ng."""
+    if not shutil.which("espeak-ng"):
+        raise VoiceError("Kokoro needs espeak-ng to turn text into phonemes "
+                         "(apt install espeak-ng). It does the phonemising only; "
+                         "the voice you hear is Kokoro's.")
+    proc = subprocess.run(["espeak-ng", "-q", "--ipa", "-v", lang, text],
+                          capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise VoiceError("espeak-ng could not phonemise %r: %s"
+                         % (text[:40], (proc.stderr or "").strip()[-200:]))
+    joined = " ".join(line.strip() for line in proc.stdout.splitlines() if line.strip())
+    return re.sub(r"\s+", " ", joined.replace("\u02cc", "")).strip()
+
+
+def _kokoro(text, out_path, settings):
+    """Kokoro text-to-speech, entirely on this machine."""
+    model_path, voices_dir = kokoro_paths()
+    if not model_path:
+        raise VoiceError(
+            "Kokoro needs its weights. Set KOKORO_MODEL to the .onnx file and "
+            "KOKORO_VOICES to the folder of voice .bin files. They are about "
+            "92MB and are a download rather than part of this repo.")
+    try:
+        import numpy
+    except ImportError:
+        raise VoiceError("Kokoro needs numpy and onnxruntime: pip install "
+                         "numpy onnxruntime")
+    name = (settings.get("kokoro_voice") or os.environ.get("KOKORO_VOICE")
+            or "af_heart")
+    style_file = voices_dir / (name + ".bin")
+    if not style_file.exists():
+        have = sorted(p.stem for p in voices_dir.glob("[a-z][fm]_*.bin"))[:12]
+        raise VoiceError("no Kokoro voice %r in %s. Available include: %s"
+                         % (name, voices_dir, ", ".join(have)))
+
+    vocab = _kokoro_vocab(model_path)
+    ipa = _ipa(text, settings.get("kokoro_language") or "en-us")
+    ids = [0] + [vocab[ch] for ch in ipa if ch in vocab] + [0]
+    if len(ids) <= 2:
+        raise VoiceError("nothing speakable in %r" % text[:40])
+
+    style = numpy.fromfile(style_file, dtype=numpy.float32).reshape(-1, 256)
+    # the style vector is chosen by token count -- Kokoro keeps one per length
+    row = min(len(ids), style.shape[0] - 1)
+    wave_out = _kokoro_session(model_path).run(None, {
+        "input_ids": numpy.array([ids], dtype=numpy.int64),
+        "style": style[row].reshape(1, 256).astype(numpy.float32),
+        "speed": numpy.array([float(settings.get("kokoro_speed", 1.0))],
+                             dtype=numpy.float32),
+    })[0][0]
+
+    import wave as wave_mod
+    raw = out_path.with_name(out_path.stem + ".kokoro.wav")
+    pcm = (numpy.clip(wave_out, -1.0, 1.0) * 32767).astype("<i2")
+    with wave_mod.open(str(raw), "wb") as handle:
+        handle.setnchannels(1)
+        handle.setsampwidth(2)
+        handle.setframerate(KOKORO_SR)
+        handle.writeframes(pcm.tobytes())
+    _retime(raw, out_path, text, settings)
+    raw.unlink(missing_ok=True)
+    return out_path
+
+
 ELEVEN_HOST = "https://api.elevenlabs.io"
 ELEVEN_MODEL = "eleven_multilingual_v2"
 # ElevenLabs' own "Rachel" -- a real default beats making the operator hunt for
@@ -164,6 +270,19 @@ def available_engines():
     if os.environ.get("ELEVENLABS_API_KEY", "").strip():
         found.insert(0, ("elevenlabs", "best quality; needs the network and costs "
                                        "money per character", True))
+    model_path, _voices = kokoro_paths()
+    if model_path:
+        try:
+            import numpy, onnxruntime          # noqa: F401
+            runnable = bool(shutil.which("espeak-ng"))
+            found.append(("kokoro",
+                          "neural, offline, free — the best of these"
+                          if runnable else
+                          "weights found, but espeak-ng is needed to phonemise",
+                          runnable))
+        except ImportError:
+            found.append(("kokoro", "weights found, but: pip install numpy onnxruntime",
+                          False))
     if shutil.which("pico2wave"):
         found.append(("pico2wave", "clear and close to natural, no model to download",
                       True))
@@ -318,6 +437,8 @@ def _synthesise(engine, text, out_path, voice=None, settings=None):
                                   capture_output=True, text=True)
         if proc.returncode != 0:
             raise VoiceError("espeak-ng failed: %s" % (proc.stderr or "").strip()[-300:])
+    elif engine == "kokoro":
+        _kokoro(text, out_path, settings)
     elif engine == "elevenlabs":
         _elevenlabs(text, out_path, settings)
     elif engine == "pico2wave":
@@ -485,6 +606,28 @@ def build_track(plan_path, clips, out_path, pad=PAD_SECONDS):
                     "-safe", "0", "-i", str(concat), "-c:a", "pcm_s16le",
                     "-ar", str(SAMPLE_RATE), "-ac", "1", str(out_path)], check=True)
     shutil.rmtree(parts_dir, ignore_errors=True)
+
+    # One more loudness pass over the assembled track. Normalising each line
+    # evens out line-to-line variation, but the integrated loudness of the
+    # whole track still lands wherever the mix of speech and gaps puts it --
+    # measured 2dB under target on one engine and on target on another. The
+    # style names a number; deliver that number.
+    settings = _voice_style()
+    target = settings.get("loudness_lufs")
+    if target is not None:
+        levelled = out_path.with_name(out_path.stem + ".level.wav")
+        proc = subprocess.run(
+            [ff, "-hide_banner", "-loglevel", "error", "-y", "-i", str(out_path),
+             "-af", "loudnorm=I=%.1f:TP=-1.5:LRA=11" % float(target),
+             "-ar", str(SAMPLE_RATE), "-ac", "1", str(levelled)],
+            capture_output=True, text=True)
+        if proc.returncode == 0 and levelled.exists() and levelled.stat().st_size > 256:
+            levelled.replace(out_path)
+        else:
+            levelled.unlink(missing_ok=True)
+            print("voice.py: could not level the finished track (%s) — the "
+                  "per-line levels still apply"
+                  % (proc.stderr or "").strip()[-120:], file=sys.stderr)
 
     got = _duration(out_path)
     want_total = sum(float(b["duration"]) for b in beats)

@@ -130,11 +130,13 @@ Your plan supplies clips, timings and words. Nothing else.
    cutting to durations the narration does not fit, and captions that land near
    the words instead of on them.
 
-   If the operator has set `ELEVENLABS_API_KEY`, that engine is chosen first
-   and each line costs money. Everything else runs offline and free. Do not
-   set that key yourself, and do not switch engines mid-channel: the voice is
-   part of the style, and a channel whose narrator changes between uploads is
-   as unrecognisable as one whose captions change font.
+`voice.py` picks the best engine present. If the operator has set
+   `ELEVENLABS_API_KEY`, that one is chosen first and each line costs money;
+   `kokoro` is next and is free, offline and nearly as good. Do not set that
+   key yourself, and **do not switch engines or voices mid-channel**: the voice
+   is part of the style, and a channel whose narrator changes between uploads
+   is as unrecognisable as one whose captions change font. If the voice is
+   wrong, it is wrong for every video — say so and let a human change it once.
 
    If it reports a beat that needs longer than `max_beat_seconds` to say, the
    **line** is too long for the pacing. Send it back to SCRIBE rather than

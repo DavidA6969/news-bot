@@ -95,6 +95,11 @@ DEFAULT_STYLE = {
         "word_gap_ms": 8,               # a little air between words
         "highpass_hz": 85,              # cut rumble below the voice
         "lowpass_hz": 8500,             # take the fizz off synthesised speech
+        # Kokoro, when KOKORO_MODEL and KOKORO_VOICES point at local weights.
+        # Neural, offline and free -- the best voice here that costs nothing.
+        "kokoro_voice": "am_michael",
+        "kokoro_language": "en-us",
+        "kokoro_speed": 1.0,
         # ElevenLabs, when ELEVENLABS_API_KEY is set. Opt-in: it is the best
         # sounding option and the only one that needs the network and a card.
         "elevenlabs_voice_id": "",      # blank uses their default voice
@@ -120,6 +125,7 @@ _NUMERIC = {
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
+    "voice.kokoro_speed": (0.5, 2.0),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")
