@@ -74,7 +74,23 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    **fails** rather than warns: a thumb is already moving when the video
    starts, and nothing downstream recovers a hook that asked it to wait.
 
-5. **Check the copyright position before you spend an upload.**
+5. **Check it can still be monetized.**
+
+   ```bash
+   python3 render.py monetize render.json
+   ```
+
+   Real narration rather than footage with sound on it, no synthetic voice
+   advising on health, money or law, and no shot recycled. Two failures here
+   are the buckets YouTube names as non-monetizable outright.
+
+   **Do not tick Altered Content out of caution.** A generic synthetic voice
+   requires no disclosure; only a voice cloned to sound like a specific real
+   person does. The check tells you which case you are in.
+
+   It reports exposure, not a verdict — monetization is a reviewer's call.
+
+6. **Check the copyright position before you spend an upload.**
 
    ```bash
    python3 render.py rights render.json
@@ -92,7 +108,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    uploaded footage gets matched whatever its licence says. Keep the licence
    URL to hand so a dispute takes minutes rather than days.
 
-6. **Upload, scheduled into the slot.**
+7. **Upload, scheduled into the slot.**
 
    ```bash
    python3 youtube.py upload out/2026-09-19.mp4 \
@@ -104,7 +120,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    keeping a machine awake to press publish: nothing is missed if the box is
    asleep, rebooting, or offline at 17:00.
 
-7. **Close the loop.** As soon as the upload returns a video id, link it to
+8. **Close the loop.** As soon as the upload returns a video id, link it to
    the topic that produced it:
 
    ```bash

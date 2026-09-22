@@ -362,6 +362,132 @@ def retention_report(plan_path):
     return ok, findings
 
 
+# The three buckets YouTube's July 2026 clarification of the inauthentic
+# content policy names as non-monetizable. The policy targets low-effort
+# templated work, not AI as such -- AI-assisted video stays monetizable where
+# a person added something and any synthetic element is disclosed.
+SENSITIVE = (
+    "diagnos", "symptom", "cure", "treatment", "supplement", "dosage",
+    "prescri", "medication", "invest", "stock", "crypto", "portfolio",
+    "returns", "refinanc", "tax ", "lawsuit", "legal advice", "sue ",
+    "attorney", "settlement",
+)
+# words a line uses when it TELLS a viewer to act, which is what turns a
+# sensitive subject into advice
+ADVISORY = ("you should", "you need to", "take ", "buy ", "sell ", "invest in",
+            "stop taking", "start taking", "consult", "do this", "avoid ")
+
+
+def monetize_report(plan_path, history_path=None, used_path=None):
+    """Would this survive the Partner Program's inauthentic content policy?
+
+    Checks the three things the policy actually names, plus the one disclosure
+    that applies. It cannot promise monetization -- no check can, the decision
+    is a reviewer's -- so it reports exposure rather than a verdict.
+    """
+    path = Path(plan_path)
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    beats = plan.get("beats") or []
+    findings = []
+    if not beats:
+        return False, [("fail", "the plan has beats to check", "none found")]
+
+    captions = " ".join((b.get("caption") or "") for b in beats)
+    words = len(re.findall(r"[\w']+", captions))
+    total = sum(float(b.get("duration") or 0) for b in beats)
+    audio = plan.get("audio") or {}
+
+    # 1. is there an original contribution, or is this footage with music on it
+    per_second = words / total if total else 0
+    enough = bool(audio.get("path")) and per_second >= 1.2
+    findings.append((
+        "ok" if enough else "fail",
+        "the video carries original commentary",
+        "%d narrated words over %.0fs (%.1f a second)%s" % (
+            words, total, per_second,
+            "" if enough else
+            " — third-party footage with little added is the first bucket the "
+            "policy names, whoever or whatever narrated it")))
+
+    # 2. an AI persona advising on health, money or the law is named explicitly
+    lowered = captions.lower()
+    topics = sorted({t.strip() for t in SENSITIVE if t in lowered})
+    advisory = [a.strip() for a in ADVISORY if a in lowered]
+    if topics and advisory:
+        findings.append((
+            "fail", "no synthetic voice giving advice on a sensitive subject",
+            "touches %s AND tells the viewer to act (%s) — a synthetic narrator "
+            "advising on health, finance or law is named as non-monetizable"
+            % (", ".join(topics[:3]), ", ".join(advisory[:2]))))
+    elif topics:
+        findings.append((
+            "warn", "no synthetic voice giving advice on a sensitive subject",
+            "mentions %s but does not tell the viewer to act — keep it that way"
+            % ", ".join(topics[:3])))
+    else:
+        findings.append((
+            "ok", "no synthetic voice giving advice on a sensitive subject",
+            "nothing here touches health, finance or law"))
+
+    # 3. footage recycled from earlier videos is what mass production looks like
+    ledger = Path(used_path) if used_path else (HERE / "clips_used.json")
+    seen = set()
+    if ledger.exists():
+        try:
+            seen = set(json.loads(ledger.read_text(encoding="utf-8")).get("clips", []))
+        except (json.JSONDecodeError, OSError):
+            seen = set()
+    # A shot is a file AND a position in it: fourteen segments of one film are
+    # fourteen different shots, and counting filenames calls them one.
+    shots = [(Path(b.get("clip") or "").stem, round(float(b.get("in") or 0), 1))
+             for b in beats]
+    repeats = len(shots) - len(set(shots))
+    findings.append((
+        "ok" if not repeats else "warn",
+        "no shot is used twice inside this video",
+        "%d beat%s repeat a shot" % (repeats, "" if repeats == 1 else "s")
+        if repeats else "%d distinct shots" % len(set(shots))))
+
+    sources = {name for name, _ in shots}
+    findings.append((
+        "ok" if len(sources) > 1 else "warn",
+        "the video draws on more than one source",
+        "%d sources" % len(sources) if len(sources) > 1 else
+        "every shot comes from one file. That is not against the policy, but a "
+        "channel whose videos each mine a single source looks like a format "
+        "rather than a body of work"))
+
+    already = [s for s in shots
+               if any(str(s[0]) in key for key in seen)] if seen else []
+    if already:
+        findings.append((
+            "warn", "footage has not appeared in an earlier video",
+            "%d shot%s drawn from footage the ledger has seen before"
+            % (len(already), "" if len(already) == 1 else "s")))
+
+    # 4. the one disclosure that actually applies
+    voice_licence = (audio.get("license") or "").lower()
+    cloned = any(m in voice_licence for m in ("clone", "cloned", "likeness", "impersonat"))
+    findings.append((
+        "warn" if cloned else "ok",
+        "the narration needs no synthetic-content disclosure",
+        "this track says it clones a voice — tick Altered Content at upload; "
+        "cloning a REAL person's voice requires disclosure, a generic synthetic "
+        "voice does not" if cloned else
+        "a generic synthetic voice does not require disclosure; only a clone of "
+        "a specific real person does"))
+
+    # 5. the thing this check cannot see
+    findings.append((
+        "warn", "a run of videos is judged together, not one at a time",
+        "this reads one plan. The policy's first bucket is template-driven work "
+        "at scale, so identical structure across uploads is the real exposure — "
+        "vary the shape, not just the subject"))
+
+    ok = not any(level == "fail" for level, _, _ in findings)
+    return ok, findings
+
+
 def validate_plan(plan, base=None):
     base = Path(base or ".")
     if not isinstance(plan, dict):
@@ -998,6 +1124,9 @@ def main(argv=None):
     p_ret = sub.add_parser("retention", help="does this cut match what the feed rewards?")
     p_ret.add_argument("plan")
 
+    p_mon = sub.add_parser("monetize", help="exposure under the inauthentic content policy")
+    p_mon.add_argument("plan")
+
     p_check = sub.add_parser("check", help="probe a finished file")
     p_check.add_argument("video")
     p_check.add_argument("--expect", type=float, help="expected duration in seconds")
@@ -1015,6 +1144,20 @@ def main(argv=None):
             print("\n%s  %s  %.1fs  %.1f MB%s" % (
                 result["output"], result["resolution"], result["duration"],
                 result["size"] / 1048576, "" if result["audio"] else "  (no audio)"))
+            return 0
+        if args.command == "monetize":
+            ok, findings = monetize_report(args.plan)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            if not ok:
+                print("\nThis would not survive review. Fix the failures.",
+                      file=sys.stderr)
+                return 1
+            print("\nNothing here breaks the policy. It is still a reviewer's "
+                  "call, not a check's.")
             return 0
         if args.command == "retention":
             ok, findings = retention_report(args.plan)

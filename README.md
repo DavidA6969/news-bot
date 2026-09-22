@@ -574,6 +574,51 @@ bold claim, a contradiction — each with its closing line echoing its own hook 
 the loop still closes, and let the numbers pick. `retention` will reject a hook
 that runs long before you spend a slot on it.
 
+### Staying monetizable
+
+```bash
+python3 render.py monetize render.json
+```
+
+YouTube renamed "repetitious content" to **inauthentic content** in mid-2025,
+and in July 2026 split what it refuses to monetize into three buckets. The
+policy targets low-effort templated work, **not AI** — AI-assisted video stays
+monetizable where a person added something.
+
+| what the check tests | which bucket |
+| --- | --- |
+| the video carries real narration, not footage with music on it | generic/template-based — **fails** |
+| no synthetic voice *advising* on health, money or law | AI personas on sensitive topics — **fails** |
+| no shot used twice; more than one source | what mass production looks like |
+| the narration needs no synthetic-content disclosure | see below |
+
+**On disclosure, the common belief is wrong.** A generic synthetic voice needs
+no disclosure at all. YouTube requires the Altered Content tick only when a
+voice is **cloned to sound like a specific real person**. AI-written scripts,
+AI thumbnails and stylised visuals don't trigger it either. The check says so
+explicitly rather than leaving you to guess, and flags a clone if your audio
+licence mentions one.
+
+**What the check cannot see**: the first bucket is about a *run* of videos, and
+this reads one plan. Identical structure across every upload is the real
+exposure — vary the shape, not just the subject. The check says that every
+time, because no single-plan check can measure it.
+
+It reports exposure, not a verdict. Monetization is a reviewer's decision and
+no check can promise it.
+
+### Getting in at all
+
+Full YPP needs **1,000 subscribers** plus either **4,000 watch hours** in 12
+months or **10 million Shorts views** in 90 days (a rolling window, updated
+daily). Shorts views count toward the 10M path; they do not count toward the
+4,000 hours. There is an early-access tier at 500 subscribers and 3 public
+uploads in 90 days.
+
+**On 1 February 2027 the bar doubles for new applicants** — 8,000 hours or 20
+million Shorts views. If you are close, applying before that date is worth more
+than any other optimisation in this README.
+
 ### Staying inside the copyright rules
 
 Every obligation this pipeline takes on is checked rather than asserted:
