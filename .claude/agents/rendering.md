@@ -133,10 +133,15 @@ Your plan supplies clips, timings and words. Nothing else.
    **line** is too long for the pacing. Send it back to SCRIBE rather than
    stretching the beat or letting the voice run past the cut.
 
-   If no engine is available, `voice.py engines` says so and why. Do not build a
-   silent video instead — `render.py` deletes silent output anyway, and a
-   commentary video with no commentary in it is not the thing that was asked
-   for. Report the missing engine as the blocker.
+   If no engine is available, `voice.py engines` says so and why, and exits
+   non-zero. Do not build a silent video instead — `render.py` deletes silent
+   output anyway, and a commentary video with no commentary in it is not the
+   thing that was asked for. Report the missing engine as the blocker.
+
+   The voice itself is **not yours to choose** either: rate, pitch, and the
+   mastering chain come from `style.json`'s `voice` section, exactly like the
+   captions. If narration sounds wrong, it is wrong for every video — say so
+   and let a human change it once, for all of them.
 
 5. **Build it.**
 

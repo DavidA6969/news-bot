@@ -32,12 +32,23 @@
       "crf": 20,
       "preset": "medium"
     },
-    "version": 2,
-    "committedAt": "2026-09-20T18:01:24Z",
+    "version": 3,
+    "committedAt": "2026-09-22T04:05:49Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
       "require_vertical": true
+    },
+    "voice": {
+      "engine_voice": "en-gb-x-rp",
+      "pico_language": "en-GB",
+      "words_per_minute": 160,
+      "pitch": 45,
+      "word_gap_ms": 8,
+      "highpass_hz": 85,
+      "lowpass_hz": 8500,
+      "compress": true,
+      "loudness_lufs": -16.0
     }
   },
   "history": [
@@ -57,6 +68,22 @@
         "require_vertical": true
       },
       "version": 2
+    },
+    {
+      "at": "2026-09-22T04:05:49Z",
+      "action": "upgrade",
+      "added": [
+        "voice.engine_voice",
+        "voice.pico_language",
+        "voice.words_per_minute",
+        "voice.pitch",
+        "voice.word_gap_ms",
+        "voice.highpass_hz",
+        "voice.lowpass_hz",
+        "voice.compress",
+        "voice.loudness_lufs"
+      ],
+      "version": 3
     }
   ]
 }

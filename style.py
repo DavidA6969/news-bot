@@ -53,6 +53,24 @@ DEFAULT_STYLE = {
     # an ordinary video instead, which is not what this channel publishes.
     "shorts": {"max_seconds": 180, "target_seconds": 45, "require_vertical": True},
     "encode": {"crf": 20, "preset": "medium"},
+    # How the narration is spoken and treated. This lives in the style for the
+    # same reason the captions do: a channel is recognised by its voice before
+    # it is recognised by its edit, and a voice that changes level or timbre
+    # between uploads never becomes recognisable. The mastering chain is what
+    # separates narration that sounds produced from narration that sounds
+    # pasted on, and it applies to a recorded voice as much as a synthesised
+    # one.
+    "voice": {
+        "engine_voice": "en-gb-x-rp",   # espeak-ng voice; ignored by other engines
+        "pico_language": "en-GB",       # pico2wave voice; ignored by other engines
+        "words_per_minute": 160,        # honoured on every engine, by measurement
+        "pitch": 45,                    # 0-99; lower reads as more assured
+        "word_gap_ms": 8,               # a little air between words
+        "highpass_hz": 85,              # cut rumble below the voice
+        "lowpass_hz": 8500,             # take the fizz off synthesised speech
+        "compress": True,               # even out the level line to line
+        "loudness_lufs": -16.0,         # consistent level against the footage
+    },
 }
 
 _NUMERIC = {
@@ -63,6 +81,9 @@ _NUMERIC = {
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34),
     "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
+    "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
+    "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
+    "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")
 
@@ -75,11 +96,34 @@ def _now():
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+def _fill_defaults(style):
+    """Add sections and keys a newer version of this file introduced.
+
+    A style.json written by an older version has no `voice` section. Refusing
+    to load it would mean every style file has to be rewritten whenever the
+    default gains a setting, so missing keys take the default and everything
+    already committed is left exactly as it is.
+    """
+    if not isinstance(style, dict):
+        return style
+    for section, defaults in DEFAULT_STYLE.items():
+        if not isinstance(defaults, dict):
+            continue
+        have = style.get(section)
+        if not isinstance(have, dict):
+            style[section] = json.loads(json.dumps(defaults))
+            continue
+        for key, value in defaults.items():
+            have.setdefault(key, value)
+    return style
+
+
 def _validate(style):
     if not isinstance(style, dict):
         raise StyleError("the style must be a JSON object")
+    _fill_defaults(style)
     for section in ("format", "captions", "motion", "transition", "pacing",
-                    "encode", "shorts"):
+                    "encode", "shorts", "voice"):
         if not isinstance(style.get(section), dict):
             raise StyleError('style is missing the "%s" section' % section)
     for dotted, (low, high) in _NUMERIC.items():
@@ -210,6 +254,37 @@ def set_field(dotted, raw_value, path=None):
     return style
 
 
+def upgrade(path=None):
+    """Write out sections and fields a newer version introduced.
+
+    `load` already fills these in memory, so a video renders correctly either
+    way. This is about the record: a render stamps the styleVersion it used, and
+    a file claiming to be that version should actually describe the look --
+    including, now, how the channel sounds. Returns the list of fields added.
+    """
+    data = load(path)
+    style = data.get("style")
+    if not style:
+        raise StyleError("no style committed yet — run: python3 style.py init")
+    on_disk = json.loads((Path(path) if path else STORE).read_text(encoding="utf-8"))
+    had = on_disk.get("style") or {}
+    added = []
+    for section, defaults in DEFAULT_STYLE.items():
+        if not isinstance(defaults, dict):
+            continue
+        for key in defaults:
+            if key not in (had.get(section) or {}):
+                added.append("%s.%s" % (section, key))
+    if not added:
+        return []
+    style["version"] = int(style.get("version", 1)) + 1
+    style["committedAt"] = _now()
+    data["history"].append({"at": _now(), "action": "upgrade", "added": added,
+                            "version": style["version"]})
+    _save(data, path)
+    return added
+
+
 def shorts_verdict(seconds, width, height, style=None):
     """Would YouTube treat this as a Short? Returns (ok, [reasons])."""
     style = style or current()
@@ -286,6 +361,7 @@ def main(argv=None):
     p_init.add_argument("--force", action="store_true")
 
     sub.add_parser("show", help="print the committed style")
+    sub.add_parser("upgrade", help="write out settings a new version added")
     sub.add_parser("history", help="every change to the look")
 
     p_check = sub.add_parser("check", help="does a render plan respect the style?")
@@ -307,6 +383,16 @@ def main(argv=None):
                 print("no style committed; showing the default. "
                       "Run: python3 style.py init", file=sys.stderr)
             print(json.dumps({k: v for k, v in got.items() if not k.startswith("_")}, indent=2))
+        elif args.command == "upgrade":
+            added = upgrade()
+            if not added:
+                print("style.json is already complete — nothing to add.")
+            else:
+                print("added %d setting%s, now version %d:"
+                      % (len(added), "" if len(added) == 1 else "s",
+                         current()["version"]))
+                for field in added:
+                    print("  %s" % field)
         elif args.command == "history":
             data = load()
             if not data["history"]:
@@ -316,6 +402,10 @@ def main(argv=None):
                 if row.get("action") == "set":
                     print("%s  v%s  %s: %r -> %r" % (row["at"], row["version"],
                                                      row["field"], row["from"], row["to"]))
+                elif row.get("action") == "upgrade":
+                    added = row.get("added") or []
+                    print("%s  v%s  added %s" % (row["at"], row["version"],
+                                                 ", ".join(added) or "nothing"))
                 else:
                     print("%s  v%s  style committed" % (row["at"], row["version"]))
             changes = sum(1 for r in data["history"] if r.get("action") == "set")

@@ -247,20 +247,58 @@ long for this pacing, so shorten the line rather than stretching the beat.
 That is the correct direction of the fix. The script is the cheap thing to
 change.
 
-Any one engine is enough, in order of preference:
+Any one engine is enough. `voice.py` picks the best one present:
 
 | engine | quality | install |
 | --- | --- | --- |
 | `recorded` | your own voice — best there is | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
-| `piper` | good, offline, free | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
-| `espeak-ng` | robotic but available everywhere | `apt install espeak-ng` / `brew install espeak-ng` |
+| `piper` | best synthetic, offline | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
+| `pico2wave` | clear and close to natural, no model to download | `apt install libttspico-utils` |
+| `espeak-ng` | robotic, but everywhere | `apt install espeak-ng` |
 | `say` | decent, built in | macOS only, nothing to install |
 
-`voice.py engines` prints which of them this machine can actually use, and why
-the others are not, rather than failing at render time. It **exits non-zero
-unless something can actually speak** — piper installed without a voice model is
-present and useless, and a check that cannot tell those apart reports green and
-then fails on the first line.
+espeak-ng improves a lot with MBROLA diphone voices —
+`apt install mbrola mbrola-en1`, then set `voice.engine_voice` to `mb-en1`.
+
+```bash
+python3 voice.py engines
+```
+
+prints which of them this machine can actually use, and why the others are not,
+rather than failing at render time. It **exits non-zero unless something can
+actually speak** — piper installed without a voice model is present and useless,
+and a check that cannot tell those apart reports green and then fails on the
+first line.
+
+### The voice is part of the style
+
+`style.json` carries a `voice` section, for the same reason it carries the
+captions: a channel is recognised by its voice before it is recognised by its
+edit, and narration that changes level or timbre between uploads never becomes
+recognisable.
+
+```json
+"voice": {
+  "engine_voice": "en-gb-x-rp", "pico_language": "en-GB",
+  "words_per_minute": 160, "pitch": 45, "word_gap_ms": 8,
+  "highpass_hz": 85, "lowpass_hz": 8500,
+  "compress": true, "loudness_lufs": -16.0
+}
+```
+
+Every line gets the same treatment on the way out: rumble cut below the voice,
+the fizz taken off the top, the level evened out, and loudness normalised to a
+fixed target. That is most of the difference between narration that sounds
+produced and narration that sounds pasted on, and it applies to a **recorded**
+voice too — a real voice needs the levelling more than a synthesiser does.
+
+`words_per_minute` means the same thing on every engine. espeak-ng takes a rate
+directly; pico2wave has no rate control at all, so `voice.py` counts the words,
+measures what the engine actually did, and corrects — landing within a couple of
+percent of the target rather than wherever the engine happened to land.
+
+Changing the look or the voice once in `style.json` moves every future video
+together, and each render records the `styleVersion` it used.
 
 For a channel you intend to keep, record the voice yourself. Commentary is a
 person having a view, and synthesised narration is audibly not that.
@@ -276,8 +314,15 @@ python3 style.py init                        # write style.json
 python3 style.py show
 python3 style.py set captions.uppercase true # one field, versioned and recorded
 python3 style.py check render.json           # does this plan respect the style?
+python3 style.py upgrade                     # write out settings a new version added
 python3 style.py history
 ```
+
+`upgrade` exists because a `style.json` written by an older version is missing
+whatever the default has gained since. Those settings are filled in at load time
+either way, so videos render correctly — but a render stamps the `styleVersion`
+it used, and a file claiming to be that version should actually describe the
+look. `upgrade` writes them out and records what it added; it is idempotent.
 
 A plan supplies clips, timings and words. It cannot set `width`, `height`, `fps`
 or caption styling — try and the render fails naming the conflict. Change the look

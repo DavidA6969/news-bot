@@ -85,10 +85,19 @@ def available_engines():
                                    ".onnx voice model", False))
     except ImportError:
         pass
-    for name, note in (("espeak-ng", "robotic but dependable"),
-                       ("say", "built into macOS")):
-        if shutil.which(name):
-            found.append((name, note, True))
+    if shutil.which("pico2wave"):
+        found.append(("pico2wave", "clear and close to natural, no model to download",
+                      True))
+    if shutil.which("espeak-ng"):
+        mbrola = shutil.which("mbrola") and any(
+            Path(d).exists() for d in ("/usr/share/mbrola/en1", "/usr/share/mbrola/us1"))
+        found.append(("espeak-ng",
+                      "robotic but dependable; set voice.engine_voice to mb-en1 "
+                      "for the better MBROLA voice" if mbrola
+                      else "robotic but dependable (apt install mbrola mbrola-en1 "
+                           "improves it a lot)", True))
+    if shutil.which("say"):
+        found.append(("say", "built into macOS", True))
     return found
 
 
@@ -97,8 +106,105 @@ def usable_engines():
     return [(name, note) for name, note, ok in available_engines() if ok]
 
 
-def _synthesise(engine, text, out_path, voice=None):
-    """One line of text to one wav."""
+def _voice_style(style=None):
+    """The committed voice settings, so every video sounds the same."""
+    if style is not None:
+        return style.get("voice") or {}
+    sys.path.insert(0, str(HERE))
+    import style as style_mod
+    return style_mod.current().get("voice") or {}
+
+
+def _master(path, settings):
+    """The treatment every line gets, from the committed style.
+
+    Synthesised speech out of the box is thin, fizzy on the top end and uneven
+    line to line. This is the difference between narration that sounds produced
+    and narration that sounds pasted on -- and because it comes from the style,
+    it is identical in every video. It applies to a recorded voice too, which
+    needs the levelling more than a synthesiser does.
+    """
+    path = Path(path)
+
+    def number(key, cast=float):
+        """A setting style.py would have rejected must not lose the line.
+
+        style.py validates these on the way in, so a bad value here means a
+        hand-built settings dict or a file edited around the tool. Mastering is
+        cosmetic and the narration is not, so a bad value skips its filter.
+        """
+        raw = settings.get(key)
+        if raw is None or isinstance(raw, bool):
+            return None
+        try:
+            return cast(raw)
+        except (TypeError, ValueError):
+            print("voice.py: ignoring voice.%s=%r — it is not a number"
+                  % (key, raw), file=sys.stderr)
+            return None
+
+    chain = []
+    highpass = number("highpass_hz", int)
+    if highpass:
+        chain.append("highpass=f=%d" % highpass)
+    lowpass = number("lowpass_hz", int)
+    if lowpass:
+        chain.append("lowpass=f=%d" % lowpass)
+    if settings.get("compress"):
+        chain.append("acompressor=threshold=-18dB:ratio=3:attack=8:release=140:makeup=2")
+    loudness = number("loudness_lufs")
+    if loudness is not None:
+        # single-pass loudnorm: not as exact as two-pass, but a per-beat clip is
+        # short enough that the difference is inaudible, and it keeps one line
+        # of narration from arriving twice as loud as the next
+        chain.append("loudnorm=I=%.1f:TP=-1.5:LRA=11" % loudness)
+    if not chain:
+        return path
+    tmp = path.with_name(path.stem + ".mastered.wav")
+    proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
+                           "-i", str(path), "-filter:a", ",".join(chain),
+                           "-ar", str(SAMPLE_RATE), "-ac", "1", str(tmp)],
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 256:
+        # the raw line is still usable, so treat this as cosmetic and say so
+        print("voice.py: could not master %s (%s) — using the raw line"
+              % (path.name, (proc.stderr or "").strip()[-120:]), file=sys.stderr)
+        tmp.unlink(missing_ok=True)
+        return path
+    tmp.replace(path)
+    return path
+
+
+def _retime(raw, out_path, text, settings):
+    """Speak at the style's rate even when the engine has no rate control.
+
+    Measured rather than assumed: count the words, see how long the engine
+    actually took, and nudge. This is what makes voice.words_per_minute mean
+    the same thing on every engine, which is the point of committing it to the
+    style at all. Clamped, because a big correction sounds worse than a
+    slightly-off pace.
+    """
+    target = float(settings.get("words_per_minute") or 0)
+    words = len([w for w in re.findall(r"[\w']+", text) if w])
+    actual = _duration(raw)
+    ratio = 1.0
+    if target > 0 and words and actual > 0.05:
+        spoken_wpm = words / (actual / 60.0)
+        # atempo=r divides the duration by r, so the resulting rate is
+        # spoken_wpm * r. To land on the target, r is target/spoken_wpm --
+        # dividing the other way round speeds up a line that was already fast.
+        ratio = max(0.8, min(1.25, target / spoken_wpm))
+    cmd = [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(raw)]
+    if abs(ratio - 1.0) > 0.02:
+        cmd += ["-filter:a", "atempo=%.4f" % ratio]
+    cmd += ["-ar", str(SAMPLE_RATE), "-ac", "1", str(out_path)]
+    subprocess.run(cmd, check=True)
+    return out_path
+
+
+def _synthesise(engine, text, out_path, voice=None, settings=None):
+    """One line of text to one wav, spoken and treated to the committed style."""
+    settings = settings if settings is not None else _voice_style()
     out_path = Path(out_path)
     if engine == "piper":
         model = voice or os.environ.get("PIPER_VOICE")
@@ -113,10 +219,37 @@ def _synthesise(engine, text, out_path, voice=None):
         if proc.returncode != 0:
             raise VoiceError("piper failed: %s" % (proc.stderr or "").strip()[-300:])
     elif engine == "espeak-ng":
-        proc = subprocess.run(["espeak-ng", "-s", "165", "-w", str(out_path), text],
-                              capture_output=True, text=True)
+        cmd = ["espeak-ng",
+               "-s", str(int(settings.get("words_per_minute", 160))),
+               "-p", str(int(settings.get("pitch", 45))),
+               "-g", str(int(settings.get("word_gap_ms", 8) / 10) or 0),
+               "-a", "170"]
+        picked = voice or settings.get("engine_voice")
+        if picked:
+            cmd += ["-v", str(picked)]
+        cmd += ["-w", str(out_path), text]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0 and picked:
+            # an unavailable voice should not lose the line: fall back to the
+            # default voice and say which one was missing
+            print("voice.py: espeak-ng has no voice %r — using its default. "
+                  "`espeak-ng --voices` lists what is installed." % picked,
+                  file=sys.stderr)
+            proc = subprocess.run([c for c in cmd if c not in ("-v", str(picked))],
+                                  capture_output=True, text=True)
         if proc.returncode != 0:
             raise VoiceError("espeak-ng failed: %s" % (proc.stderr or "").strip()[-300:])
+    elif engine == "pico2wave":
+        # SVOX Pico. No rate control of its own, so the style's
+        # words_per_minute is honoured below by measuring what it actually did.
+        raw = out_path.with_name(out_path.stem + ".pico.wav")
+        lang = settings.get("pico_language", "en-GB")
+        proc = subprocess.run(["pico2wave", "-l", lang, "-w", str(raw), text],
+                              capture_output=True, text=True)
+        if proc.returncode != 0 or not raw.exists():
+            raise VoiceError("pico2wave failed: %s" % (proc.stderr or "").strip()[-300:])
+        _retime(raw, out_path, text, settings)
+        raw.unlink(missing_ok=True)
     elif engine == "say":
         aiff = out_path.with_suffix(".aiff")
         proc = subprocess.run(["say", "-o", str(aiff), text], capture_output=True, text=True)
@@ -131,7 +264,7 @@ def _synthesise(engine, text, out_path, voice=None):
                          % (engine, ", ".join(n for n, _ in usable_engines()) or "none"))
     if not out_path.exists() or out_path.stat().st_size < 256:
         raise VoiceError("%s produced no audio for %r" % (engine, text[:40]))
-    return out_path
+    return _master(out_path, settings)
 
 
 # --------------------------------------------------------------------------
@@ -151,11 +284,12 @@ def beats_from_script(script_path):
     return beats
 
 
-def speak(script_path, out_dir, engine=None, voice=None, recorded=None):
+def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None):
     """One wav per beat. Returns [(path, seconds), ...] in beat order."""
     beats = beats_from_script(script_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
+    settings = _voice_style(style)          # read once, not per line
 
     if recorded:
         source = Path(recorded)
@@ -170,6 +304,10 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None):
             subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
                             "-i", str(candidates[0]), "-ar", str(SAMPLE_RATE),
                             "-ac", "1", str(target)], check=True)
+            # a recorded voice gets the same treatment: it needs the levelling
+            # more than a synthesiser does, and the point is that every video
+            # sounds the same whoever or whatever spoke it
+            _master(target, settings)
             clips.append((target, _duration(target)))
         return clips
 
@@ -186,7 +324,7 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None):
     clips = []
     for i, line in enumerate(beats, 1):
         target = out_dir / ("beat%02d.wav" % i)
-        _synthesise(engine, line, target, voice)
+        _synthesise(engine, line, target, voice, settings)
         clips.append((target, _duration(target)))
     return clips
 
