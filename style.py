@@ -73,6 +73,17 @@ DEFAULT_STYLE = {
     "motion": {"push_in": 0.10, "alternate": True},
     "transition": {"kind": "cut", "seconds": 0.0},   # cut | crossfade
     "pacing": {"min_beat_seconds": 1.5, "max_beat_seconds": 7.0},
+    # What the Shorts feed rewards, as numbers rather than folklore. A viewer
+    # re-asks "is this worth continuing?" every second or two, so a beat that
+    # outlasts that is where they leave. hook_seconds is the swipe window:
+    # roughly 1.5-2s to interrupt a thumb that is already moving.
+    "retention": {
+        "hook_seconds": 2.0,
+        "beat_target_seconds": 2.0,
+        "beat_ceiling_seconds": 2.6,
+        "total_target_seconds": 30.0,
+        "require_loop": True,
+    },
     # The Shorts envelope. Vertical or square and 3 minutes or less is
     # automatically treated as a Short; one second over and YouTube files it as
     # an ordinary video instead, which is not what this channel publishes.
@@ -133,6 +144,10 @@ _NUMERIC = {
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
+    "retention.hook_seconds": (0.5, 6.0),
+    "retention.beat_target_seconds": (0.5, 10.0),
+    "retention.beat_ceiling_seconds": (0.5, 12.0),
+    "retention.total_target_seconds": (5.0, 180.0),
     "voice.kokoro_speed": (0.5, 2.0), "voice.silence_floor_db": (-70, -20),
     "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
@@ -175,7 +190,7 @@ def _validate(style):
         raise StyleError("the style must be a JSON object")
     _fill_defaults(style)
     for section in ("format", "captions", "motion", "transition", "pacing",
-                    "encode", "shorts", "voice"):
+                    "encode", "shorts", "voice", "retention"):
         if not isinstance(style.get(section), dict):
             raise StyleError('style is missing the "%s" section' % section)
     for dotted, (low, high) in _NUMERIC.items():

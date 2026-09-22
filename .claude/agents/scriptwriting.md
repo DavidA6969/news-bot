@@ -65,6 +65,21 @@ tunnel test footage"), not abstractions.
 beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
 line becomes the burned-in caption.
 
+**The first line has under two seconds.** Not two seconds to get going — two
+seconds total, before the thumb moves. `render.py retention` fails a plan whose
+opening beat runs longer, so an opening that needs a run-up is wasted work.
+Roughly: five or six words.
+
+**End where you began.** The closing line should echo the opening one closely
+enough that the video runs back into itself. A loop turns one view into two,
+and rewatches count. The check compares the words of both lines, so an echo
+works — it does not have to be a repeat.
+
+**Write three openings, not one.** Several versions of the same idea can swing
+a Short from nothing to a million, and the variable is almost always the hook.
+Give ATLAS a curiosity gap, a bold claim and a contradiction for the same body,
+each with its own matching closing line, and let the numbers choose.
+
 **Keep each line short enough to fit two caption lines.** At the committed
 style that is roughly 34 characters — about six or seven words. This is not a
 style preference: a caption that wraps to five lines covers the footage it is

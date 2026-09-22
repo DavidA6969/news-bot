@@ -279,6 +279,89 @@ def rights_report(plan_path):
     return ok, findings
 
 
+def _overlap(first, last):
+    """How much of the opening line the closing line echoes, 0 to 1."""
+    def words(text):
+        return {w for w in re.findall(r"[a-z']+", (text or "").lower()) if len(w) > 2}
+    opening, closing = words(first), words(last)
+    if not opening or not closing:
+        return 0.0
+    return len(opening & closing) / float(min(len(opening), len(closing)))
+
+
+def retention_report(plan_path):
+    """Does this cut match what the Shorts feed actually rewards?
+
+    The numbers come from the style's `retention` section, not from taste. A
+    viewer re-asks whether to keep watching every second or two, so a beat that
+    outlasts that is where they leave; the opening beat has about as long as a
+    thumb takes to move. Returns (ok, findings) shaped like rights_report.
+    """
+    path = Path(plan_path)
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    # A plan carries the style it was BUILT with, which can predate a section
+    # the style has since gained. Taking it raw means a missing section reads
+    # as "no opinion" and the check quietly stops checking -- so fill it from
+    # the defaults the same way loading a style file does.
+    import style as style_mod
+    look = plan.get("_style") or the_style()
+    look = style_mod._fill_defaults(json.loads(json.dumps(look)))
+    want = look.get("retention") or {}
+    beats = plan.get("beats") or []
+    findings = []
+    if not beats:
+        return False, [("fail", "the plan has beats to check", "none found")]
+
+    durations = [float(b.get("duration") or 0) for b in beats]
+    total = sum(durations)
+
+    hook_limit = float(want.get("hook_seconds", 2.0))
+    findings.append((
+        "ok" if durations[0] <= hook_limit + 0.01 else "fail",
+        "the opening beat fits the swipe window",
+        "%.2fs against a %.1fs limit%s" % (
+            durations[0], hook_limit,
+            "" if durations[0] <= hook_limit + 0.01
+            else " — a thumb is already moving; this one asks it to wait")))
+
+    ceiling = float(want.get("beat_ceiling_seconds", 2.6))
+    slow = [(i + 1, d) for i, d in enumerate(durations) if d > ceiling + 0.01]
+    findings.append((
+        "ok" if not slow else "warn",
+        "no beat outstays the attention span",
+        "%d of %d over %.1fs: %s" % (
+            len(slow), len(beats), ceiling,
+            ", ".join("beat %d at %.1fs" % b for b in slow[:4]))
+        if slow else "longest is %.2fs, ceiling is %.1fs" % (max(durations), ceiling)))
+
+    target = float(want.get("beat_target_seconds", 2.0))
+    mean = total / len(durations)
+    findings.append((
+        "ok" if mean <= target + 0.4 else "warn",
+        "something changes often enough to hold a viewer",
+        "a cut every %.2fs on average, aiming for %.1fs" % (mean, target)))
+
+    cap = float(want.get("total_target_seconds", 30.0))
+    findings.append((
+        "ok" if total <= cap + 0.01 else "warn",
+        "the whole thing is short enough to be watched twice",
+        "%.1fs against a %.0fs target — watch time as a share of length is what "
+        "ranks now, and a longer cut has further to fall" % (total, cap)))
+
+    if want.get("require_loop"):
+        echo = _overlap(beats[0].get("caption"), beats[-1].get("caption"))
+        findings.append((
+            "ok" if echo >= 0.4 else "warn",
+            "the ending runs back into the opening",
+            "%.0f%% of the opening line comes back at the end%s" % (
+                echo * 100,
+                "" if echo >= 0.4
+                else " — a loop is what turns one view into two, and rewatches count")))
+
+    ok = not any(level == "fail" for level, _, _ in findings)
+    return ok, findings
+
+
 def validate_plan(plan, base=None):
     base = Path(base or ".")
     if not isinstance(plan, dict):
@@ -912,6 +995,9 @@ def main(argv=None):
     p_rights = sub.add_parser("rights", help="the copyright position of a plan")
     p_rights.add_argument("plan")
 
+    p_ret = sub.add_parser("retention", help="does this cut match what the feed rewards?")
+    p_ret.add_argument("plan")
+
     p_check = sub.add_parser("check", help="probe a finished file")
     p_check.add_argument("video")
     p_check.add_argument("--expect", type=float, help="expected duration in seconds")
@@ -929,6 +1015,23 @@ def main(argv=None):
             print("\n%s  %s  %.1fs  %.1f MB%s" % (
                 result["output"], result["resolution"], result["duration"],
                 result["size"] / 1048576, "" if result["audio"] else "  (no audio)"))
+            return 0
+        if args.command == "retention":
+            ok, findings = retention_report(args.plan)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            warns = sum(1 for level, _, _ in findings if level == "warn")
+            if not ok:
+                print("\nThe opening will not hold. Fix that before anything else.",
+                      file=sys.stderr)
+                return 1
+            print("\n%s" % ("Cut is shaped for the feed."
+                             if not warns else
+                             "Shaped for the feed, with %d thing%s to tighten."
+                             % (warns, "" if warns == 1 else "s")))
             return 0
         if args.command == "rights":
             ok, findings = rights_report(args.plan)

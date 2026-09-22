@@ -547,6 +547,33 @@ from material that is actually cleared for it: public-domain and CC archives for
 footage that is about something, stock for footage that illustrates. That is a
 route to the video you wanted, not a lesser substitute for it.
 
+### Shaped for the feed
+
+`style.json` carries a `retention` section holding what the Shorts feed
+actually rewards, as numbers rather than folklore:
+
+```bash
+python3 render.py retention render.json
+```
+
+| check | why, and where the number comes from |
+| --- | --- |
+| opening beat ≤ 2.0s | you have 1.5–2s to interrupt a thumb that is already moving. **This one fails the check**, it does not warn |
+| no beat over 2.6s | a viewer re-asks "is this worth continuing?" every second or two |
+| a cut every ~2.0s | the 2026 pacing target is a visual change every 1.5–2s |
+| under 30s total | watch time **as a share of length** is what ranks now, so a longer cut has further to fall |
+| the ending loops back | a loop turns one view into two, and rewatches count |
+
+The loop test compares the words of the closing line against the opening one,
+so it recognises an echo rather than demanding a repeat.
+
+**Test the hook, not the idea.** Several versions of one idea can swing a Short
+from a flop to a million; the variable is almost always the opening line. So
+build the same body three times with three different hooks — a curiosity gap, a
+bold claim, a contradiction — each with its closing line echoing its own hook so
+the loop still closes, and let the numbers pick. `retention` will reject a hook
+that runs long before you spend a slot on it.
+
 ### Staying inside the copyright rules
 
 Every obligation this pipeline takes on is checked rather than asserted:

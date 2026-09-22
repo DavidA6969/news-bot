@@ -43,8 +43,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 25,
-    "committedAt": "2026-09-22T16:16:21Z",
+    "version": 26,
+    "committedAt": "2026-09-22T17:12:29Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -70,6 +70,13 @@
       "silence_floor_db": -45,
       "keep_head_ms": 25,
       "gap_seconds": 0.09
+    },
+    "retention": {
+      "hook_seconds": 2.0,
+      "beat_target_seconds": 2.0,
+      "beat_ceiling_seconds": 2.6,
+      "total_target_seconds": 30.0,
+      "require_loop": true
     }
   },
   "history": [
@@ -293,6 +300,18 @@
         "motion.alternate"
       ],
       "version": 25
+    },
+    {
+      "at": "2026-09-22T17:12:29Z",
+      "action": "upgrade",
+      "added": [
+        "retention.hook_seconds",
+        "retention.beat_target_seconds",
+        "retention.beat_ceiling_seconds",
+        "retention.total_target_seconds",
+        "retention.require_loop"
+      ],
+      "version": 26
     }
   ]
 }

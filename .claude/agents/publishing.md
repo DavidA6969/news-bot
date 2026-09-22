@@ -62,7 +62,19 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    named. If the block comes back empty and the render used fetched clips,
    something is wrong with the plan — `fail` rather than uploading uncredited.
 
-4. **Check the copyright position before you spend an upload.**
+4. **Check the cut is shaped for the feed.**
+
+   ```bash
+   python3 render.py retention render.json
+   ```
+
+   Opening beat inside the swipe window, no beat outstaying the attention span,
+   something changing every two seconds or so, short enough to be watched
+   twice, and an ending that runs back into the opening. A long opening beat
+   **fails** rather than warns: a thumb is already moving when the video
+   starts, and nothing downstream recovers a hook that asked it to wait.
+
+5. **Check the copyright position before you spend an upload.**
 
    ```bash
    python3 render.py rights render.json
@@ -80,7 +92,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    uploaded footage gets matched whatever its licence says. Keep the licence
    URL to hand so a dispute takes minutes rather than days.
 
-5. **Upload, scheduled into the slot.**
+6. **Upload, scheduled into the slot.**
 
    ```bash
    python3 youtube.py upload out/2026-09-19.mp4 \
@@ -92,7 +104,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    keeping a machine awake to press publish: nothing is missed if the box is
    asleep, rebooting, or offline at 17:00.
 
-6. **Close the loop.** As soon as the upload returns a video id, link it to
+7. **Close the loop.** As soon as the upload returns a video id, link it to
    the topic that produced it:
 
    ```bash
