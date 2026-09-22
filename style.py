@@ -68,7 +68,9 @@ DEFAULT_STYLE = {
     },
     # a slow push on every clip: subtle, but it is what stops stock footage
     # reading as a slideshow. 0 turns it off.
-    "motion": {"push_in": 0.10},
+    # `alternate` flips the push direction every other beat, so a run of cuts
+    # does not read as one long creep in a single direction.
+    "motion": {"push_in": 0.10, "alternate": True},
     "transition": {"kind": "cut", "seconds": 0.0},   # cut | crossfade
     "pacing": {"min_beat_seconds": 1.5, "max_beat_seconds": 7.0},
     # The Shorts envelope. Vertical or square and 3 minutes or less is
@@ -93,6 +95,12 @@ DEFAULT_STYLE = {
         "words_per_minute": 160,        # honoured on every engine, by measurement
         "pitch": 45,                    # 0-99; lower reads as more assured
         "word_gap_ms": 8,               # a little air between words
+        # Silence is cut off both ends of every line before it is used. Engines
+        # leave a third of a second at the front; left in, a quarter of a Short
+        # is nothing at all.
+        "silence_floor_db": -45,
+        "keep_head_ms": 25,             # left at the head so no consonant clips
+        "gap_seconds": 0.09,            # breath between lines, not a pause
         "highpass_hz": 85,              # cut rumble below the voice
         "lowpass_hz": 8500,             # take the fizz off synthesised speech
         # Kokoro, when KOKORO_MODEL and KOKORO_VOICES point at local weights.
@@ -125,7 +133,8 @@ _NUMERIC = {
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
-    "voice.kokoro_speed": (0.5, 2.0),
+    "voice.kokoro_speed": (0.5, 2.0), "voice.silence_floor_db": (-70, -20),
+    "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")

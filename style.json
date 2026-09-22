@@ -10,13 +10,13 @@
     },
     "captions": {
       "font": "DejaVu Sans",
-      "size_pct": 5.0,
+      "size_pct": 4.0,
       "bold": true,
       "uppercase": false,
       "colour": "FFFFFF",
       "outline": "000000",
       "outline_pct": 0.28,
-      "margin_bottom_pct": 15.0,
+      "margin_bottom_pct": 12.0,
       "side_margin_pct": 8.0,
       "mode": "karaoke",
       "pop_ms": 110,
@@ -25,7 +25,8 @@
       "max_lines": 2
     },
     "motion": {
-      "push_in": 0.1
+      "push_in": 0.1,
+      "alternate": true
     },
     "transition": {
       "kind": "cut",
@@ -42,8 +43,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 20,
-    "committedAt": "2026-09-22T14:40:42Z",
+    "version": 25,
+    "committedAt": "2026-09-22T16:16:21Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -65,7 +66,10 @@
       "elevenlabs_similarity": 0.75,
       "kokoro_voice": "am_michael",
       "kokoro_language": "en-us",
-      "kokoro_speed": 1.0
+      "kokoro_speed": 1.08,
+      "silence_floor_db": -45,
+      "keep_head_ms": 25,
+      "gap_seconds": 0.09
     }
   },
   "history": [
@@ -247,6 +251,48 @@
         "voice.kokoro_speed"
       ],
       "version": 20
+    },
+    {
+      "at": "2026-09-22T16:14:54Z",
+      "action": "upgrade",
+      "added": [
+        "voice.silence_floor_db",
+        "voice.keep_head_ms",
+        "voice.gap_seconds"
+      ],
+      "version": 21
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 5.0,
+      "to": 4.0,
+      "version": 22
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 15.0,
+      "to": 12.0,
+      "version": 23
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "voice.kokoro_speed",
+      "from": 1.0,
+      "to": 1.08,
+      "version": 24
+    },
+    {
+      "at": "2026-09-22T16:16:21Z",
+      "action": "upgrade",
+      "added": [
+        "motion.alternate"
+      ],
+      "version": 25
     }
   ]
 }

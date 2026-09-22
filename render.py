@@ -403,16 +403,31 @@ def _strip_size(w, h, zoom, src_w, src_h):
     return max(2, sw), max(2, sh)
 
 
-def _push(w, h, fps, push, duration):
-    """A slow zoom towards the centre of a w x h image, oversampled."""
+def _push(w, h, fps, push, duration, out=False):
+    """A slow zoom on a w x h image, oversampled. `out` starts in and pulls back.
+
+    Alternating the direction beat to beat is what stops a run of cuts reading
+    as one long slow creep. It is still one rule applied to every video, so the
+    channel keeps a single look -- it just stops every shot moving identically.
+    """
     if push <= 0:
         return ""
     frames = max(1, int(round(duration * fps)))
     step = push / frames
     big_w, big_h = w * PUSH_OVERSAMPLE, h * PUSH_OVERSAMPLE
-    return (",scale=%d:%d,zoompan=z='min(1+%.8f*on,%.4f)':d=1"
+    zoom = ("max(%.4f-%.8f*on,1.0)" % (1.0 + push, step) if out
+            else "min(1+%.8f*on,%.4f)" % (step, 1.0 + push))
+    # setpts is not optional. zoompan hands on frames whose timestamps do not
+    # match the declared timebase, so the encoded beat claims a duration 512x
+    # its real one -- a 1.69s beat measuring 870s. Concatenation papered over
+    # most of it, which is why it survived: the finished video came out roughly
+    # right while every part file was nonsense. Rebuilding the timestamps from
+    # the frame number makes a pushed beat measure exactly what an unpushed one
+    # does.
+    return (",scale=%d:%d,zoompan=z='%s':d=1"
             ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
-            ":s=%dx%d:fps=%d" % (big_w, big_h, step, 1.0 + push, w, h, fps))
+            ":s=%dx%d:fps=%d,setpts=N/FRAME_RATE/TB"
+            % (big_w, big_h, zoom, w, h, fps))
 
 
 def _reframe(w, h, mode, zoom=1.0):
@@ -436,7 +451,7 @@ def _reframe(w, h, mode, zoom=1.0):
 
 
 def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
-                 blur_zoom=1.0):
+                 blur_zoom=1.0, push_out=False):
     """Reframe to the style's format, and apply its push-in.
 
     The slow push is what stops a run of stock clips reading as a slideshow;
@@ -450,13 +465,14 @@ def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
     mode = choose_fit(fit, w, h, src_w, src_h)
     if mode == "blur":
         sw, sh = _strip_size(w, h, blur_zoom, src_w, src_h)
-        chain = _reframe(w, h, mode, blur_zoom) % _push(sw, sh, fps, push, duration)
+        chain = _reframe(w, h, mode, blur_zoom) % _push(sw, sh, fps, push,
+                                                        duration, push_out)
         return "%s,fps=%d,setsar=1" % (chain, fps)
     chain = _reframe(w, h, mode, blur_zoom)
     # Driven off `on` (the output frame counter), not the accumulating `zoom`
     # variable: with d=1 zoom resets on every input frame, so the usual
     # zoom+step recipe silently produces no motion at all.
-    chain += _push(w, h, fps, push, duration)
+    chain += _push(w, h, fps, push, duration, push_out)
     return "%s,fps=%d,setsar=1" % (chain, fps)
 
 
@@ -693,6 +709,7 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
     enc = look["encode"]
     fit = look["format"].get("fit", "auto")
     blur_zoom = float(look["format"].get("blur_zoom", 1.0) or 1.0)
+    alternate = bool(look["motion"].get("alternate", False))
     crf = str(enc["crf"])
     preset = str(enc["preset"])
     reporter = _Reporter(agent, out.name)
@@ -711,7 +728,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                 "-ss", "%.3f" % beat["in"], "-t", "%.3f" % beat["duration"],
                 "-i", beat["_path"],
                 "-vf", _beat_filter(w, h, fps, push, beat["duration"], fit,
-                                    *_source_size(beat), blur_zoom=blur_zoom),
+                                    *_source_size(beat), blur_zoom=blur_zoom,
+                                    push_out=(alternate and i % 2 == 1)),
                 "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
                 "-pix_fmt", "yuv420p", str(part),
             ], "trimming beat %d" % (i + 1))
@@ -749,15 +767,19 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
         args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
                  "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if audio:
-            # the video is the reference length; trim or pad the track to match.
-            # Rate and channels come from the style: low-rate mono AAC is not
-            # merely non-standard, it plays as silence in a lot of players.
+            # The video is the reference length; pad the track and cut the whole
+            # output to it. Not -shortest: with apad feeding it unbounded audio
+            # it overshoots by however much sits in the buffer -- measured at
+            # 6.55s against a 5.80s video. That drift hid inside the 10%
+            # tolerance for as long as the gaps between lines were loose, and
+            # surfaced the moment they were tightened. An explicit -t cannot
+            # drift.
             args += ["-c:a", "aac",
                      "-b:a", "%dk" % int(enc.get("audio_kbps", 160)),
                      "-ar", str(int(enc.get("audio_rate", 48000))),
                      "-ac", str(int(enc.get("audio_channels", 2))),
                      "-map", "0:v:0", "-map", "1:a:0",
-                     "-af", "apad", "-shortest"]
+                     "-af", "apad", "-t", "%.3f" % probe(silent)["duration"]]
             progress("  laying the voice track")
         else:
             args += ["-an"]

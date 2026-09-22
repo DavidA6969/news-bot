@@ -42,11 +42,11 @@ import urllib.request
 from pathlib import Path
 
 __all__ = ["beats_from_script", "speak", "fit_plan", "build_track", "attach",
-           "measure_words", "annotate_plan",
+           "measure_words", "annotate_plan", "trim_silence", "kokoro_paths",
            "available_engines", "usable_engines", "VoiceError"]
 
 HERE = Path(__file__).resolve().parent
-PAD_SECONDS = 0.28          # breathing room after each line
+PAD_SECONDS = 0.09          # fallback gap after a line; the style sets the real one
 SAMPLE_RATE = 24000
 
 
@@ -170,7 +170,14 @@ def _kokoro(text, out_path, settings):
         handle.setsampwidth(2)
         handle.setframerate(KOKORO_SR)
         handle.writeframes(pcm.tobytes())
-    _retime(raw, out_path, text, settings)
+    # No _retime here, deliberately. Kokoro has its own speed control, so
+    # forcing every line to one words-per-minute afterwards would flatten the
+    # pace the model chose for each sentence -- and a narrator who reads every
+    # line at exactly the same rate is the clearest tell that nobody is home.
+    # voice.kokoro_speed sets the pace; the model varies within it.
+    subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
+                    "-i", str(raw), "-ar", str(SAMPLE_RATE), "-ac", "1",
+                    str(out_path)], check=True)
     raw.unlink(missing_ok=True)
     return out_path
 
@@ -311,6 +318,46 @@ def _voice_style(style=None):
     sys.path.insert(0, str(HERE))
     import style as style_mod
     return style_mod.current().get("voice") or {}
+
+
+def trim_silence(path, settings=None):
+    """Cut the silence off both ends of a spoken line.
+
+    Engines hand back a line with silence around it -- Kokoro adds about a
+    third of a second at the front of every one. Left in, and added to the gap
+    after each line, a quarter of a Short is nothing: the narration sounds
+    halting and every cut lands in a hole. That is what reads as a sloppy edit.
+
+    A few milliseconds are kept at the head so the first consonant is not
+    clipped, which is worse than the silence.
+    """
+    settings = settings or {}
+    path = Path(path)
+    floor = float(settings.get("silence_floor_db", -45))
+    keep = float(settings.get("keep_head_ms", 25)) / 1000.0
+    before = _duration(path)
+    trimmed = path.with_name(path.stem + ".trim.wav")
+    chain = ("silenceremove=start_periods=1:start_threshold=%ddB:start_silence=%.3f"
+             ":detection=peak,areverse,"
+             "silenceremove=start_periods=1:start_threshold=%ddB:start_silence=%.3f"
+             ":detection=peak,areverse" % (floor, keep, floor, keep))
+    proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
+                           "-i", str(path), "-af", chain,
+                           "-ar", str(SAMPLE_RATE), "-ac", "1", str(trimmed)],
+                          capture_output=True, text=True)
+    if proc.returncode != 0 or not trimmed.exists() or trimmed.stat().st_size < 256:
+        trimmed.unlink(missing_ok=True)
+        return before                                   # keep the untrimmed line
+    after = _duration(trimmed)
+    # a line that trims to almost nothing means the threshold ate the speech
+    if after < max(0.12, before * 0.25):
+        trimmed.unlink(missing_ok=True)
+        print("voice.py: not trimming %s — %.2fs would become %.2fs, which looks "
+              "like the threshold catching the speech itself"
+              % (path.name, before, after), file=sys.stderr)
+        return before
+    trimmed.replace(path)
+    return after
 
 
 def _master(path, settings):
@@ -466,6 +513,7 @@ def _synthesise(engine, text, out_path, voice=None, settings=None):
                          % (engine, ", ".join(n for n, _ in usable_engines()) or "none"))
     if not out_path.exists() or out_path.stat().st_size < 256:
         raise VoiceError("%s produced no audio for %r" % (engine, text[:40]))
+    trim_silence(out_path, settings)
     return _master(out_path, settings)
 
 
@@ -509,6 +557,7 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
             # a recorded voice gets the same treatment: it needs the levelling
             # more than a synthesiser does, and the point is that every video
             # sounds the same whoever or whatever spoke it
+            trim_silence(target, settings)
             _master(target, settings)
             clips.append((target, _duration(target)))
         return clips
@@ -534,7 +583,7 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
 # --------------------------------------------------------------------------
 # cut the video to the voice
 # --------------------------------------------------------------------------
-def fit_plan(plan_path, clips, pad=PAD_SECONDS, style=None):
+def fit_plan(plan_path, clips, pad=None, style=None):
     """Rewrite each beat's duration to how long that line takes to say.
 
     This is the whole point: a beat that runs shorter than its line cuts the
@@ -554,6 +603,8 @@ def fit_plan(plan_path, clips, pad=PAD_SECONDS, style=None):
     sys.path.insert(0, str(HERE))
     import style as style_mod
     look = style or style_mod.current()
+    if pad is None:
+        pad = float((look.get("voice") or {}).get("gap_seconds", PAD_SECONDS))
     low = look["pacing"]["min_beat_seconds"]
     high = look["pacing"]["max_beat_seconds"]
 
@@ -579,8 +630,12 @@ def fit_plan(plan_path, clips, pad=PAD_SECONDS, style=None):
             "durations": [b["duration"] for b in beats]}
 
 
-def build_track(plan_path, clips, out_path, pad=PAD_SECONDS):
-    """One audio track, each line padded out to its beat's length."""
+def build_track(plan_path, clips, out_path):
+    """One audio track, each line padded out to its beat's length.
+
+    The gap after each line is already inside the beat duration fit_plan wrote;
+    this only pads the audio out to fill it.
+    """
     plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
     beats = plan["beats"]
     if len(clips) != len(beats):
