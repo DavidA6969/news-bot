@@ -31,7 +31,18 @@ STORE = HERE / "style.json"
 
 DEFAULT_STYLE = {
     "name": "vertical-caption",
-    "format": {"width": 1080, "height": 1920, "fps": 30},
+    # `fit` decides what happens to footage that is not already this shape.
+    # "crop" fills the frame by cutting the sides off, which is right for
+    # vertical and square sources and destroys a landscape composition --
+    # centre-cropping 16:9 to 9:16 throws away two thirds of the width, which
+    # is how you end up with half a title card on screen. "blur" keeps the
+    # whole frame and fills above and below with a blurred copy of it.
+    # "auto" crops when the shapes are close and blurs when they are not.
+    # blur_zoom is how much wider than the frame the visible strip is scaled
+    # when fitting by blur. 1.0 shows the whole source frame but leaves it small
+    # on a phone; above 1.0 trades a little off the sides for a bigger picture.
+    "format": {"width": 1080, "height": 1920, "fps": 30, "fit": "auto",
+               "blur_zoom": 1.2},
     "captions": {
         "font": "DejaVu Sans",
         "size_pct": 3.6,             # of frame height
@@ -52,7 +63,11 @@ DEFAULT_STYLE = {
     # automatically treated as a Short; one second over and YouTube files it as
     # an ordinary video instead, which is not what this channel publishes.
     "shorts": {"max_seconds": 180, "target_seconds": 45, "require_vertical": True},
-    "encode": {"crf": 20, "preset": "medium"},
+    # 48kHz stereo AAC is what YouTube asks for, and low-rate mono is worse
+    # than non-standard: plenty of players and inline previews simply play
+    # nothing, which looks exactly like a video with no voice on it.
+    "encode": {"crf": 20, "preset": "medium",
+               "audio_rate": 48000, "audio_channels": 2, "audio_kbps": 160},
     # How the narration is spoken and treated. This lives in the style for the
     # same reason the captions do: a channel is recognised by its voice before
     # it is recognised by its edit, and a voice that changes level or timbre
@@ -77,9 +92,11 @@ _NUMERIC = {
     "format.width": (240, 4320), "format.height": (240, 4320), "format.fps": (12, 60),
     "captions.size_pct": (1.0, 12.0), "captions.outline_pct": (0.0, 2.0),
     "captions.margin_bottom_pct": (0.0, 60.0), "captions.side_margin_pct": (0.0, 30.0),
+    "format.blur_zoom": (1.0, 2.0),
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
-    "encode.crf": (14, 34),
+    "encode.crf": (14, 34), "encode.audio_rate": (8000, 48000),
+    "encode.audio_channels": (1, 2), "encode.audio_kbps": (48, 320),
     "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
@@ -133,6 +150,9 @@ def _validate(style):
             raise StyleError("%s must be a number (got %r)" % (dotted, value))
         if not low <= value <= high:
             raise StyleError("%s is %g; it must be between %g and %g" % (dotted, value, low, high))
+    fit = style["format"].get("fit", "auto")
+    if fit not in ("auto", "crop", "blur"):
+        raise StyleError('format.fit must be "auto", "crop" or "blur" (got %r)' % fit)
     kind = style["transition"].get("kind")
     if kind not in ("cut", "crossfade"):
         raise StyleError('transition.kind must be "cut" or "crossfade" (got %r)' % kind)

@@ -62,7 +62,25 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    named. If the block comes back empty and the render used fetched clips,
    something is wrong with the plan — `fail` rather than uploading uncredited.
 
-4. **Upload, scheduled into the slot.**
+4. **Check the copyright position before you spend an upload.**
+
+   ```bash
+   python3 render.py rights render.json
+   ```
+
+   It reports, per render: whether every clip records a licence, whether any
+   clip was lifted off a platform, whether credit exists where the licence
+   demands it, whether the video carries its own narration, and that the
+   source's own audio was discarded rather than re-used. It exits non-zero on
+   anything marked FAIL. Do not upload past a FAIL — a strike costs the channel
+   and an upload costs a slot.
+
+   It warns, always, that a Content ID claim is still possible. That is not
+   pessimism: a valid licence is a **defence**, not a shield, and widely
+   uploaded footage gets matched whatever its licence says. Keep the licence
+   URL to hand so a dispute takes minutes rather than days.
+
+5. **Upload, scheduled into the slot.**
 
    ```bash
    python3 youtube.py upload out/2026-09-19.mp4 \
@@ -74,7 +92,7 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    keeping a machine awake to press publish: nothing is missed if the box is
    asleep, rebooting, or offline at 17:00.
 
-5. **Close the loop.** As soon as the upload returns a video id, link it to
+6. **Close the loop.** As soon as the upload returns a video id, link it to
    the topic that produced it:
 
    ```bash

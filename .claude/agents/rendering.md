@@ -152,7 +152,17 @@ Your plan supplies clips, timings and words. Nothing else.
    The `--agent` flag reports start, finish and failure to the dashboard for
    you, so you do not need separate `status.py` calls around it.
 
-6. **If you are waiting rather than broken**, say so:
+6. **Check the rights before you hand it on.**
+
+   ```bash
+   python3 render.py rights render.json
+   ```
+
+   Every clip licensed, credit where the licence demands it, nothing lifted off
+   a platform, and narration actually present. Pass the output to HERALD along
+   with the file. A FAIL here is yours to fix, not theirs to discover.
+
+7. **If you are waiting rather than broken**, say so:
 
    ```bash
    python3 status.py block rendering "Waiting on GPU queue slot"

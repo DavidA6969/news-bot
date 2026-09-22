@@ -4,11 +4,13 @@
     "format": {
       "width": 1080,
       "height": 1920,
-      "fps": 30
+      "fps": 30,
+      "fit": "auto",
+      "blur_zoom": 1.4
     },
     "captions": {
       "font": "DejaVu Sans",
-      "size_pct": 3.6,
+      "size_pct": 4.6,
       "bold": true,
       "uppercase": false,
       "colour": "FFFFFF",
@@ -25,15 +27,18 @@
       "seconds": 0.0
     },
     "pacing": {
-      "min_beat_seconds": 1.5,
+      "min_beat_seconds": 1.2,
       "max_beat_seconds": 7.0
     },
     "encode": {
       "crf": 20,
-      "preset": "medium"
+      "preset": "medium",
+      "audio_rate": 48000,
+      "audio_channels": 2,
+      "audio_kbps": 160
     },
-    "version": 3,
-    "committedAt": "2026-09-22T04:05:49Z",
+    "version": 8,
+    "committedAt": "2026-09-22T04:23:10Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -84,6 +89,49 @@
         "voice.loudness_lufs"
       ],
       "version": 3
+    },
+    {
+      "at": "2026-09-22T04:19:06Z",
+      "action": "upgrade",
+      "added": [
+        "format.fit",
+        "encode.audio_rate",
+        "encode.audio_channels",
+        "encode.audio_kbps"
+      ],
+      "version": 4
+    },
+    {
+      "at": "2026-09-22T04:20:30Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 3.6,
+      "to": 4.6,
+      "version": 5
+    },
+    {
+      "at": "2026-09-22T04:20:30Z",
+      "action": "set",
+      "field": "pacing.min_beat_seconds",
+      "from": 1.5,
+      "to": 1.2,
+      "version": 6
+    },
+    {
+      "at": "2026-09-22T04:22:42Z",
+      "action": "upgrade",
+      "added": [
+        "format.blur_zoom"
+      ],
+      "version": 7
+    },
+    {
+      "at": "2026-09-22T04:23:10Z",
+      "action": "set",
+      "field": "format.blur_zoom",
+      "from": 1.2,
+      "to": 1.4,
+      "version": 8
     }
   ]
 }

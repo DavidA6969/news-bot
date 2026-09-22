@@ -303,6 +303,26 @@ together, and each render records the `styleVersion` it used.
 For a channel you intend to keep, record the voice yourself. Commentary is a
 person having a view, and synthesised narration is audibly not that.
 
+### Footage that is not already vertical
+
+Most found footage is landscape, and the obvious move — crop it to fill a 9:16
+frame — throws away two thirds of the width. That is how you end up with half a
+title card on screen and a portrait video that reads as a broken landscape one.
+
+`format.fit` decides:
+
+| value | what happens |
+| --- | --- |
+| `auto` (default) | crop when the shapes are close, blur-fill when they are not |
+| `crop` | always fill by cutting the sides off |
+| `blur` | always keep the whole frame, over a blurred enlargement of itself |
+
+`format.blur_zoom` (default 1.4) trades a little off the sides for a bigger
+picture — at 1.0 the whole source frame is visible but small on a phone. The
+blurred fill is the standard way to put landscape footage in a vertical frame
+without recomposing it, and it reads as deliberate, which a half-visible subject
+does not.
+
 ### One editing style
 
 Every video uses the single committed look in `style.json`. `render.py` takes the
@@ -447,6 +467,30 @@ So the pipeline gets the same *form* — found footage, clipped, narrated over �
 from material that is actually cleared for it: public-domain and CC archives for
 footage that is about something, stock for footage that illustrates. That is a
 route to the video you wanted, not a lesser substitute for it.
+
+### Staying inside the copyright rules
+
+Every obligation this pipeline takes on is checked rather than asserted:
+
+```bash
+python3 render.py rights render.json
+```
+
+| check | why it matters |
+| --- | --- |
+| every clip records a licence | no provenance, no defence |
+| nothing lifted off a platform | their terms bind you separately from their copyright |
+| credit where the licence demands it | CC-BY without attribution **is** infringement |
+| the video carries its own narration | third-party footage with nothing added is what the reused-content policy demotes |
+| source audio discarded, not re-used | beats are trimmed with `-an`, so music in the source cannot raise a claim |
+
+It exits non-zero on any failure, and HERALD runs it before spending an upload.
+
+It also warns, every time, that **a Content ID claim is still possible.** That
+is honest rather than pessimistic: a valid licence is a defence you raise after
+a claim, not a shield that prevents one, and widely-used footage gets matched
+whatever its licence says. Keep the licence URL with the render — `fetch_clips`
+already records it — so a dispute takes minutes.
 
 ## Shorts only
 

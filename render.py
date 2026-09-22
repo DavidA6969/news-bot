@@ -189,6 +189,96 @@ def _check_license(asset, label):
     return licence
 
 
+# Licences that oblige you to credit the source. Public domain does not, but
+# recording it anyway is what gives you an answer if a claim ever arrives.
+ATTRIBUTION_REQUIRED = ("cc by", "cc-by", "creativecommons.org/licenses",
+                        "attribution", "pexels", "pixabay")
+
+
+def rights_report(plan_path):
+    """What this render's copyright position actually is, before it is uploaded.
+
+    Every item here is a real obligation or a real risk, checked against the
+    plan rather than asserted in a README. Returns (ok, findings) where a
+    finding is (level, headline, detail) and level is "ok", "warn" or "fail".
+    """
+    # Read the plan WITHOUT the build-time validation. load_plan raises on the
+    # first missing licence, which is right before a render and wrong for a
+    # report: the point here is to see everything that is wrong at once rather
+    # than fix-and-rerun six times.
+    path = Path(plan_path)
+    if not path.exists():
+        raise RenderError("no such plan: %s" % path)
+    try:
+        plan = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise RenderError("%s is not valid JSON (%s)" % (path, exc)) from exc
+    if not isinstance(plan, dict):
+        raise RenderError("%s does not look like a render plan" % path)
+    beats = plan.get("beats") or []
+    findings = []
+    if not beats:
+        findings.append(("fail", "the plan has beats to check", "none found"))
+
+    # 1. provenance on every asset
+    missing = [i + 1 for i, b in enumerate(beats) if not (b.get("license") or "").strip()]
+    findings.append(("fail" if missing else "ok", "every clip records its licence",
+                     "beats %s have none" % missing if missing
+                     else "%d beat%s" % (len(beats), "" if len(beats) == 1 else "s")))
+
+    # 2. nothing lifted off a platform without written permission
+    lifted = []
+    for i, b in enumerate(beats):
+        low = (b.get("license") or "").lower()
+        hit = next((pl for pl in PLATFORMS if pl in low), None)
+        if hit and not b.get("rights_confirmed"):
+            lifted.append("beat %d (%s)" % (i + 1, hit))
+    findings.append(("fail" if lifted else "ok",
+                     "no clip is lifted from a platform",
+                     ", ".join(lifted) if lifted
+                     else "re-uploading someone else's clip breaches their terms "
+                          "as well as their copyright"))
+
+    # 3. credit where the licence demands it
+    owed, credited = [], []
+    for i, b in enumerate(beats):
+        low = (b.get("license") or "").lower()
+        if any(marker in low for marker in ATTRIBUTION_REQUIRED):
+            (credited if (b.get("attribution") or "").strip() else owed).append(i + 1)
+    findings.append(("fail" if owed else "ok",
+                     "credit is recorded where the licence requires it",
+                     "beats %s need an attribution line" % owed if owed
+                     else "%d of %d beat%s carry credit" % (len(credited), len(beats),
+                                                            "" if len(beats) == 1 else "s")))
+
+    # 4. narration. A montage of other people's footage with no commentary on it
+    #    is what the reused-content policy demotes; narration is what makes it a
+    #    video essay instead.
+    audio = plan.get("audio") or {}
+    findings.append(("warn" if not audio.get("path") else "ok",
+                     "the video carries its own narration",
+                     audio.get("license") or
+                     "no voice track: third-party footage with nothing added is "
+                     "what YouTube's reused-content policy targets"))
+
+    # 5. the source's own audio never reaches the output -- beats are trimmed
+    #    with -an, so any music in the source cannot raise a Content ID claim.
+    findings.append(("ok", "source audio is discarded, not re-used",
+                     "beats are trimmed with -an; only the narration is muxed"))
+
+    # 6. the honest caveat
+    third_party = [b for b in beats
+                   if "own recording" not in (b.get("license") or "").lower()]
+    if third_party:
+        findings.append(("warn", "a Content ID claim is still possible",
+                         "a valid licence is a defence, not a shield: widely "
+                         "uploaded footage gets matched anyway. Keep the licence "
+                         "URL to hand so a dispute takes minutes."))
+
+    ok = not any(level == "fail" for level, _, _ in findings)
+    return ok, findings
+
+
 def validate_plan(plan, base=None):
     base = Path(base or ".")
     if not isinstance(plan, dict):
@@ -275,14 +365,53 @@ def validate_plan(plan, base=None):
 # --------------------------------------------------------------------------
 # captions
 # --------------------------------------------------------------------------
-def _beat_filter(w, h, fps, push, duration):
+# Above this ratio of source aspect to target aspect, cropping to fill would
+# throw away so much of the frame that the composition is gone. 16:9 into 9:16
+# is 3.16 -- two thirds of the width cut off, which is how a title card ends up
+# sliced down the middle.
+BLUR_ABOVE = 1.5
+
+
+def choose_fit(fit, w, h, src_w=None, src_h=None):
+    """crop or blur for this source. `auto` decides on how different the shapes are."""
+    if fit in ("crop", "blur"):
+        return fit
+    if not (src_w and src_h and w and h):
+        return "crop"                     # unknown source: behave as before
+    source = float(src_w) / float(src_h)
+    target = float(w) / float(h)
+    return "blur" if source / target > BLUR_ABOVE else "crop"
+
+
+def _reframe(w, h, mode, zoom=1.0):
+    """Fill the frame, either by cropping the sides or by blurring behind."""
+    if mode != "blur":
+        return ("scale=%d:%d:force_original_aspect_ratio=increase,"
+                "crop=%d:%d" % (w, h, w, h))
+    # even to keep libx264 happy, and never wider than the frame is tall
+    fw = min(int(round(w * max(1.0, zoom))) // 2 * 2, h)
+    # The whole source frame, centred, over a blurred and darkened enlargement
+    # of itself. This is the standard way to put landscape footage in a vertical
+    # frame without recomposing it, and it reads as deliberate rather than as a
+    # mistake -- which a half-visible subject does not.
+    return ("split[__bg][__fg];"
+            "[__bg]scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,"
+            "gblur=sigma=%d,eq=brightness=-0.13:saturation=0.9[__bgb];"
+            "[__fg]scale=%d:%d:force_original_aspect_ratio=decrease,"
+            "crop='min(iw,%d)':'min(ih,%d)'[__fgs];"
+            "[__bgb][__fgs]overlay=(W-w)/2:(H-h)/2"
+            % (w, h, w, h, max(8, int(w / 38)), fw, h, w, h))
+
+
+def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
+                 blur_zoom=1.0):
     """Reframe to the style's format, and apply its push-in.
 
     The slow push is what stops a run of stock clips reading as a slideshow;
     because it comes from the style it is identical in every video.
     """
-    chain = ("scale=%d:%d:force_original_aspect_ratio=increase,"
-             "crop=%d:%d,fps=%d,setsar=1" % (w, h, w, h, fps))
+    mode = choose_fit(fit, w, h, src_w, src_h)
+    chain = "%s,fps=%d,setsar=1" % (_reframe(w, h, mode, blur_zoom), fps)
     if push > 0:
         frames = max(1, int(round(duration * fps)))
         step = push / frames
@@ -293,6 +422,20 @@ def _beat_filter(w, h, fps, push, duration):
                   ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
                   ":s=%dx%d:fps=%d" % (step, 1.0 + push, w, h, fps))
     return chain
+
+
+def _source_size(beat):
+    """(width, height) of a beat's clip, or (None, None) if it cannot be read.
+
+    Used to decide crop vs blur. Unreadable dimensions fall back to cropping,
+    which is the old behaviour -- a reframing choice is not worth failing a
+    render over.
+    """
+    try:
+        got = dimensions(beat.get("_path") or beat.get("clip"))
+        return got.get("width"), got.get("height")
+    except Exception:
+        return None, None
 
 
 def _ass_time(seconds):
@@ -368,8 +511,11 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
     look = plan["_style"]
     w, h, fps = plan["width"], plan["height"], plan["fps"]
     push = float(look["motion"].get("push_in", 0) or 0)
-    crf = str(look["encode"]["crf"])
-    preset = str(look["encode"]["preset"])
+    enc = look["encode"]
+    fit = look["format"].get("fit", "auto")
+    blur_zoom = float(look["format"].get("blur_zoom", 1.0) or 1.0)
+    crf = str(enc["crf"])
+    preset = str(enc["preset"])
     reporter = _Reporter(agent, out.name)
     reporter.start(len(plan["beats"]))
 
@@ -385,7 +531,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                 ff, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", "%.3f" % beat["in"], "-t", "%.3f" % beat["duration"],
                 "-i", beat["_path"],
-                "-vf", _beat_filter(w, h, fps, push, beat["duration"]),
+                "-vf", _beat_filter(w, h, fps, push, beat["duration"], fit,
+                                    *_source_size(beat), blur_zoom=blur_zoom),
                 "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
                 "-pix_fmt", "yuv420p", str(part),
             ], "trimming beat %d" % (i + 1))
@@ -418,8 +565,14 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
         args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
                  "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if audio:
-            # the video is the reference length; trim or pad the track to match
-            args += ["-c:a", "aac", "-b:a", "160k", "-map", "0:v:0", "-map", "1:a:0",
+            # the video is the reference length; trim or pad the track to match.
+            # Rate and channels come from the style: low-rate mono AAC is not
+            # merely non-standard, it plays as silence in a lot of players.
+            args += ["-c:a", "aac",
+                     "-b:a", "%dk" % int(enc.get("audio_kbps", 160)),
+                     "-ar", str(int(enc.get("audio_rate", 48000))),
+                     "-ac", str(int(enc.get("audio_channels", 2))),
+                     "-map", "0:v:0", "-map", "1:a:0",
                      "-af", "apad", "-shortest"]
             progress("  laying the voice track")
         else:
@@ -550,6 +703,9 @@ def main(argv=None):
     p_build.add_argument("--agent", help="report to this dashboard agent id")
     p_build.add_argument("--keep-temp", action="store_true")
 
+    p_rights = sub.add_parser("rights", help="the copyright position of a plan")
+    p_rights.add_argument("plan")
+
     p_check = sub.add_parser("check", help="probe a finished file")
     p_check.add_argument("video")
     p_check.add_argument("--expect", type=float, help="expected duration in seconds")
@@ -567,6 +723,22 @@ def main(argv=None):
             print("\n%s  %s  %.1fs  %.1f MB%s" % (
                 result["output"], result["resolution"], result["duration"],
                 result["size"] / 1048576, "" if result["audio"] else "  (no audio)"))
+            return 0
+        if args.command == "rights":
+            ok, findings = rights_report(args.plan)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            if not ok:
+                print("\nDo not upload this. Fix what is marked FAIL first.",
+                      file=sys.stderr)
+                return 1
+            warns = sum(1 for level, _, _ in findings if level == "warn")
+            print("\nClear to upload%s."
+                  % (" — read the %d warning%s first"
+                     % (warns, "" if warns == 1 else "s") if warns else ""))
             return 0
         got = probe(args.video)
         print(json.dumps(got, indent=2))
