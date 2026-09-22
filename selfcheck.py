@@ -44,7 +44,7 @@ def main():
     required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
                 "youtube.py", "performance.py", "render.py", "niche.py",
                 "fetch_clips.py", "style.py", "etsy.py", "suppliers.py",
-                "voice.py"]
+                "voice.py", "short.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")

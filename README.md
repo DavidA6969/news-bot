@@ -178,6 +178,39 @@ except Exception as exc:
     raise
 ```
 
+## From clips to a Short, in one command
+
+If you already have footage, this is the whole pipeline in one line:
+
+```bash
+python3 short.py script.md --clips assets/ -o out/today.mp4 \
+  --slow 2,9 --attribution "Creator, CC BY 4.0 — https://..."
+```
+
+Clips are used in the order they sort, one per beat. `--slow` names the beats
+the narrator should drop pace on — the payoff, the number, the last line.
+
+**Every clip needs a licence and nothing renders without one.** Put a
+`licenses.json` beside the clips (`{"clip01.mp4": "CC BY 4.0 — source url"}`)
+or pass `--license` to apply one to all of them. If any licence requires
+credit and no `--attribution` is given, it stops **before** narrating rather
+than after — CC-BY without attribution is infringement, not a formality, and
+the slow step should not be spent discovering that.
+
+It runs the three gates before encoding and refuses on a failure:
+
+```
+  plan      8 beats from 8 clips
+  narrated  kokoro, 8 lines
+  retention pass
+  rights    pass
+  monetize  pass
+  built     1080x1920  9.8s  4.1 MB
+```
+
+The steps underneath are all still separate commands, documented below, for
+when you want to intervene between them.
+
 ## Making the video
 
 `render.py` builds the file: it trims each source clip to the beat it covers,
