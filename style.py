@@ -23,7 +23,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-__all__ = ["load", "current", "init", "set_field", "check_plan",
+__all__ = ["load", "current", "init", "set_field", "check_plan", "shorts_verdict",
            "ass_colour", "StyleError", "DEFAULT_STYLE"]
 
 HERE = Path(__file__).resolve().parent
@@ -48,6 +48,10 @@ DEFAULT_STYLE = {
     "motion": {"push_in": 0.10},
     "transition": {"kind": "cut", "seconds": 0.0},   # cut | crossfade
     "pacing": {"min_beat_seconds": 1.5, "max_beat_seconds": 7.0},
+    # The Shorts envelope. Vertical or square and 3 minutes or less is
+    # automatically treated as a Short; one second over and YouTube files it as
+    # an ordinary video instead, which is not what this channel publishes.
+    "shorts": {"max_seconds": 180, "target_seconds": 45, "require_vertical": True},
     "encode": {"crf": 20, "preset": "medium"},
 }
 
@@ -58,6 +62,7 @@ _NUMERIC = {
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34),
+    "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
 }
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")
 
@@ -73,7 +78,8 @@ def _now():
 def _validate(style):
     if not isinstance(style, dict):
         raise StyleError("the style must be a JSON object")
-    for section in ("format", "captions", "motion", "transition", "pacing", "encode"):
+    for section in ("format", "captions", "motion", "transition", "pacing",
+                    "encode", "shorts"):
         if not isinstance(style.get(section), dict):
             raise StyleError('style is missing the "%s" section' % section)
     for dotted, (low, high) in _NUMERIC.items():
@@ -90,6 +96,14 @@ def _validate(style):
         raise StyleError("a crossfade needs transition.seconds above 0")
     if style["pacing"]["min_beat_seconds"] >= style["pacing"]["max_beat_seconds"]:
         raise StyleError("pacing.min_beat_seconds must be below max_beat_seconds")
+    if style["shorts"]["target_seconds"] > style["shorts"]["max_seconds"]:
+        raise StyleError("shorts.target_seconds cannot exceed shorts.max_seconds")
+    if style["shorts"].get("require_vertical") and \
+            style["format"]["height"] < style["format"]["width"]:
+        raise StyleError(
+            "shorts.require_vertical is on but the format is %dx%d, which is "
+            "landscape. YouTube files only vertical or square video as a Short."
+            % (style["format"]["width"], style["format"]["height"]))
     for hex_key in ("colour", "outline"):
         value = str(style["captions"].get(hex_key, ""))
         if len(value) != 6 or any(c not in "0123456789abcdefABCDEF" for c in value):
@@ -196,6 +210,25 @@ def set_field(dotted, raw_value, path=None):
     return style
 
 
+def shorts_verdict(seconds, width, height, style=None):
+    """Would YouTube treat this as a Short? Returns (ok, [reasons])."""
+    style = style or current()
+    limits = style["shorts"]
+    reasons = []
+    if limits.get("require_vertical") and height is not None and width is not None:
+        if height < width:                       # square is fine; landscape is not
+            reasons.append(
+                "%dx%d is not vertical or square. YouTube files only vertical and "
+                "square video as a Short; landscape becomes an ordinary video."
+                % (width, height))
+    if seconds is not None and seconds > limits["max_seconds"] + 0.05:
+        reasons.append(
+            "%.1fs is over the %.0fs Shorts limit. One second over and YouTube "
+            "files it as an ordinary video, not a Short."
+            % (seconds, limits["max_seconds"]))
+    return (not reasons), reasons
+
+
 def check_plan(plan, style=None):
     """Complain about anything in a render plan that tries to set the look."""
     style = style or current()
@@ -221,7 +254,19 @@ def check_plan(plan, style=None):
             elif seconds > high:
                 notes.append("beats[%d] is %gs, over the style's %gs maximum — long beats "
                              "are where retention goes" % (i, seconds, high))
-    return {"problems": problems, "notes": notes,
+    total = sum(b.get("duration", 0) for b in (plan.get("beats") or [])
+                if isinstance(b, dict) and isinstance(b.get("duration"), (int, float)))
+    if total:
+        ok, reasons = shorts_verdict(total, style["format"]["width"],
+                                     style["format"]["height"], style)
+        problems.extend(reasons)
+        target = style["shorts"]["target_seconds"]
+        if ok and total > target:
+            notes.append("%.1fs total is over the style's %.0fs target. Still a "
+                         "Short, but short-form retention falls away the longer it "
+                         "runs — trim unless the length is earning something."
+                         % (total, target))
+    return {"problems": problems, "notes": notes, "totalSeconds": round(total, 2),
             "styleVersion": style.get("version", 0)}
 
 

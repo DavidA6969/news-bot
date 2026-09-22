@@ -266,6 +266,28 @@ refuses a plan whose licence names a platform URL unless you also set
 Stock libraries exist precisely because this need is common, and they solve it
 legally — which is why fetching is wired to them instead.
 
+## Shorts only
+
+This channel publishes Shorts, and that is enforced rather than intended.
+[A vertical or square video of three minutes or less is automatically treated as
+a Short](https://www.shortsync.app/resources/youtube-shorts-upload-requirements-2026);
+one second over and YouTube silently files it as an ordinary video that never
+enters the Shorts feed.
+
+The envelope lives in `style.json` under `shorts`, and two gates enforce it:
+
+- **`render.py` refuses an over-length cut before encoding**, so you find out in
+  a second rather than after four minutes of rendering.
+- **`youtube.py` inspects the actual file before uploading** and refuses anything
+  that would not be filed as a Short, exiting 3 with the reason. It checks the
+  file rather than the plan, so a hand-swapped render, a stale file or a
+  landscape export is caught too — and it refuses a file it cannot read at all
+  rather than uploading blind.
+
+Vertical and square both qualify; landscape does not. The style itself cannot be
+set outside the envelope: `style.py` rejects a landscape format or a limit above
+180s.
+
 ## Publishing to YouTube
 
 `youtube.py` uploads a finished render to your own channel through the **YouTube

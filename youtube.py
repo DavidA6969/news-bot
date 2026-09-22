@@ -56,7 +56,8 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-__all__ = ["upload", "load_credentials", "YouTubeError", "AuditRestriction", "SCOPE"]
+__all__ = ["upload", "load_credentials", "YouTubeError", "AuditRestriction",
+           "NotAShort", "SCOPE"]
 
 SCOPE = "https://www.googleapis.com/auth/youtube.upload"
 AUTH_HOST, AUTH_PATH = "accounts.google.com", "/o/oauth2/v2/auth"
@@ -82,6 +83,10 @@ class YouTubeError(RuntimeError):
 
 class AuditRestriction(YouTubeError):
     """The API project is unaudited, so the upload could not go public."""
+
+
+class NotAShort(YouTubeError):
+    """The file would not be published as a Short."""
 
 
 # --------------------------------------------------------------------------
@@ -306,6 +311,44 @@ def build_body(title, description="", tags=None, category_id=CATEGORY_DEFAULT,
     return {"snippet": snippet, "status": status}
 
 
+def _require_short(path):
+    """Refuse anything YouTube would not file as a Short.
+
+    Vertical or square and inside the duration limit is what makes a Short; one
+    second over and it silently becomes an ordinary video instead, which is not
+    what this channel publishes.
+    """
+    sys.path.insert(0, str(HERE))
+    try:
+        import render as render_mod
+        import style as style_mod
+    except Exception as exc:                              # pragma: no cover
+        print("youtube.py: could not load the Shorts check (%s) — uploading "
+              "unverified" % exc, file=sys.stderr)
+        return
+    try:
+        render_mod.ffmpeg_bin()
+    except Exception as exc:
+        raise YouTubeError(
+            "ffmpeg is needed to confirm a file is a Short before uploading it, "
+            "and it was not found (%s). Install it, or set FFMPEG. This channel "
+            "does not upload unchecked files." % exc) from exc
+    try:
+        facts = render_mod.probe(path)
+        dims = render_mod.dimensions(path)
+    except Exception as exc:
+        raise YouTubeError(
+            "%s could not be read as a video (%s). Either it is not a video file "
+            "or the render was truncated — check it before uploading."
+            % (path.name, exc)) from exc
+    ok, reasons = style_mod.shorts_verdict(facts.get("duration"),
+                                           dims.get("width"), dims.get("height"))
+    if not ok:
+        raise NotAShort("%s would not be published as a Short: %s"
+                        % (path.name, " ".join(reasons)))
+    return True
+
+
 def _parse_iso(value):
     try:
         dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
@@ -330,6 +373,11 @@ def upload(video_path, title, description="", tags=None, category_id=CATEGORY_DE
     size = path.stat().st_size
     if size == 0:
         raise YouTubeError("%s is empty" % path)
+
+    # The file is what YouTube actually classifies, so check the file — not the
+    # plan that was supposed to produce it. A render swapped by hand, an old
+    # file picked up by mistake, or a landscape export all get caught here.
+    _require_short(path)
 
     body = build_body(title, description, tags, category_id, privacy,
                       publish_at, made_for_kids, language)
@@ -486,6 +534,9 @@ def main(argv=None):
             print("Scheduled to go public at %s" % result["status"]["publishAt"])
         reporter.finish("uploaded %s (%s)" % (vid, state))
         return 0
+    except NotAShort as exc:
+        print("youtube.py: %s" % exc, file=sys.stderr)
+        return 3
     except AuditRestriction as exc:
         print("youtube.py: %s" % exc, file=sys.stderr)
         return 2

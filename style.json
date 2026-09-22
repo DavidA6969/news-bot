@@ -32,14 +32,31 @@
       "crf": 20,
       "preset": "medium"
     },
-    "version": 1,
-    "committedAt": "2026-09-20T18:01:24Z"
+    "version": 2,
+    "committedAt": "2026-09-20T18:01:24Z",
+    "shorts": {
+      "max_seconds": 180,
+      "target_seconds": 45,
+      "require_vertical": true
+    }
   },
   "history": [
     {
       "at": "2026-09-20T18:01:24Z",
       "action": "init",
       "version": 1
+    },
+    {
+      "at": "2026-09-20T18:01:24Z",
+      "action": "set",
+      "field": "shorts",
+      "from": null,
+      "to": {
+        "max_seconds": 180,
+        "target_seconds": 45,
+        "require_vertical": true
+      },
+      "version": 2
     }
   ]
 }

@@ -320,15 +320,16 @@ def digest(path=None, out=None, now=None, scope=None):
     rates = [r for r, _ in measured]
     mid = _median(rates)
     lines += ["## The record", "",
-              "| %s | views/day | views | age (d) | confidence given |" % one,
-              "| --- | ---: | ---: | ---: | --- |"]
+              "| %s | views/day | views | engagement | age (d) | confidence |" % one,
+              "| --- | ---: | ---: | ---: | ---: | --- |"]
     for rate, entry in measured:
         last = _latest(entry)
         published = _parse(entry.get("publishedAt"))
         age = (now - published).total_seconds() / 86400.0 if published else 0
-        lines.append("| %s | %.1f | %d | %.1f | %s |" % (
-            (entry.get("title") or entry["videoId"])[:52],
-            rate, last["views"], age, entry.get("confidence") or "—"))
+        eng = (100.0 * last["likes"] / last["views"]) if last["views"] else 0.0
+        lines.append("| %s | %.1f | %d | %.1f%% | %.1f | %s |" % (
+            (entry.get("title") or entry["videoId"])[:46],
+            rate, last["views"], eng, age, entry.get("confidence") or "—"))
     lines += ["", "Median: **%.1f views/day** across %d %s." % (mid, len(measured), many), ""]
 
     if len(measured) < MIN_FOR_PATTERNS:
@@ -361,6 +362,7 @@ def digest(path=None, out=None, now=None, scope=None):
              + " before blaming selection.")), ""]
 
         lines += _calibration(measured, reader)
+        lines += _engagement(measured, scope)
 
     lines += ["## Instructions for the next run", "",
               "1. Propose at least one topic close to the best third's angles.",
@@ -369,6 +371,40 @@ def digest(path=None, out=None, now=None, scope=None):
     text = "\n".join(lines)
     (Path(out) if out else _digest_path(scope)).write_text(text, encoding="utf-8")
     return text
+
+
+def _engagement(measured, scope):
+    """Likes per view: the only quality signal the public API actually gives.
+
+    Retention and shares are what short-form is really judged on, and neither is
+    in the Data API — so this is a proxy, and it is labelled as one. It is still
+    worth reading: a modest view count with high engagement is a video that
+    landed with the people it reached, which is the thing worth making more of.
+    """
+    rows = []
+    for rate, entry in measured:
+        last = _latest(entry)
+        if last and last["views"] >= 100:
+            rows.append((100.0 * last["likes"] / last["views"], rate, entry))
+    if len(rows) < MIN_FOR_PATTERNS:
+        return []
+    rows.sort(key=lambda row: (row[0], row[1]), reverse=True)   # never compare the dicts
+    out = ["## Which landed, rather than merely reached", ""]
+    for eng, rate, entry in rows[:3]:
+        out.append("- **%s** — %.1f%% engagement at %.1f views/day"
+                   % ((entry.get("title") or entry["videoId"])[:52], eng, rate))
+    best_eng = rows[0]
+    best_reach = max(rows, key=lambda r: r[1])
+    if best_eng[2] is not best_reach[2]:
+        out += ["",
+                "The most engaging one is not the most watched. That usually means "
+                "the reach came from the hook and the engagement came from the "
+                "substance — study the top of this list for what to say, and the "
+                "top of the views list for how to open."]
+    out += ["", "_Likes per view is a proxy. Retention and shares are what "
+                "short-form is actually ranked on and neither is available here; "
+                "read those in YouTube Studio._", ""]
+    return out
 
 
 def _calibration(measured, reader="ATLAS"):

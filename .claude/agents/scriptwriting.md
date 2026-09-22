@@ -42,6 +42,11 @@ beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
 line becomes the burned-in caption, so keep each under about 120 characters —
 longer and it wraps into a wall of text over the footage.
 
+The whole video must come in under the Shorts limit in `style.json`
+(`shorts.max_seconds`, currently 180) and should aim at `shorts.target_seconds`.
+`render.py` refuses an over-length cut and `youtube.py` refuses to upload one,
+so a long script is wasted work rather than a long video.
+
 Beat length is governed by the committed style's pacing — check
 `python3 style.py show` and keep beats inside `min_beat_seconds` and
 `max_beat_seconds`. Beats under the minimum flash past before they are read;
@@ -50,20 +55,36 @@ beats over it are where retention goes.
 Say what should be **on screen** for each beat too. FORGE has to find real
 footage for it, and "something abstract" is not findable.
 
-## The thumbnail is part of the script, not an afterthought
+## Write for the Shorts feed, which nobody chose to open
 
-More videos die on the thumbnail and title than on anything you write. A viewer
-decides in about a second, before a word is heard, and a good script behind a
-bad thumbnail is simply not watched.
+This channel publishes Shorts. In the feed the video **autoplays** — there is
+no thumbnail to click and no title to read first. So the opening frame and the
+first spoken second are doing the work a thumbnail does elsewhere, and they are
+doing it without a decision from the viewer.
 
-So every script ends with a **thumbnail brief**: what is in frame, the three or
-four words of overlay text (never a sentence — it is read at thumbnail size),
-and what makes it different from the outlier this video is modelled on. Write
-the brief as an instruction someone could shoot from, not a mood.
+Three consequences, and they are the whole craft here:
 
-If the topic cannot produce a thumbnail you would click, say so and `fail`.
-That is a real finding about the topic, not a failure of nerve — ATLAS should
-hear it, because it means the angle has no visual hook.
+1. **The first line is the hook, and it is one second long.** Not "in this
+   video" — not even a full sentence of setup. Open on the claim, the number,
+   or the thing that looks wrong. If the interesting part is in beat three, the
+   script is in the wrong order; move it.
+2. **Beat one must be watchable with the sound off.** Most first impressions
+   are silent. The opening frame and its caption have to carry the hook alone.
+3. **Make it loop.** If the last line leads back into the first, the same
+   person watches twice, and rewatches are counted. Where the idea allows it,
+   end where you began.
+
+Every script therefore ends with an **opening-frame brief**: what is in frame
+at 0.0s, the three or four words of caption on it, and why that frame stops a
+thumb. Write it as an instruction someone could shoot from.
+
+A Short also gets a thumbnail for search and the channel page, so name one
+frame to use — but do not design the video around it. The feed is where the
+views are, and the feed never shows it.
+
+If the topic cannot produce an opening second worth staying for, say so and
+`fail`. That is a real finding about the angle, not a failure of nerve, and
+ATLAS needs to hear it.
 
 ## Output
 
@@ -76,7 +97,8 @@ Write `script.md`:
 - **Close** — one line; a call to action only if it is earned
 - **Description** — 2–3 sentences for the YouTube description, plus 5–8 tags
 - **Word count and estimated runtime** (~150 words per minute)
-- **Thumbnail brief** — the frame, the overlay words, and why it earns a click
+- **Opening-frame brief** — what is in frame at 0.0s, its caption, why it stops a thumb
+- **Loop note** — does the ending lead back into the opening, and if not, why not
 
 Flag anything you are unsure of as a factual claim needing a check. Do not
 invent statistics, quotes, dates or sources. If you need a number you do not

@@ -136,6 +136,27 @@ def probe(path):
 # --------------------------------------------------------------------------
 # plan
 # --------------------------------------------------------------------------
+def dimensions(path):
+    """Width and height of a video file, via ffprobe or ffmpeg's own output."""
+    path = Path(path)
+    probe_exe = ffprobe_bin()
+    if probe_exe:
+        proc = subprocess.run(
+            [probe_exe, "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height", "-of", "json", str(path)],
+            capture_output=True, text=True)
+        if proc.returncode == 0:
+            streams = (json.loads(proc.stdout or "{}").get("streams") or [{}])[0]
+            if streams.get("width"):
+                return {"width": int(streams["width"]), "height": int(streams["height"])}
+    proc = subprocess.run([ffmpeg_bin(), "-hide_banner", "-i", str(path)],
+                          capture_output=True, text=True)
+    match = re.search(r"Video:.*?,\s*(\d{2,5})x(\d{2,5})", proc.stderr or "")
+    if not match:
+        raise RenderError("could not read the dimensions of %s" % path)
+    return {"width": int(match.group(1)), "height": int(match.group(2))}
+
+
 def load_plan(path):
     path = Path(path)
     if not path.exists():
@@ -232,6 +253,22 @@ def validate_plan(plan, base=None):
 
     plan["_total"] = total
     plan["_base"] = str(base)
+
+    # This channel publishes Shorts. Catch an over-length cut here rather than
+    # after four minutes of encoding.
+    import style as style_mod
+    ok, reasons = style_mod.shorts_verdict(total, look["format"]["width"],
+                                           look["format"]["height"], look)
+    if not ok:
+        raise RenderError(
+            "this cut would not be a Short: " + " ".join(reasons) +
+            " Trim the beats, or raise shorts.max_seconds in style.json if the "
+            "channel is deliberately changing format.")
+    target = look["shorts"]["target_seconds"]
+    if total > target:
+        print("render.py: %.1fs is over the style's %.0fs target — still a Short, "
+              "but short-form retention falls away the longer it runs."
+              % (total, target), file=sys.stderr)
     return plan
 
 

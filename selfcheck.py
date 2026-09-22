@@ -195,6 +195,18 @@ def main():
         fmt = look["format"]
         note(OK, "every video uses one format",
              "%dx%d @ %dfps" % (fmt["width"], fmt["height"], fmt["fps"]))
+        shorts = look.get("shorts") or {}
+        vertical = fmt["height"] > fmt["width"]
+        note(OK if vertical else FAIL, "the format is vertical, as Shorts require",
+             "%dx%d" % (fmt["width"], fmt["height"]))
+        note(OK if shorts.get("max_seconds", 999) <= 180 else FAIL,
+             "inside YouTube's 180s Shorts limit",
+             "max %.0fs, target %.0fs" % (shorts.get("max_seconds", 0),
+                                          shorts.get("target_seconds", 0)))
+        ok, why = style_mod.shorts_verdict(shorts.get("max_seconds", 0) + 1,
+                                           fmt["width"], fmt["height"], look)
+        note(OK if not ok else FAIL, "an over-length cut is refused",
+             why[0][:60] if why else "it was accepted")
         changes = sum(1 for r in style_mod.load().get("history", [])
                       if r.get("action") == "set")
         note(OK if changes < 6 else WARN, "the look is holding still",

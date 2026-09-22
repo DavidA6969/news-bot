@@ -83,6 +83,17 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    `differentiator` and `confidence` verbatim from the `topics.json` entry
    this video came from — inventing them defeats the purpose.
 
+## This channel uploads Shorts only
+
+`youtube.py` inspects the file before uploading and refuses anything YouTube
+would not file as a Short — landscape, or over the limit in `style.json`. It
+exits 3 with the reason. Do not work around it: a 3-minute-and-one-second
+vertical video is not a slightly-long Short, it is an ordinary video that will
+never enter the Shorts feed.
+
+If you hit it, `fail` with the reason and hand it back to FORGE. The fix is a
+shorter cut, not a different upload flag.
+
 ## What will happen on your first run, and why it is not a bug
 
 **If the API project has not passed YouTube's compliance audit, every upload
