@@ -63,8 +63,19 @@ tunnel test footage"), not abstractions.
 
 `render.py plan` turns each **numbered** line of your script into one video
 beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
-line becomes the burned-in caption, so keep each under about 120 characters —
-longer and it wraps into a wall of text over the footage.
+line becomes the burned-in caption.
+
+**Keep each line short enough to fit two caption lines.** At the committed
+style that is roughly 34 characters — about six or seven words. This is not a
+style preference: a caption that wraps to five lines covers the footage it is
+captioning, and the whole point of the shot is then lost behind your own text.
+Check before you hand the script on:
+
+```bash
+python3 style.py check render.json
+```
+
+Short lines are better writing here anyway. One clause, one idea, one beat.
 
 The whole video must come in under the Shorts limit in `style.json`
 (`shorts.max_seconds`, currently 180) and should aim at `shorts.target_seconds`.

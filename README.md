@@ -279,11 +279,16 @@ first line.
 
 ### Captions that arrive with the voice
 
-`captions.mode` is `word` by default: one word on screen at a time, snapping to
-full size as it is spoken. There is then nothing to read ahead of the narration,
-which is what holds someone who arrived by accident rather than by choice.
-`line` shows the whole spoken line for the length of its beat, which reads
-better for a slower, denser video.
+| `captions.mode` | what is on screen |
+| --- | --- |
+| `karaoke` (default) | the whole line, with the word being spoken lit up |
+| `word` | one word at a time and nothing else |
+| `line` | the whole line for the length of its beat, not tracking the voice |
+
+`karaoke` is the one to use. The sentence still reads as a sentence, and the
+colour tells the eye where the voice is. Only the **colour** changes, never the
+size: scaling a word mid-line re-flows everything after it, and a sentence that
+twitches on every word is worse than no highlight at all.
 
 The timings are **measured, not guessed**. `voice.py measure_words` asks the
 engine that is about to narrate how long it takes to say each word, and those
@@ -299,8 +304,22 @@ counting syllables without a dictionary gets `video`, `creative` and
 said. The syllable estimate survives only as the fallback for recorded
 narration or a machine with no engine installed.
 
-`captions.pop_ms` is how fast each word snaps up. Set it to `0` for no
-animation.
+`captions.pop_ms` is how fast each word snaps up in `word` mode. Set it to `0`
+for no animation. `captions.highlight` is the colour the spoken word takes in
+`karaoke` mode.
+
+**A caption that wraps past `captions.max_lines` (default 2) covers the footage
+it is captioning**, so the line count is estimated before rendering and flagged
+by both `style.py check` and the build itself:
+
+```
+note: beat 6's caption wraps to 5 lines and will cover the picture —
+      shorten it to 2. "In 2008 a team built an entire film to break their..."
+```
+
+The estimate is not exact — it cannot be without the font metrics — but it is
+calibrated against real output and errs strict. Finding this out by watching the
+finished video is the expensive way.
 
 ### The voice is part of the style
 

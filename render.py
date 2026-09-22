@@ -487,6 +487,59 @@ def _ass_escape(text):
             .replace("\n", "\\N"))
 
 
+# Mean advance width of a bold sans glyph as a fraction of the font size.
+# Calibrated against rendered output: at size 103px in a 907px column this
+# predicts 17 characters a line, and "In 2008 a team built an entire film to
+# break their own software." (64 chars) came out as the 4 lines it predicts.
+CHAR_ADVANCE = 0.52
+
+
+def caption_line_count(text, look, width, height):
+    """How many lines this caption will wrap to, near enough to catch a wall.
+
+    Not exact -- it cannot be without the font metrics -- but a caption that
+    overflows its band covers the picture, and finding that out by watching the
+    finished video is the expensive way.
+    """
+    caps = look["captions"]
+    text = (text or "").strip()
+    if not text:
+        return 0
+    size = max(12, int(height * caps["size_pct"] / 100.0))
+    column = width * (1.0 - 2.0 * caps["side_margin_pct"] / 100.0)
+    per_line = max(6, int(column / (CHAR_ADVANCE * size)))
+    # greedy wrap on whole words, which is what WrapStyle 0 does
+    lines, current = 1, 0
+    for word in text.split():
+        need = len(word) + (1 if current else 0)
+        if current + need > per_line and current:
+            lines += 1
+            current = len(word)
+        else:
+            current += need
+    return lines
+
+
+def overlong_captions(plan, look=None):
+    """Beats whose caption wraps past captions.max_lines: [(index, lines, text)]."""
+    look = look or plan.get("_style") or the_style()
+    limit = int(look["captions"].get("max_lines", 2) or 0)
+    if limit <= 0:
+        return []
+    # A plan straight off disk carries no width/height -- load_plan injects
+    # them from the style. Fall back to the style so this is usable on a raw
+    # plan, which is exactly when you want to catch a caption that is too long.
+    width = plan.get("width") or look["format"]["width"]
+    height = plan.get("height") or look["format"]["height"]
+    out = []
+    for i, beat in enumerate(plan.get("beats") or []):
+        text = (beat.get("caption") or "").strip()
+        count = caption_line_count(text, look, width, height)
+        if count > limit:
+            out.append((i + 1, count, text))
+    return out
+
+
 def _syllables(word):
     """Rough syllable count. Speaking time tracks syllables far better than
     letters: "strengths" is one beat and "areas" is three."""
@@ -566,6 +619,8 @@ def build_subtitles(plan, path):
     ]
     mode = caps.get("mode", "line")
     pop = int(caps.get("pop_ms", 110) or 0)
+    hi_fill = style_mod.ass_override_colour(caps.get("highlight") or caps["colour"])
+    hi_line = style_mod.ass_override_colour(caps.get("highlight_outline") or caps["outline"])
     at = 0.0
     any_caption = False
     for beat in plan["beats"]:
@@ -574,7 +629,26 @@ def build_subtitles(plan, path):
             caption = caption.upper()
         if caption:
             any_caption = True
-            if mode == "word":
+            if mode == "karaoke":
+                # The whole line stays on screen and the word being spoken
+                # changes colour. Only the colour changes, never the size:
+                # scaling a word mid-line re-flows everything after it, and a
+                # sentence that twitches on every word is worse than no
+                # highlight at all.
+                timings = word_timings(caption, at, beat["duration"],
+                                       measured=beat.get("words"))
+                words = [w for w, _, _ in timings]
+                for index, (_word, w_start, w_end) in enumerate(timings):
+                    parts = []
+                    for j, other in enumerate(words):
+                        if j == index:
+                            parts.append("{\\c%s\\3c%s}%s{\\r}"
+                                         % (hi_fill, hi_line, _ass_escape(other)))
+                        else:
+                            parts.append(_ass_escape(other))
+                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
+                        _ass_time(w_start), _ass_time(w_end), " ".join(parts)))
+            elif mode == "word":
                 # one word at a time, each snapping up to full size as it is
                 # said. Nothing to read ahead of the voice, which is what makes
                 # it hold a viewer who arrived by accident.
@@ -658,6 +732,11 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
 
         # 3. captions + audio in one finishing pass
         subs = tmp / "captions.ass"
+        for index, count, text in overlong_captions(plan, look):
+            progress("  note: beat %d's caption wraps to %d lines and will cover "
+                     "the picture — shorten it to %d. \"%s\""
+                     % (index, count, look["captions"].get("max_lines", 2),
+                        text[:58] + ("..." if len(text) > 58 else "")))
         has_captions = build_subtitles(plan, subs)
         args = [ff, "-hide_banner", "-loglevel", "error", "-y", "-i", str(silent)]
         audio = plan.get("audio")

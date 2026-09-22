@@ -10,16 +10,19 @@
     },
     "captions": {
       "font": "DejaVu Sans",
-      "size_pct": 10.0,
+      "size_pct": 5.0,
       "bold": true,
       "uppercase": false,
       "colour": "FFFFFF",
       "outline": "000000",
       "outline_pct": 0.28,
-      "margin_bottom_pct": 18.0,
+      "margin_bottom_pct": 15.0,
       "side_margin_pct": 8.0,
-      "mode": "word",
-      "pop_ms": 110
+      "mode": "karaoke",
+      "pop_ms": 110,
+      "highlight": "FFD23F",
+      "highlight_outline": "1A1200",
+      "max_lines": 2
     },
     "motion": {
       "push_in": 0.1
@@ -39,8 +42,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 13,
-    "committedAt": "2026-09-22T04:48:36Z",
+    "version": 19,
+    "committedAt": "2026-09-22T04:59:58Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -182,6 +185,55 @@
         "voice.elevenlabs_similarity"
       ],
       "version": 13
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "upgrade",
+      "added": [
+        "captions.highlight",
+        "captions.highlight_outline"
+      ],
+      "version": 14
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 10.0,
+      "to": 5.4,
+      "version": 15
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 18.0,
+      "to": 15.0,
+      "version": 16
+    },
+    {
+      "at": "2026-09-22T04:56:10Z",
+      "action": "set",
+      "field": "captions.mode",
+      "from": "word",
+      "to": "karaoke",
+      "version": 17
+    },
+    {
+      "at": "2026-09-22T04:58:29Z",
+      "action": "upgrade",
+      "added": [
+        "captions.max_lines"
+      ],
+      "version": 18
+    },
+    {
+      "at": "2026-09-22T04:59:58Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 5.4,
+      "to": 5.0,
+      "version": 19
     }
   ]
 }

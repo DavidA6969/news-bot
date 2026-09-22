@@ -24,7 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 __all__ = ["load", "current", "init", "set_field", "check_plan", "shorts_verdict",
-           "ass_colour", "StyleError", "DEFAULT_STYLE"]
+           "ass_colour", "ass_override_colour", "StyleError", "DEFAULT_STYLE"]
 
 HERE = Path(__file__).resolve().parent
 STORE = HERE / "style.json"
@@ -53,12 +53,18 @@ DEFAULT_STYLE = {
         "outline_pct": 0.28,         # of frame height
         "margin_bottom_pct": 14.0,
         "side_margin_pct": 8.0,
-        # "line" shows the whole spoken line for the length of its beat.
-        # "word" shows one word at a time, arriving as it is said -- there is
-        # then nothing on screen to read ahead of the voice, which is what
-        # holds someone who arrived by accident.
-        "mode": "word",
-        "pop_ms": 110,                # how quickly a word snaps to full size
+        # "karaoke" keeps the whole line on screen and lights up each word as
+        # it is spoken: the sentence still reads as a sentence, and the eye is
+        # told where the voice is. "word" shows one word at a time and nothing
+        # else. "line" shows the line for the length of its beat and does not
+        # track the voice at all.
+        "mode": "karaoke",
+        "highlight": "FFD23F",        # the word currently being said
+        "highlight_outline": "1A1200",
+        "pop_ms": 110,                # "word" mode only: how fast a word snaps in
+        # A caption that wraps past this covers the picture it is captioning.
+        # Two lines is the working limit for a Short.
+        "max_lines": 2,
     },
     # a slow push on every clip: subtle, but it is what stops stock footage
     # reading as a slideshow. 0 turns it off.
@@ -104,7 +110,7 @@ _NUMERIC = {
     "format.width": (240, 4320), "format.height": (240, 4320), "format.fps": (12, 60),
     "captions.size_pct": (1.0, 12.0), "captions.outline_pct": (0.0, 2.0),
     "captions.margin_bottom_pct": (0.0, 60.0), "captions.side_margin_pct": (0.0, 30.0),
-    "captions.pop_ms": (0, 600),
+    "captions.pop_ms": (0, 600), "captions.max_lines": (0, 6),
     "format.blur_zoom": (1.0, 2.0),
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
@@ -165,8 +171,15 @@ def _validate(style):
         if not low <= value <= high:
             raise StyleError("%s is %g; it must be between %g and %g" % (dotted, value, low, high))
     mode = style["captions"].get("mode", "line")
-    if mode not in ("line", "word"):
-        raise StyleError('captions.mode must be "line" or "word" (got %r)' % mode)
+    if mode not in ("line", "word", "karaoke"):
+        raise StyleError('captions.mode must be "karaoke", "word" or "line" '
+                         '(got %r)' % mode)
+    for hex_key in ("highlight", "highlight_outline"):
+        value = str(style["captions"].get(hex_key, "") or "")
+        if value and (len(value) != 6 or
+                      any(c not in "0123456789abcdefABCDEF" for c in value)):
+            raise StyleError("captions.%s must be 6 hex digits like FFD23F (got %r)"
+                             % (hex_key, value))
     fit = style["format"].get("fit", "auto")
     if fit not in ("auto", "crop", "blur"):
         raise StyleError('format.fit must be "auto", "crop" or "blur" (got %r)' % fit)
@@ -356,6 +369,22 @@ def check_plan(plan, style=None):
         for key in STYLED_KEYS:
             if key in beat:
                 problems.append('beats[%d] sets "%s"; the style governs that.' % (i, key))
+        caption = (beat.get("caption") or "").strip()
+        limit = int(style["captions"].get("max_lines", 2) or 0)
+        if caption and limit > 0:
+            try:
+                sys.path.insert(0, str(HERE))
+                import render as render_mod
+                wrapped = render_mod.caption_line_count(
+                    caption, style,
+                    plan.get("width") or style["format"]["width"],
+                    plan.get("height") or style["format"]["height"])
+                if wrapped > limit:
+                    notes.append("beats[%d]'s caption wraps to about %d lines, over the "
+                                 "style's %d — it will cover the footage it is "
+                                 "captioning. Shorten the line." % (i, wrapped, limit))
+            except Exception:
+                pass          # render.py absent or unreadable: not this tool's job
         seconds = beat.get("duration")
         if isinstance(seconds, (int, float)):
             low = style["pacing"]["min_beat_seconds"]
@@ -383,11 +412,24 @@ def check_plan(plan, style=None):
 
 
 def ass_colour(rgb, alpha="00"):
-    """RGB hex to the &HAABBGGRR that .ass files use (byte order is reversed)."""
+    """RGB hex to the &HAABBGGRR that .ass Style lines use (byte order reversed)."""
     rgb = str(rgb).strip().lstrip("#")
     if len(rgb) != 6:
         raise StyleError("colour must be 6 hex digits (got %r)" % rgb)
     return "&H%s%s%s%s" % (alpha.upper(), rgb[4:6].upper(), rgb[2:4].upper(), rgb[0:2].upper())
+
+
+def ass_override_colour(rgb):
+    """RGB hex to the &HBBGGRR& that inline \\c and \\3c overrides take.
+
+    Not the same spelling as a Style line's colour: overrides carry no alpha
+    byte and are closed with a trailing &. Handing the 8-digit form to \\c
+    makes renderers read the alpha as part of the blue channel.
+    """
+    rgb = str(rgb).strip().lstrip("#")
+    if len(rgb) != 6:
+        raise StyleError("colour must be 6 hex digits (got %r)" % rgb)
+    return "&H%s%s%s&" % (rgb[4:6].upper(), rgb[2:4].upper(), rgb[0:2].upper())
 
 
 def main(argv=None):
