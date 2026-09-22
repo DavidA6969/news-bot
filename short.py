@@ -117,8 +117,15 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
     if not engine:
         raise ShortError("no speech engine available — run: python3 voice.py engines")
     voice_dir = Path(clips_dir).parent / "voice"
-    spoken = V.speak(script, voice_dir, engine=engine, emphasis=emphasis)
-    V.fit_plan(plan_path, spoken)
+    delivery = V.delivery_from_script(script)
+    if delivery:
+        progress("  delivery  %s" % ", ".join(
+            "%d:%s" % (i, "/".join("%s%+g" % (k[0], v) if k != "rate"
+                                   else "x%.2f" % v for k, v in sorted(spec.items())))
+            for i, spec in sorted(delivery.items())))
+    spoken = V.speak(script, voice_dir, engine=engine, emphasis=emphasis,
+                     delivery=delivery)
+    V.fit_plan(plan_path, spoken, delivery=delivery)
     measured = V.measure_words(script, out_dir=voice_dir, engine=engine)
     if measured:
         V.annotate_plan(plan_path, measured)

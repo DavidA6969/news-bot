@@ -768,16 +768,26 @@ def pick_shots(path, count, seconds, start=0.0, end=None, gap=None,
     return sorted(chosen)
 
 
-def cut_shots(path, out_dir, count, seconds, licence=None, **kwargs):
+def cut_shots(path, out_dir, count, seconds, licence=None, at=None, **kwargs):
     """Cut `count` clips out of one source into `out_dir`, with their licence.
 
     This is the step between "a film is downloadable" and "a folder of clips":
     the same provenance rule as every other clip source applies, so the licence
     is written beside them and nothing renders without it.
+
+    `at` is an explicit list of in-points, in beat order, for when the cut has
+    to follow the story rather than the light. Scoring finds the shots worth
+    looking at; it has no idea which one is the dragon. Given `at`, nothing is
+    scored and the order is kept exactly as passed.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    at = pick_shots(path, count, seconds, **kwargs)
+    if at is not None:
+        at = [float(t) for t in at]
+        if len(at) != count:
+            raise ShotError("%d in-points given for %d shots" % (len(at), count))
+    else:
+        at = pick_shots(path, count, seconds, **kwargs)
     ff = ffmpeg_bin()
     made, ledger = [], {}
     for i, t in enumerate(at, 1):
@@ -849,6 +859,66 @@ def precrop(src_w, src_h, w, h, focus, coverage, max_upscale=1.9):
         return None                       # nothing to gain: keep the frame
     cx = int(round(float(centre) * src_w - cw / 2.0))
     return cw, max(0, min(src_w - cw, cx)) // 2 * 2
+
+
+# transition.kind was in the style from the beginning and nothing read it, so
+# every video has been twelve hard cuts between unrelated shots. A hard cut is
+# not wrong -- fast-cut Shorts are built from them -- but at these lengths the
+# brightness alone jumps fifteen times the median frame-to-frame change at some
+# of them, and that flash is what reads as loose.
+#
+# The overlap has to come out of the footage, not the timeline: the beats are
+# cut to the voice, so if a transition shortened the video the captions and the
+# narration would drift apart a little more at every cut. Each part is given
+# the extra length instead, and the transition is centred on the cut so it sits
+# in the gap between two spoken lines rather than across the next word.
+TRANSITIONS = {
+    "cut": None,
+    "crossfade": "fade",          # the plain cross-dissolve
+    "dissolve": "fade",           # an alias, because both names get typed
+    "dip": "fadeblack",           # down to black and back up
+    "white": "fadewhite",
+    "wipe": "wiperight",
+    "slide": "slideleft",
+}
+
+
+def transition_plan(kind, seconds, durations, fps=30):
+    """(name, seconds, [extra frames per part], [offsets]) for an xfade chain.
+
+    (None, 0, ...) means hard cuts, which is a straight concatenation and no
+    re-encode. Everything is counted in whole frames, so the overlap a part is
+    given and the overlap the transition consumes are the same number and the
+    timeline cannot drift. The last part carries half the overlap because the
+    transition is centred: the first half runs off the end of the beat before
+    it, and only the second half needs footage from this one.
+    """
+    name = TRANSITIONS.get(str(kind or "cut").lower(), None)
+    seconds = float(seconds or 0)
+    n = len(durations)
+    fps = float(fps or 30)
+    if not name or seconds <= 0.001 or n < 2:
+        return None, 0.0, [0] * n, []
+    # a transition cannot be longer than the beats it sits between
+    seconds = min(seconds, 0.6 * min(durations))
+    over = max(2, int(round(seconds * fps)) // 2 * 2)     # even: it halves
+    extra = [over] * (n - 1) + [over // 2]
+    offsets, run = [], 0
+    for d in durations[:-1]:
+        run += max(1, int(round(d * fps)))
+        offsets.append(round((run - over / 2.0) / fps, 4))
+    return name, over / fps, extra, offsets
+
+
+def xfade_graph(name, seconds, offsets, count):
+    """The filter_complex that folds `count` parts into one with transitions."""
+    steps, last = [], "0:v"
+    for i, off in enumerate(offsets):
+        label = "vx%d" % i
+        steps.append("[%s][%d:v]xfade=transition=%s:duration=%.3f:offset=%.3f[%s]"
+                     % (last, i + 1, name, seconds, off, label))
+        last = label
+    return ";".join(steps), last
 
 
 # zoompan recomputes its crop window every frame and rounds the origin to whole
@@ -1190,6 +1260,9 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
     coverage = float(look["format"].get("min_coverage", 0.64) or 0.64)
     focus_keep = float(look["format"].get("focus_keep", 0.72) or 0.72)
     max_upscale = float(look["format"].get("max_upscale", 1.9) or 1.9)
+    fade, fade_len, fade_extra, fade_at = transition_plan(
+        look["transition"].get("kind"), look["transition"].get("seconds"),
+        [float(b["duration"]) for b in plan["beats"]], fps)
     alternate = bool(look["motion"].get("alternate", False))
     crf = str(enc["crf"])
     preset = str(enc["preset"])
@@ -1212,16 +1285,28 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                 Path(beat["_path"]).name,
                 "  reframed to %d%% of the width" % round(100.0 * crop_to[0] / src_w)
                 if crop_to else ""))
+            # The transition eats into the NEXT beat, so this one has to supply
+            # the frames for it. tpad holds the last frame if the clip runs out
+            # -- a source shorter than its beat plus the overlap would otherwise
+            # make a short part, and every offset after it would be wrong.
+            # -frames:v, not -t. Input -t rounds up to the next whole frame,
+            # so every beat came out 20-50ms long and the picture fell steadily
+            # behind the voice. An exact frame count cannot drift.
+            frames = max(1, int(round(beat["duration"] * fps))) + fade_extra[i]
+            want = frames / float(fps)
+            chain = _beat_filter(w, h, fps, push, beat["duration"], fit,
+                                 src_w, src_h, blur_zoom=blur_zoom,
+                                 push_out=(alternate and i % 2 == 1),
+                                 crop_to=crop_to)
+            if fade_extra[i]:
+                chain += (",tpad=stop_mode=clone:stop_duration=%.4f"
+                          % (fade_extra[i] / float(fps)))
             _run([
                 ff, "-hide_banner", "-loglevel", "error", "-y",
-                "-ss", "%.3f" % beat["in"], "-t", "%.3f" % beat["duration"],
-                "-i", beat["_path"],
-                "-vf", _beat_filter(w, h, fps, push, beat["duration"], fit,
-                                    src_w, src_h, blur_zoom=blur_zoom,
-                                    push_out=(alternate and i % 2 == 1),
-                                    crop_to=crop_to),
+                "-ss", "%.3f" % beat["in"], "-t", "%.3f" % (want + 0.2),
+                "-i", beat["_path"], "-vf", chain,
                 "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
-                "-pix_fmt", "yuv420p", str(part),
+                "-pix_fmt", "yuv420p", "-frames:v", str(frames), str(part),
             ], "trimming beat %d" % (i + 1))
             got = probe(part)
             if not got["video"]:
@@ -1229,14 +1314,28 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                                   % (i + 1, beat["_path"]))
             parts.append(part)
 
-        # 2. concatenate
-        listing = tmp / "parts.txt"
-        listing.write_text("".join("file '%s'\n" % p for p in parts), encoding="utf-8")
+        # 2. join them, with transitions if the style asks for any
         silent = tmp / "silent.mp4"
-        progress("  joining %d beats" % len(parts))
-        _run([ff, "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
-              "-safe", "0", "-i", str(listing), "-c", "copy", str(silent)],
-             "joining the beats")
+        if fade:
+            progress("  joining %d beats with a %.0fms %s"
+                     % (len(parts), fade_len * 1000,
+                        look["transition"].get("kind")))
+            graph, out_label = xfade_graph(fade, fade_len, fade_at, len(parts))
+            args = [ff, "-hide_banner", "-loglevel", "error", "-y"]
+            for part in parts:
+                args += ["-i", str(part)]
+            _run(args + ["-filter_complex", graph, "-map", "[%s]" % out_label,
+                         "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
+                         "-pix_fmt", "yuv420p", str(silent)],
+                 "joining the beats")
+        else:
+            listing = tmp / "parts.txt"
+            listing.write_text("".join("file '%s'\n" % p for p in parts),
+                               encoding="utf-8")
+            progress("  joining %d beats" % len(parts))
+            _run([ff, "-hide_banner", "-loglevel", "error", "-y", "-f", "concat",
+                  "-safe", "0", "-i", str(listing), "-c", "copy", str(silent)],
+                 "joining the beats")
 
         # 3. captions + audio in one finishing pass
         subs = tmp / "captions.ass"

@@ -84,7 +84,7 @@ DEFAULT_STYLE = {
     # `alternate` flips the push direction every other beat, so a run of cuts
     # does not read as one long creep in a single direction.
     "motion": {"push_in": 0.10, "alternate": True},
-    "transition": {"kind": "cut", "seconds": 0.0},   # cut | crossfade
+    "transition": {"kind": "cut", "seconds": 0.0},
     "pacing": {"min_beat_seconds": 1.5, "max_beat_seconds": 7.0},
     # What the Shorts feed rewards, as numbers rather than folklore. A viewer
     # re-asks "is this worth continuing?" every second or two, so a beat that
@@ -167,6 +167,10 @@ _NUMERIC = {
     "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
+# The same names render.TRANSITIONS knows. They live here too rather than being
+# imported, because render.py imports this module and not the other way round;
+# a test asserts the two lists have not drifted apart.
+TRANSITION_KINDS = ("cut", "crossfade", "dissolve", "dip", "white", "wipe", "slide")
 STYLED_KEYS = ("width", "height", "fps", "font", "caption_size", "colour", "color")
 
 
@@ -229,10 +233,11 @@ def _validate(style):
     if fit not in ("auto", "crop", "blur"):
         raise StyleError('format.fit must be "auto", "crop" or "blur" (got %r)' % fit)
     kind = style["transition"].get("kind")
-    if kind not in ("cut", "crossfade"):
-        raise StyleError('transition.kind must be "cut" or "crossfade" (got %r)' % kind)
-    if kind == "crossfade" and style["transition"]["seconds"] <= 0:
-        raise StyleError("a crossfade needs transition.seconds above 0")
+    if kind not in TRANSITION_KINDS:
+        raise StyleError("transition.kind must be one of %s (got %r)"
+                         % (", ".join(sorted(TRANSITION_KINDS)), kind))
+    if kind != "cut" and style["transition"]["seconds"] <= 0:
+        raise StyleError("a %s needs transition.seconds above 0" % kind)
     if style["pacing"]["min_beat_seconds"] >= style["pacing"]["max_beat_seconds"]:
         raise StyleError("pacing.min_beat_seconds must be below max_beat_seconds")
     if style["shorts"]["target_seconds"] > style["shorts"]["max_seconds"]:

@@ -404,6 +404,39 @@ The estimate is not exact — it cannot be without the font metrics — but it i
 calibrated against real output and errs strict. Finding this out by watching the
 finished video is the expensive way.
 
+### Telling the narrator how to read it
+
+A rate multiplier per beat gets part of the way to a delivery. The rest is
+pitch, and above all where the silence goes. Those directions belong with the
+words rather than in a command-line flag, so they are written into the script:
+
+```
+ 7. She killed it. {slow}
+ 8. Then she looked at it. {slow, low, hold}
+11. She had just killed him. {slower, lower, beat}
+```
+
+| direction | what it does |
+| --- | --- |
+| `fast` / `faster` | rate ×1.14 / ×1.26 |
+| `slow` / `slower` | rate ×0.86 / ×0.76 |
+| `high` / `higher` | pitch +1.6 / +3.0 semitones |
+| `low` / `lower` | pitch −1.6 / −3.0 semitones |
+| `hold` / `beat` | 0.34s / 0.6s of silence on the shot before the next line |
+
+Two of a kind compound, so `{slow, slower}` is slower than either — writing
+both was asking for that. An unrecognised word is an error rather than a
+silent no-op. The directions are stripped before the line is spoken *and*
+before it is captioned, so the script stays the script.
+
+Pitch is shifted by resampling and then putting the speed back with `atempo`,
+which leaves the pitch where the resampling moved it. It is clamped to ±6
+semitones, past which it stops being a voice. **The hold cannot live in the
+audio** — the cut is timed off the beat, so a pause added to the recording
+alone would arrive after the picture had already moved on. It goes into the
+beat's length in `fit_plan`, which is why both the shot and the silence last
+as long as each other.
+
 ### The voice is part of the style
 
 `style.json` carries a `voice` section, for the same reason it carries the
@@ -502,6 +535,39 @@ all of them. The zoom is also run on an oversampled frame, because `zoompan`
 rounds its crop origin to whole pixels — on a slow push the ideal origin creeps
 by a fraction of a pixel, so the rounded value sticks, jumps, sticks, and that
 stutter is the rest of the shake.
+
+### Between the shots
+
+`transition.kind` was in the style from the start and nothing read it, so every
+video was a run of hard cuts. Hard cuts are not wrong — fast Shorts are built
+from them — but on a compilation the brightness alone jumps fifteen times the
+median frame-to-frame change at some of them, and that flash reads as loose.
+
+| `transition.kind` | |
+| --- | --- |
+| `cut` | straight concatenation, no re-encode — the fastest path |
+| `crossfade` (or `dissolve`) | the plain blend |
+| `dip` / `white` | down through black or white and back |
+| `wipe` / `slide` | for when the channel wants an edge |
+
+Anything but `cut` needs `transition.seconds` above 0, and it is capped at 60%
+of the shortest beat.
+
+**The overlap comes out of the footage, not the timeline.** Beats are cut to
+the voice, so a transition that shortened the video would pull the captions and
+the narration a little further apart at every cut. Each part is given the extra
+length instead — held on its last frame if the clip runs out — and the
+transition is centred on the cut so it sits in the gap between two spoken lines
+rather than across the next word. Everything is counted in whole frames, so the
+overlap a part is handed and the overlap the transition eats are the same
+number.
+
+**While fixing that, a real one turned up.** Beats were cut with `-t`, which
+rounds *up* to the next whole frame: a 1.38s beat at 30fps came out 1.433s.
+Measured over six beats, +0.200s — by the end of a twenty-second video the
+picture was six frames behind the line it belonged to. Beat lengths are now
+quantised to whole frames when they are written, and each part is cut with
+`-frames:v`, which cannot drift.
 
 ### One editing style
 

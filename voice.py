@@ -420,6 +420,38 @@ def _master(path, settings):
     return path
 
 
+def _pitch(path, semitones):
+    """Shift a line's pitch without changing how long it takes to say.
+
+    Resampling alone moves pitch and speed together; putting the speed back
+    with atempo leaves the pitch where it was moved to. Pitch is the half of
+    delivery that rate cannot reach -- dropping into the bottom of the range
+    for a reveal is a thing every narrator does and no flat synthesiser ever
+    does on its own.
+    """
+    path = Path(path)
+    step = float(semitones or 0)
+    if abs(step) < 0.05:
+        return path
+    step = max(-6.0, min(6.0, step))       # past this it stops being a voice
+    ratio = 2.0 ** (step / 12.0)
+    tmp = path.with_name(path.stem + ".pitched.wav")
+    proc = subprocess.run(
+        [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(path),
+         "-filter:a", "asetrate=%d,aresample=%d,atempo=%.6f"
+         % (int(SAMPLE_RATE * ratio), SAMPLE_RATE, 1.0 / ratio),
+         "-ar", str(SAMPLE_RATE), "-ac", "1", str(tmp)],
+        capture_output=True, text=True)
+    if proc.returncode != 0 or not tmp.exists() or tmp.stat().st_size < 256:
+        # delivery is cosmetic and the line is not
+        print("voice.py: could not pitch %s (%s) — using it as spoken"
+              % (path.name, (proc.stderr or "").strip()[-120:]), file=sys.stderr)
+        tmp.unlink(missing_ok=True)
+        return path
+    tmp.replace(path)
+    return path
+
+
 def _retime(raw, out_path, text, settings):
     """Speak at the style's rate even when the engine has no rate control.
 
@@ -520,14 +552,77 @@ def _synthesise(engine, text, out_path, voice=None, settings=None):
 # --------------------------------------------------------------------------
 # script
 # --------------------------------------------------------------------------
+# A narrator who reads every line at one rate is most of what people mean when
+# they say a voice sounds synthetic, and a rate multiplier per beat only gets
+# part of the way there. Delivery is pace, pitch and -- most of all -- where the
+# silence goes. The directions belong with the words rather than in a flag, so
+# they are written into the script itself:
+#
+#     8. Then she understood.  {slow, low, hold}
+#
+# They are stripped before the line is spoken or captioned, so the script stays
+# the script.
+DELIVERY = {
+    "slow":  {"rate": 0.86},
+    "slower": {"rate": 0.76},
+    "fast":  {"rate": 1.14},
+    "faster": {"rate": 1.26},
+    "low":   {"pitch": -1.6},
+    "lower": {"pitch": -3.0},
+    "high":  {"pitch": 1.6},
+    "higher": {"pitch": 3.0},
+    "hold":  {"hold": 0.34},          # sit on the shot before the next line
+    "beat":  {"hold": 0.6},
+}
+_DIRECTIVE = re.compile(r"\s*\{([^{}]*)\}\s*$")
+
+
+def _split_directives(text):
+    """(line, {rate, pitch, hold}) -- the spoken line and how to deliver it."""
+    spec = {}
+    match = _DIRECTIVE.search(text)
+    if not match:
+        return text.strip(), spec
+    for word in match.group(1).replace(";", ",").split(","):
+        word = word.strip().lower()
+        if not word:
+            continue
+        if word not in DELIVERY:
+            raise VoiceError(
+                "%r is not a delivery direction. Known ones: %s"
+                % (word, ", ".join(sorted(DELIVERY))))
+        for key, value in DELIVERY[word].items():
+            # two directions of the same kind compound rather than fight:
+            # {slow, slower} is slower than either, which is what writing both
+            # was asking for
+            spec[key] = spec.get(key, 1.0) * value if key == "rate" \
+                else spec.get(key, 0.0) + value
+    return text[:match.start()].strip(), spec
+
+
 def beats_from_script(script_path):
-    """The numbered beats, in order — the same ones render.py plans from."""
+    """The numbered beats, in order — the same ones render.py plans from.
+
+    Delivery directions are stripped: they tell the narrator how to read the
+    line, and they are not part of it.
+    """
+    return [line for line, _ in _script_lines(script_path)]
+
+
+def delivery_from_script(script_path):
+    """{beat number: {rate, pitch, hold}} for the beats that name a delivery."""
+    return {i: spec for i, (_, spec) in enumerate(_script_lines(script_path), 1)
+            if spec}
+
+
+def _script_lines(script_path):
+    """[(line, delivery spec), ...] in beat order."""
     text = Path(script_path).read_text(encoding="utf-8")
     beats = []
     for line in text.splitlines():
         match = re.match(r"\s*(\d+)[.)]\s+(.*\S)", line)
         if match:
-            beats.append(match.group(2).strip())
+            beats.append(_split_directives(match.group(2).strip()))
     if not beats:
         raise VoiceError("no numbered beats found in %s — write them as '1. ...'"
                          % script_path)
@@ -535,7 +630,7 @@ def beats_from_script(script_path):
 
 
 def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None,
-          emphasis=None):
+          emphasis=None, delivery=None):
     """One wav per beat. Returns [(path, seconds), ...] in beat order.
 
     `emphasis` is an optional {beat number: rate multiplier} -- below 1.0 slows
@@ -543,6 +638,11 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
     that matters and pushes through the setup; a narrator who reads everything
     at one rate is the thing people mean when they say a voice sounds
     synthetic. Engines without a rate control ignore it.
+
+    `delivery` is the richer form, {beat number: {rate, pitch, hold}}, and it
+    is what the script's own `{slow, low, hold}` directions become. It merges
+    with `emphasis` rather than replacing it; the hold is not used here,
+    because a pause after a line belongs to the beat, not the recording.
     """
     beats = beats_from_script(script_path)
     out_dir = Path(out_dir)
@@ -581,10 +681,12 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
         engine = options[0]
 
     emphasis = emphasis or {}
+    delivery = delivery or {}
     clips = []
     for i, line in enumerate(beats, 1):
         target = out_dir / ("beat%02d.wav" % i)
-        rate = float(emphasis.get(i, 1.0))
+        spec = delivery.get(i) or {}
+        rate = float(emphasis.get(i, 1.0)) * float(spec.get("rate", 1.0))
         per_line = settings
         if abs(rate - 1.0) > 0.001:
             per_line = dict(settings)
@@ -592,6 +694,8 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
                 if key in per_line and per_line[key]:
                     per_line[key] = type(per_line[key])(per_line[key] * rate)
         _synthesise(engine, line, target, voice, per_line)
+        if spec.get("pitch"):
+            _pitch(target, spec["pitch"])
         clips.append((target, _duration(target)))
     return clips
 
@@ -599,12 +703,17 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
 # --------------------------------------------------------------------------
 # cut the video to the voice
 # --------------------------------------------------------------------------
-def fit_plan(plan_path, clips, pad=None, style=None):
+def fit_plan(plan_path, clips, pad=None, style=None, delivery=None):
     """Rewrite each beat's duration to how long that line takes to say.
 
     This is the whole point: a beat that runs shorter than its line cuts the
     narration off mid-sentence, and one that runs longer leaves dead air. The
     spoken length is the truth, so the cut follows it.
+
+    A `hold` in the delivery buys extra beat on top of that: silence on the
+    shot before the next line starts. It has to go here rather than into the
+    recording, because the cut is timed off the beat -- a pause added to the
+    audio alone would just arrive after the picture had already moved on.
     """
     path = Path(plan_path)
     plan = json.loads(path.read_text(encoding="utf-8"))
@@ -623,17 +732,26 @@ def fit_plan(plan_path, clips, pad=None, style=None):
         pad = float((look.get("voice") or {}).get("gap_seconds", PAD_SECONDS))
     low = look["pacing"]["min_beat_seconds"]
     high = look["pacing"]["max_beat_seconds"]
+    # Beat lengths have to land on whole frames. A beat is cut with ffmpeg's
+    # -t, which rounds UP to the next frame, so a 1.38s beat at 30fps comes out
+    # 1.433s and every later cut arrives a little after the line it belongs to.
+    # Measured over six beats: +0.200s of drift, which is six frames of picture
+    # lagging the voice by the end of a twenty-second video.
+    fps = float(look["format"].get("fps") or 30)
 
+    delivery = delivery or {}
     notes, total = [], 0.0
     for i, (beat, (_, spoken)) in enumerate(zip(beats, clips)):
-        wanted = spoken + pad
+        wanted = spoken + pad + float((delivery.get(i + 1) or {}).get("hold", 0.0))
         clamped = max(low, min(high, wanted))
         if clamped < wanted - 0.01:
             notes.append(
                 "beat %d needs %.1fs to say but the style caps a beat at %.1fs — "
                 "the line is too long for this pacing, so shorten the line rather "
                 "than stretching the beat." % (i + 1, wanted, high))
-        beat["duration"] = round(clamped, 2)
+        # six places, not two: at 30fps a frame is 0.0333s, so a duration
+        # rounded to 0.01 can sit a third of a frame off its own frame count
+        beat["duration"] = round(max(1, round(clamped * fps)) / fps, 6)
         total += beat["duration"]
 
     ok, reasons = style_mod.shorts_verdict(total, look["format"]["width"],
