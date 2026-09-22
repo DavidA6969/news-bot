@@ -8,16 +8,35 @@ licence gate is satisfied with a real licence rather than a rubber stamp.
 
 Sources
 -------
-**Pexels** and **Pixabay**. Both are free, both allow commercial use, and both
-issue free API keys. Pexels requires crediting the creator when you access it
-through the API — so ``attribution`` generates the credit block for your video
-description, and you should paste it in.
+Two kinds, and the difference matters for what you can make.
 
-What this deliberately cannot do is pull clips from YouTube, TikTok or
-Instagram. Those are other people's copyrighted uploads; re-cutting them is
-infringement, breaches those platforms' terms, and is the exact pattern
-YouTube's Inauthentic Content policy demonetizes. Stock libraries exist because
-this problem is common, and they solve it legally.
+**Stock b-roll** — *pexels*, *pixabay*. Clean, generic, free for commercial use.
+Good for illustrating a point. Nobody will recognise it.
+
+**Archive footage** — *archive* (Internet Archive), *commons* (Wikimedia
+Commons). Real film, newsreel, documentary and public-record material, mostly
+public domain or Creative Commons. This is what you clip and talk over: footage
+that is *about* something, which your narration can then be about in turn.
+Neither needs an API key. Ask for it deliberately — ``--provider archive`` —
+because mixing archival film with generic stock in one video looks like an
+accident rather than an edit.
+
+The two groups are ``stock`` (the default) and ``archive``. **Neither falls back
+to the other**, on purpose: an empty archive search is a signal to rewrite the
+search term, not licence to drop a stock shot of a laptop into a newsreel.
+A single source is addressable by its own name — ``pexels``, ``pixabay``,
+``internetarchive``, ``commons``.
+
+Both archive providers check the licence on each item and **skip anything whose
+rights are not clearly public domain or Creative Commons**. An archive that
+happily handed you a copyrighted film would be worse than no archive.
+
+What this cannot do is pull clips from YouTube, TikTok or Instagram, and the
+reason is the download rather than the edit: those platforms' terms forbid
+downloading their content, whatever you do with it afterwards. Note that a
+YouTube video licensed **CC-BY** grants you reuse rights — but the sanctioned
+way to use it is YouTube's own editor inside YouTube, not a scraper, because the
+licence covers the copyright and the terms still cover the download.
 
     export PEXELS_API_KEY=...        # https://www.pexels.com/api/
     export PIXABAY_API_KEY=...       # https://pixabay.com/api/docs/
@@ -33,6 +52,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -132,18 +152,142 @@ def _pixabay(query, count, orientation, opener=None):
     return out
 
 
-PROVIDERS = {"pexels": _pexels, "pixabay": _pixabay}
+# --------------------------------------------------------------------------
+# archive footage — real material, licence-checked
+# --------------------------------------------------------------------------
+PD_MARKERS = ("creativecommons.org", "publicdomain", "public domain", "cc0",
+              "cc-by", "cc by", "no known copyright")
+PD_COLLECTIONS = ("prelinger", "publicdomainmovies", "opensource_movies",
+                  "nasa", "usgovernmentfilms", "feature_films",
+                  "moviesandfilms", "newsandpublicaffairs")
+VIDEO_EXT = (".mp4", ".mov", ".mkv", ".webm", ".ogv", ".m4v")
+
+
+def _licence_ok(*blobs):
+    """Only accept material whose rights are stated and permissive."""
+    text = " ".join(str(b or "").lower() for b in blobs)
+    return any(marker in text for marker in PD_MARKERS)
+
+
+def _archive(query, count, orientation, opener=None):
+    """Internet Archive. Public-domain film, newsreel and documentary."""
+    search = "https://archive.org/advancedsearch.php?" + urllib.parse.urlencode({
+        "q": '%s AND mediatype:(movies)' % query,
+        "rows": max(5, min(50, count * 6)), "page": 1, "output": "json",
+    }) + "&fl%5B%5D=identifier&fl%5B%5D=title&fl%5B%5D=licenseurl&fl%5B%5D=collection"
+    payload = json.loads(_get(search, opener=opener).decode("utf-8"))
+    docs = ((payload.get("response") or {}).get("docs") or [])
+    out = []
+    for doc in docs:
+        ident = doc.get("identifier")
+        if not ident:
+            continue
+        collections = doc.get("collection") or []
+        if isinstance(collections, str):
+            collections = [collections]
+        permissive = _licence_ok(doc.get("licenseurl")) or \
+            any(c in PD_COLLECTIONS for c in collections)
+        if not permissive:
+            continue                                   # rights unclear: skip it
+        meta = json.loads(_get("https://archive.org/metadata/%s" % ident,
+                               opener=opener).decode("utf-8"))
+        info = meta.get("metadata") or {}
+        if not (_licence_ok(info.get("licenseurl"), info.get("rights")) or
+                any(c in PD_COLLECTIONS for c in collections)):
+            continue
+        files = [f for f in (meta.get("files") or [])
+                 if str(f.get("name", "")).lower().endswith(VIDEO_EXT)]
+        if not files:
+            continue
+        pick = min(files, key=lambda f: int(f.get("size") or 1 << 40))
+        licence = info.get("licenseurl") or info.get("rights") or \
+            "public domain (Internet Archive collection: %s)" % ", ".join(collections[:2])
+        page = "https://archive.org/details/%s" % ident
+        creator = info.get("creator") or "unknown"
+        if isinstance(creator, list):
+            creator = creator[0] if creator else "unknown"
+        out.append({
+            "provider": "internetarchive", "id": ident,
+            "url": "https://archive.org/download/%s/%s"
+                   % (ident, urllib.parse.quote(pick["name"])),
+            "page": page, "width": None, "height": None, "duration": None,
+            "author": creator, "author_url": page,
+            "license": "%s — via Internet Archive. Source: %s" % (licence, page),
+            "attribution": "Archive footage: %s (%s), via the Internet Archive"
+                           % (doc.get("title") or ident, creator),
+        })
+        if len(out) >= count * 2:
+            break
+    return out
+
+
+def _commons(query, count, orientation, opener=None):
+    """Wikimedia Commons. Everything there is CC or public domain."""
+    url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode({
+        "action": "query", "format": "json", "generator": "search",
+        "gsrsearch": "filetype:video %s" % query,
+        "gsrnamespace": 6, "gsrlimit": max(5, min(50, count * 6)),
+        "prop": "imageinfo", "iiprop": "url|size|extmetadata|user",
+    })
+    payload = json.loads(_get(url, opener=opener).decode("utf-8"))
+    pages = ((payload.get("query") or {}).get("pages") or {})
+    out = []
+    for page in pages.values():
+        info = (page.get("imageinfo") or [{}])[0]
+        src = info.get("url")
+        if not src or not str(src).lower().endswith(VIDEO_EXT):
+            continue
+        extra = info.get("extmetadata") or {}
+        licence = (extra.get("LicenseShortName") or {}).get("value", "")
+        if not _licence_ok(licence, (extra.get("UsageTerms") or {}).get("value")):
+            continue
+        author = re.sub(r"<[^>]+>", "", (extra.get("Artist") or {}).get("value", "")
+                        or info.get("user") or "unknown").strip() or "unknown"
+        desc = page.get("title", "").replace("File:", "")
+        out.append({
+            "provider": "commons", "id": str(page.get("pageid")),
+            "url": src, "page": info.get("descriptionurl", ""),
+            "width": info.get("width"), "height": info.get("height"),
+            "duration": None, "author": author, "author_url": "",
+            "license": "%s — via Wikimedia Commons. Source: %s"
+                       % (licence, info.get("descriptionurl", "")),
+            "attribution": "%s by %s, via Wikimedia Commons (%s)"
+                           % (desc, author, licence),
+        })
+        if len(out) >= count * 2:
+            break
+    return out
+
+
+PROVIDERS = {"pexels": _pexels, "pixabay": _pixabay,
+             "internetarchive": _archive, "commons": _commons}
+# Two groups rather than a flat list, because the choice between them is a
+# choice about what kind of video you are making, not a source preference.
+STOCK = ("pexels", "pixabay")
+ARCHIVE = ("internetarchive", "commons")
+GROUPS = {"stock": STOCK, "archive": ARCHIVE}
 
 
 def search(query, count=3, provider=None, orientation="portrait", opener=None):
     """Find candidate clips. Tries each provider that has a key configured."""
     if not (query or "").strip():
         raise FetchError("a search term is required")
-    names = [provider] if provider else list(PROVIDERS)
+    if provider in GROUPS:
+        names = list(GROUPS[provider])
+    elif provider:
+        names = [provider]
+    else:
+        # stock by default: b-roll is the common case, and mixing archival film
+        # with generic stock in one result set gives an incoherent video. Ask for
+        # archive footage deliberately, with --provider archive.
+        names = list(STOCK)
     results, problems = [], []
     for name in names:
         if name not in PROVIDERS:
-            raise FetchError("unknown provider %r — choose from %s"
+            raise FetchError("unknown provider %r — choose a group ('stock' or "
+                             "'archive') or one source (%s). No group falls back "
+                             "to the other: archival film cut against generic "
+                             "stock looks like an accident."
                              % (name, ", ".join(PROVIDERS)))
         try:
             results.extend(PROVIDERS[name](query, count, orientation, opener))
@@ -201,25 +345,39 @@ def fetch(query, count=1, provider=None, out_dir=None, orientation="portrait",
     out_dir.mkdir(parents=True, exist_ok=True)
     ledger_file = Path(ledger_path) if ledger_path else out_dir / "licenses.json"
 
-    candidates = search(query, count, provider, orientation, opener)
+    # Ask for more candidates than will be taken. Choosing needs room: a pool
+    # the size of the request forces the first duplicate, whatever the logic
+    # below decides.
+    candidates = search(query, max(count * 5, 8), provider, orientation, opener)
+
+    def key(clip):
+        return "%s:%s" % (clip["provider"], clip["id"])
+
     blocked = set(exclude or ())                  # never twice inside one video
-    candidates = [c for c in candidates
-                  if "%s:%s" % (c["provider"], c["id"]) not in blocked] or candidates
+    usable = [c for c in candidates if key(c) not in blocked]
+    if not usable:
+        # A duplicate inside one video is visible to the viewer, so this is a
+        # hard stop rather than a degradation. Falling back to the full list
+        # here is what used to make every beat the same clip.
+        raise FetchError(
+            "every clip found for %r is already used elsewhere in this video "
+            "(%d candidate%s, all taken). Two beats of the same footage is "
+            "visible, so vary this beat's search term instead."
+            % (query, len(candidates), "" if len(candidates) == 1 else "s"))
+
     history = _used_history(used_path)
-    fresh = [c for c in candidates
-             if "%s:%s" % (c["provider"], c["id"]) not in history]
+    fresh = [c for c in usable if key(c) not in history]
     if fresh:
         chosen = fresh[:count]
     else:
-        # everything here has been used before, so take the least recent rather
-        # than the first — always taking the first is how every beat ends up
-        # being the same clip
-        chosen = sorted(candidates,
-                        key=lambda c: history.get("%s:%s" % (c["provider"], c["id"]), -1)
-                        )[:count]
-        print("fetch_clips.py: every match for %r has been used before; reusing the "
-              "least recent. Vary the search terms to keep the channel from looking "
-              "templated." % query, file=sys.stderr)
+        # Everything here has been used in an EARLIER video. That is a
+        # degradation rather than a defect, so take the least recently used
+        # rather than the first — always taking the first is how a channel
+        # ends up with the same b-roll in every upload.
+        chosen = sorted(usable, key=lambda c: history.get(key(c), -1))[:count]
+        print("fetch_clips.py: every match for %r has been used in a previous "
+              "video; reusing the least recent. Vary the search terms to keep "
+              "the channel from looking templated." % query, file=sys.stderr)
 
     ledger = _load(ledger_file, {})
     got = []
@@ -227,7 +385,7 @@ def fetch(query, count=1, provider=None, out_dir=None, orientation="portrait",
         name = "%s-%s.mp4" % (clip["provider"], clip["id"])
         target = out_dir / name
         if not target.exists():
-            data = (downloader or _get)(clip["url"]) if downloader else _get(clip["url"])
+            data = (downloader or _get)(clip["url"])
             if len(data) < 2048:
                 raise FetchError("%s returned only %d bytes — not a video"
                                  % (clip["url"], len(data)))
@@ -243,7 +401,7 @@ def fetch(query, count=1, provider=None, out_dir=None, orientation="portrait",
         ledger[rel]["fetched"] = _now()
         got.append({"path": rel, **ledger[rel]})
     _save(ledger_file, ledger)
-    _remember(["%s:%s" % (c["provider"], c["id"]) for c in chosen], used_path)
+    _remember([key(c) for c in chosen], used_path)
     return got
 
 
@@ -307,18 +465,18 @@ def main(argv=None):
 
     p_search = sub.add_parser("search", help="list candidates without downloading")
     p_search.add_argument("query")
-    p_search.add_argument("--provider", choices=list(PROVIDERS))
+    p_search.add_argument("--provider", choices=list(GROUPS) + list(PROVIDERS))
     p_search.add_argument("--count", type=int, default=5)
 
     p_fetch = sub.add_parser("fetch", help="download clips and record their licences")
     p_fetch.add_argument("query")
-    p_fetch.add_argument("--provider", choices=list(PROVIDERS))
+    p_fetch.add_argument("--provider", choices=list(GROUPS) + list(PROVIDERS))
     p_fetch.add_argument("--count", type=int, default=1)
     p_fetch.add_argument("--out", default=None)
 
     p_auto = sub.add_parser("autofill", help="fill a render plan's empty beats")
     p_auto.add_argument("plan")
-    p_auto.add_argument("--provider", choices=list(PROVIDERS))
+    p_auto.add_argument("--provider", choices=list(GROUPS) + list(PROVIDERS))
     p_auto.add_argument("--out", default=None)
 
     p_att = sub.add_parser("attribution", help="print the credit block for the description")

@@ -55,8 +55,12 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
    python3 fetch_clips.py attribution render.json >> description.txt
    ```
 
-   Pexels requires it for API-sourced clips. Leaving it out breaks the licence
-   the footage was used under.
+   Leaving it out breaks the licence the footage was used under — and these are
+   commentary videos built on other people's footage, so that licence is the
+   whole basis on which the video is allowed to exist. Pexels requires the
+   credit for API-sourced clips; CC-BY archive material requires the source
+   named. If the block comes back empty and the render used fetched clips,
+   something is wrong with the plan — `fail` rather than uploading uncredited.
 
 4. **Upload, scheduled into the slot.**
 

@@ -12,6 +12,8 @@ shop-niche.md
 niche.json
 render.json
 clips_used.json
+voice/
+voice.wav
 suppliers.json
 products.json
 promo.md

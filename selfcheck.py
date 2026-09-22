@@ -43,7 +43,8 @@ def main():
     section("[2] files")
     required = ["agents.json", "dashboard.html", "status.py", "schedule.py",
                 "youtube.py", "performance.py", "render.py", "niche.py",
-                "fetch_clips.py", "style.py", "etsy.py", "suppliers.py"]
+                "fetch_clips.py", "style.py", "etsy.py", "suppliers.py",
+                "voice.py"]
     for name in required:
         note(OK if (HERE / name).exists() else FAIL, name,
              "" if (HERE / name).exists() else "missing")
@@ -216,15 +217,41 @@ def main():
 
     try:
         fetch_mod = importlib.import_module("fetch_clips")
-        note(OK if set(fetch_mod.PROVIDERS) == {"pexels", "pixabay"} else FAIL,
-             "clip sources are licensed stock only", ", ".join(sorted(fetch_mod.PROVIDERS)))
-        have = [n for n in sorted(fetch_mod.PROVIDERS)
+        # the point is not a fixed list of providers but that none of them is a
+        # platform scraper — this survives adding legitimate sources
+        platforms = ("youtube", "youtu.be", "tiktok", "instagram", "facebook")
+        blob = " ".join(sorted(fetch_mod.PROVIDERS)).lower()
+        import inspect as _inspect
+        code = " ".join(_inspect.getsource(fn).lower()
+                        for fn in fetch_mod.PROVIDERS.values())
+        scraper = [pl for pl in platforms if pl in blob or (pl + ".com") in code]
+        note(OK if not scraper else FAIL, "no clip source is a platform scraper",
+             ", ".join(sorted(fetch_mod.PROVIDERS)) if not scraper
+             else "reaches " + ", ".join(scraper))
+        have = [n for n in fetch_mod.STOCK
                 if os.environ.get("%s_API_KEY" % n.upper())]
         note(OK if have else WARN, "a stock API key is configured",
              ", ".join(have) if have else
-             "set PEXELS_API_KEY or PIXABAY_API_KEY (both free) to fetch footage")
+             "set PEXELS_API_KEY or PIXABAY_API_KEY (both free) for b-roll")
+        keyed = [n for n in fetch_mod.ARCHIVE
+                 if "_API_KEY" in _inspect.getsource(fetch_mod.PROVIDERS[n])]
+        note(OK if not keyed else FAIL, "archive footage needs no key",
+             ", ".join(fetch_mod.ARCHIVE) if not keyed
+             else "%s wants a key" % ", ".join(keyed))
+        note(OK if not (set(fetch_mod.GROUPS) & set(fetch_mod.PROVIDERS)) else FAIL,
+             "no provider group shadows a source name", ", ".join(fetch_mod.GROUPS))
     except Exception as exc:
         note(FAIL, "fetch_clips.py not usable", str(exc)[:90])
+
+    try:
+        voice_mod = importlib.import_module("voice")
+        engines = [n for n, _ in voice_mod.usable_engines()]
+        note(OK if engines else WARN, "a speech engine is available",
+             ", ".join(engines) if engines else
+             "install piper-tts or espeak-ng, or record the lines yourself "
+             "(--recorded); your own voice is better anyway")
+    except Exception as exc:
+        note(FAIL, "voice.py not usable", str(exc)[:90])
 
     section("[10] etsy shop")
     try:

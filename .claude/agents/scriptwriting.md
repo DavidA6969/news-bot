@@ -35,6 +35,30 @@ python3 status.py finish scriptwriting "Script: 6 beats, 312 words"
    cannot, stop and `fail` with that reason rather than shipping a video that
    restates its source. That is a real outcome, not a failure of nerve.
 
+## You are writing narration over found footage
+
+The videos are commentary: archive and stock clips, cut and talked over. Which
+means **your narration is the entire original contribution.** The footage
+illustrates what is being said; the saying is the work.
+
+Two things follow, and they are not style notes:
+
+1. **Write lines that only work over that clip.** If the narration would make
+   the same sense over any other footage, it is a voiceover bolted onto a
+   montage, and a montage of other people's clips with words over it is exactly
+   what YouTube's Inauthentic Content policy demotes. Name what is on screen,
+   argue with it, point at the thing in the corner of the frame.
+2. **The point has to be yours.** Describing the clip is not commentary.
+   Say what it means, what it got wrong, what it predicted, what happened next —
+   something a viewer could not get by watching the source material itself. If
+   the topic gives you nothing to say over the footage, `fail` with that as the
+   reason. A video with no view in it is worse than a missed slot.
+
+FORGE will fetch footage from public-domain and Creative Commons archives for
+this — real film and newsreel, not stock b-roll — so write `on screen` notes
+that name *findable archive material* ("1960s supermarket interior", "wind
+tunnel test footage"), not abstractions.
+
 ## Write beats FORGE can actually render
 
 `render.py plan` turns each **numbered** line of your script into one video
@@ -51,6 +75,14 @@ Beat length is governed by the committed style's pacing — check
 `python3 style.py show` and keep beats inside `min_beat_seconds` and
 `max_beat_seconds`. Beats under the minimum flash past before they are read;
 beats over it are where retention goes.
+
+**The cut is made to your lines, not the other way round.** `voice.py` times
+each beat by how long it actually takes to say, so the duration you write is an
+estimate and the spoken length is the truth. Practically: a line over about 20
+words will not fit inside `max_beat_seconds`, and `voice.py fit` will say so
+and clamp it rather than stretch the beat. Read each line aloud at the pace you
+would actually narrate it. If it does not fit, the line is too long — split it
+into two beats or cut words, which is cheap now and expensive after rendering.
 
 Say what should be **on screen** for each beat too. FORGE has to find real
 footage for it, and "something abstract" is not findable.
@@ -91,8 +123,9 @@ ATLAS needs to hear it.
 Write `script.md`:
 
 - **Hook** (≤ 2 sentences, spoken as written)
-- **Beats** — numbered, each with: the spoken line, what is on screen, and the
-  approximate duration
+- **Beats** — numbered, each with: the spoken line (written to be *spoken*,
+  not read — contractions, short clauses, no parentheticals), what is on screen,
+  and the approximate duration
 - **Payoff** — the line the whole video exists to deliver
 - **Close** — one line; a call to action only if it is earned
 - **Description** — 2–3 sentences for the YouTube description, plus 5–8 tags

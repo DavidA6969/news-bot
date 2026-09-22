@@ -13,6 +13,23 @@ dashboard.html   the UI (open in a browser)
 status.py        the writer helper your agents call
 ```
 
+Running behind it are two pipelines the agents drive — a YouTube Shorts channel
+and an Etsy shop — each held to one niche:
+
+```
+niche.py         commits a channel or shop to one niche, and holds it there
+fetch_clips.py   finds footage with a licence attached (stock + PD/CC archives)
+voice.py         narrates the script, and re-times the cut to the voice
+style.py         the one committed editing style, versioned
+render.py        cuts, captions, encodes — then verifies its own output
+youtube.py       uploads via the Data API, Shorts only
+schedule.py      deterministic release slots
+etsy.py          listings, with the handmade rules enforced
+suppliers.py     production partners, vetted and disclosed
+performance.py   what actually worked, fed back to the agents
+selfcheck.py     checks all of the above
+```
+
 ## Check it first
 
 ```bash
@@ -171,6 +188,8 @@ than 10% off the script's duration.
 
 ```bash
 python3 render.py plan script.md --clips assets/ -o render.json
+python3 fetch_clips.py autofill render.json --provider archive
+python3 voice.py narrate script.md render.json
 python3 render.py build render.json --agent rendering
 python3 render.py check out/video.mp4 --expect 44
 ```
@@ -183,13 +202,68 @@ looks like this:
 {
   "output": "out/2026-09-20.mp4",
   "width": 1080, "height": 1920, "fps": 30,
-  "audio": { "path": "voice.m4a", "license": "own recording" },
+  "audio": { "path": "voice.wav", "license": "original narration" },
   "beats": [
     { "clip": "assets/desk-01.mp4", "license": "CC0 — pexels.com/video/12345",
       "in": 1.0, "duration": 3.5, "caption": "Most side projects die in week two." }
   ]
 }
 ```
+
+### The narration is the video
+
+The videos are commentary: found footage, cut and talked over. That form only
+works if the **voice carries the original contribution** — the clips illustrate
+what is being said, and the saying is the work. A montage of other people's
+footage with music over it is the thing YouTube's Inauthentic Content policy
+exists to demote; the same footage under narration that has a point is an
+ordinary video essay.
+
+So `voice.py` does the thing most pipelines get backwards. It synthesises each
+beat, measures how long that line **actually takes to say**, and rewrites the
+plan's beat durations to match:
+
+```bash
+python3 voice.py engines                        # what is available here
+python3 voice.py speak script.md                # one wav per beat -> voice/
+python3 voice.py fit render.json                # beats <- spoken lengths
+python3 voice.py track render.json -o voice.wav # one track, gapped to fit
+python3 voice.py narrate script.md render.json  # all three, in order
+```
+
+The video is cut to the voice instead of the voice being squeezed into arbitrary
+durations. That is not a nicety: it is what makes the burned-in captions land
+*with* the words rather than near them, and it removes the dead half-second at
+the end of every beat that makes generated video feel generated.
+
+`fit` will not stretch a beat past the style's `max_beat_seconds` to fit a long
+line. It clamps, and says so:
+
+```
+beat 3 needs 9.4s to say but the style caps a beat at 7.0s — the line is too
+long for this pacing, so shorten the line rather than stretching the beat.
+```
+
+That is the correct direction of the fix. The script is the cheap thing to
+change.
+
+Any one engine is enough, in order of preference:
+
+| engine | quality | install |
+| --- | --- | --- |
+| `recorded` | your own voice — best there is | drop `beat01.wav`, `beat02.wav` … in a folder, pass `--recorded` |
+| `piper` | good, offline, free | `pip install piper-tts`, download a `.onnx` voice, set `PIPER_VOICE` |
+| `espeak-ng` | robotic but available everywhere | `apt install espeak-ng` / `brew install espeak-ng` |
+| `say` | decent, built in | macOS only, nothing to install |
+
+`voice.py engines` prints which of them this machine can actually use, and why
+the others are not, rather than failing at render time. It **exits non-zero
+unless something can actually speak** — piper installed without a voice model is
+present and useless, and a check that cannot tell those apart reports green and
+then fails on the first line.
+
+For a channel you intend to keep, record the voice yourself. Commentary is a
+person having a view, and synthesised narration is audibly not that.
 
 ### One editing style
 
@@ -247,6 +321,54 @@ field. Two things it does on purpose:
 Write `search` terms that describe a *filmable scene* — "hands typing at a
 cluttered desk" finds footage; "productivity" does not.
 
+### Two kinds of source, and the difference matters
+
+`fetch_clips.py` searches four providers, in two groups:
+
+| group | providers | what it is | key |
+| --- | --- | --- | --- |
+| **`stock`** (default) | `pexels`, `pixabay` | clean, generic b-roll; free for commercial use | free API key |
+| **`archive`** | `internetarchive`, `commons` (Wikimedia) | real film, newsreel, documentary and public-record footage | none |
+
+Stock is for *illustrating* a point — nobody will recognise it, and nobody was
+meant to. Archive footage is for **clipping and talking over**: it is footage
+that is *about* something, which your narration can then be about in turn. That
+is the raw material of a commentary channel, and it is the reason the archive
+providers exist here at all.
+
+Archive is opt-in, because mixing 1950s newsreel with a stock shot of a laptop
+in one video looks like an accident rather than an edit:
+
+```bash
+python3 fetch_clips.py search "apollo launch" --provider archive
+python3 fetch_clips.py autofill render.json --provider archive
+```
+
+**Neither group falls back to the other**, deliberately. An empty archive search
+means rewrite the search term, not quietly drop a stock shot of a laptop into a
+newsreel — a silent fallback would reintroduce exactly the mix the opt-in exists
+to prevent. Pass a single source name (`internetarchive`, `commons`, `pexels`,
+`pixabay`) to narrow further.
+
+For the same reason, `autofill` **fails** rather than giving two beats the same
+clip when a term runs out of distinct matches:
+
+```
+every clip found for 'same thing' is already used elsewhere in this video
+(3 candidates, all taken). Two beats of the same footage is visible, so vary
+this beat's search term instead.
+```
+
+A repeated clip inside one video is visible to the viewer, so it is an error
+with a named fix rather than a degradation. (Reuse across *different* videos is
+only a warning, and it takes the least recently used clip.)
+
+Both archive providers **read the licence on every item and skip anything whose
+rights are not clearly public domain or Creative Commons.** An archive that
+happily handed back a copyrighted film would be worse than having no archive at
+all, because the failure would surface as a claim months later rather than as an
+empty search now.
+
 ### Footage you may use
 
 **Every asset needs a `license`, and renders fail without one.** That is not red
@@ -255,16 +377,31 @@ tape — it is the single biggest risk to this channel.
 Acceptable: your own recordings, stock you have licensed, public-domain and
 permissively-licensed archives. Record the real URL and licence.
 
-**Not acceptable: clips taken from someone else's YouTube, TikTok or Instagram.**
-Three independent reasons, any one sufficient: it infringes their copyright, it
-breaches those platforms' terms, and compiling other people's clips with little
-added is exactly what the Inauthentic Content policy demonetizes. `render.py`
-refuses a plan whose licence names a platform URL unless you also set
-`"rights_confirmed": true` to assert in writing that you hold permission, and
-`fetch_clips.py` has no provider that can reach those sites at all.
+**Not acceptable: clips ripped from someone else's YouTube, TikTok or
+Instagram.** `render.py` refuses a plan whose licence names a platform URL
+unless you also set `"rights_confirmed": true` to assert in writing that you
+hold permission, and `fetch_clips.py` has no provider that can reach those sites
+at all.
 
-Stock libraries exist precisely because this need is common, and they solve it
-legally — which is why fetching is wired to them instead.
+Worth being precise about why, because "it's commentary, that's fair use" is
+half a real argument and people stop there:
+
+- **The download is a separate problem from the edit.** Those platforms' terms
+  forbid downloading their content, whatever you do with it afterwards. Fair use
+  is a copyright defence; it is not a defence to breaching the terms of the
+  service you took the file from.
+- **A CC-BY YouTube video really does grant you reuse rights** — and the
+  sanctioned way to exercise them is YouTube's own editor, inside YouTube. The
+  licence covers the copyright; the terms still cover the download. Both have to
+  be satisfied, not either.
+- **Fair use is a defence, not a permission**, and it is decided after you are
+  sued. Content ID does not adjudicate it at all — it matches audio and video
+  and acts, and the appeal runs on the claimant's timetable.
+
+So the pipeline gets the same *form* — found footage, clipped, narrated over —
+from material that is actually cleared for it: public-domain and CC archives for
+footage that is about something, stock for footage that illustrates. That is a
+route to the video you wanted, not a lesser substitute for it.
 
 ## Shorts only
 
@@ -487,15 +624,16 @@ Note that Etsy's API needs approval: a Personal App first, then
 
 ## The agents
 
-`.claude/agents/` holds five subagent definitions. Each reports to the dashboard
-through `status.py`, so a run is visible as it happens.
+`.claude/agents/` holds ten subagent definitions, in two independent chains.
+Each reports to the dashboard through `status.py`, so a run is visible as it
+happens.
 
 | agent | id | does |
 | --- | --- | --- |
 | COMPASS | `niche-strategy` | commits the channel to **one** niche, and kills ideas that cannot survive |
 | ATLAS | `trend-research` | picks which specific video to make next |
-| SCRIBE | `scriptwriting` | turns a topic into a shot-by-shot script |
-| FORGE | `rendering` | clips the footage into a finished video, and verifies it |
+| SCRIBE | `scriptwriting` | turns a topic into narration, beat by beat |
+| FORGE | `rendering` | fetches the footage, records the voice, cuts to it, verifies the file |
 | HERALD | `publishing` | uploads, schedules it, and records it for the feedback loop |
 
 The Etsy shop is a second chain, independent of the video one:
