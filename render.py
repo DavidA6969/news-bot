@@ -592,6 +592,265 @@ def choose_fit(fit, w, h, src_w=None, src_h=None):
     return "blur" if source / target > BLUR_ABOVE else "crop"
 
 
+# Fitting a whole 16:9 frame into a 9:16 one leaves the picture filling 32% of
+# the height with blurred fill above and below it: a small window in the middle
+# of a phone, not a Short. Cropping to fill instead keeps every pixel of height
+# but throws away two thirds of the width, blind to what was in it -- which is
+# how a two-shot loses one of the two people.
+#
+# Neither is necessary. Detail in a frame is not spread evenly: it sits in a
+# band, and the rest is background. Measure where that band is, crop to it, and
+# fill covers whatever is left over -- with the subject still inside the picture
+# rather than half outside it. A 16:9 source gets to about two thirds of the
+# frame; a 2.35:1 one stops lower, because the upscale cap binds before the
+# coverage target does.
+FOCUS_SAMPLES = 5
+FOCUS_COLS = 96
+FOCUS_ROWS = 54
+
+
+def _grey_frames(path, start=None, duration=None, fps=4.0, limit=None,
+                 cols=FOCUS_COLS, rows=FOCUS_ROWS):
+    """Tiny greyscale frames from `path` as an (n, rows, cols) array.
+
+    None when numpy is missing or the clip cannot be decoded, which every
+    caller treats as "measure nothing and behave as before". Thumbnails this
+    small cost less to decode and score than the trim that follows them.
+    """
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+    args = [ffmpeg_bin(), "-v", "error"]
+    if start is not None:
+        args += ["-ss", "%.3f" % float(start)]
+    if duration is not None:
+        args += ["-t", "%.3f" % float(duration)]
+    args += ["-i", str(path),
+             "-vf", "fps=%.4f,format=gray,scale=%d:%d" % (fps, cols, rows)]
+    if limit:
+        args += ["-frames:v", str(int(limit))]
+    args += ["-f", "rawvideo", "-"]
+    try:
+        raw = subprocess.run(args, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, timeout=180).stdout
+    except Exception:
+        return None
+    size = cols * rows
+    got = len(raw) // size
+    if not got:
+        return None
+    return np.frombuffer(raw[:got * size], dtype=np.uint8) \
+             .reshape(got, rows, cols).astype(np.float32)
+
+
+def _detail_columns(path, start, duration, samples=FOCUS_SAMPLES,
+                    cols=FOCUS_COLS, rows=FOCUS_ROWS):
+    """Per-column detail energy across a beat, or None if it cannot be read.
+
+    Gradient magnitude rather than brightness: an edge in a dark corner is
+    something worth keeping, and a flat bright wall is not.
+    """
+    n = max(1, int(samples))
+    span = max(0.04, float(duration or 0.5))
+    a = _grey_frames(path, float(start or 0), span, fps=n / span, limit=n,
+                     cols=cols, rows=rows)
+    if a is None:
+        return None
+    import numpy as np
+    across = np.abs(np.diff(a, axis=2)).sum(axis=(0, 1))     # cols - 1
+    down = np.abs(np.diff(a, axis=1)).sum(axis=(0, 1))       # cols
+    energy = down.astype(np.float64)
+    energy[1:] += across
+    energy[:-1] += across
+    return energy
+
+
+# A long source is mostly not worth cutting to. Fades, held blacks, empty
+# establishing frames: all fine in a film, all dead screen time in an eighteen
+# second Short, where a beat is a second and a half and the viewer's thumb is
+# already moving. Scoring every position before choosing is what stops a shot
+# with nothing in it getting picked because it happened to fall on the stride.
+DARK_FLOOR = 30.0          # mean luma, 0-255, below which a shot reads as black
+SCAN_FPS = 4.0
+
+
+class ShotError(RenderError):
+    """The source could not supply the shots asked of it."""
+
+
+def pick_shots(path, count, seconds, start=0.0, end=None, gap=None,
+               scan_fps=SCAN_FPS, dark_floor=DARK_FLOOR, spread=True,
+               avoid=()):
+    """`count` in-points in `path` worth cutting to, in time order.
+
+    Every position is scored on how much there is to look at over the seconds
+    that follow it, and the near-black is thrown out. Raises rather than
+    padding the list out: quietly reusing a shot is what made an earlier video
+    look like it had four clips in it when it had seven beats.
+
+    `spread` divides the source into one region per shot and takes the best of
+    each, instead of the best twelve overall. Scoring alone does not give a
+    compilation -- one well-lit sequence outscores the whole rest of a film,
+    so twelve beats land inside ninety seconds of it and the video looks like
+    a single scene. A region with nothing usable in it falls back to the best
+    that is left anywhere.
+
+    `avoid` is (from, to) spans to leave alone: credits, a logo sting, or the
+    scene with the blood in it. Brightness and detail are all this measures,
+    and neither one knows what an advertiser will object to.
+    """
+    count = int(count)
+    if count < 1:
+        raise ShotError("asked for %d shots" % count)
+    seconds = max(0.2, float(seconds))
+    gap = float(gap if gap is not None else max(2.0, seconds * 1.5))
+    a = _grey_frames(path, fps=scan_fps)
+    if a is None or len(a) < 2:
+        raise ShotError("could not read frames from %s — is it a video file?" % path)
+    import numpy as np
+    detail = (np.abs(np.diff(a, axis=2)).mean(axis=(1, 2))
+              + np.abs(np.diff(a, axis=1)).mean(axis=(1, 2)))
+    luma = a.mean(axis=(1, 2))
+    step = 1.0 / scan_fps
+    width = max(1, int(round(seconds * scan_fps)))
+    last = len(a) - width
+    if last < 0:
+        raise ShotError("%s is shorter than one %.1fs beat" % (path, seconds))
+    lo = max(0, int(round(float(start) / step)))
+    hi = last if end is None else min(last, int(round(float(end) / step)) - width)
+    if hi < lo:
+        raise ShotError("no room between %.1fs and %s in %s"
+                        % (start, "the end" if end is None else "%.1fs" % end, path))
+
+    blocked = [(float(x), float(y)) for x, y in (avoid or ())]
+    scored = []
+    for i in range(lo, hi + 1):
+        at = i * step
+        if any(x - seconds < at < y for x, y in blocked):
+            continue
+        window_luma = float(luma[i:i + width].mean())
+        blackish = float((luma[i:i + width] < dark_floor).mean())
+        if window_luma < dark_floor or blackish > 0.34:
+            continue                      # a beat spent on black is a beat lost
+        scored.append((float(detail[i:i + width].mean()), at))
+    if not scored:
+        raise ShotError(
+            "every position in %s is too dark to cut to (nothing above a mean "
+            "luma of %g). Pick a different source, or lower dark_floor if the "
+            "footage really is meant to look like that." % (path, dark_floor))
+
+    scored.sort(key=lambda pair: -pair[0])
+    chosen = []
+
+    def take(pool):
+        for score, at in pool:
+            if at not in chosen and all(abs(at - t) >= gap for t in chosen):
+                chosen.append(at)
+                return True
+        return False
+
+    if spread:
+        first, final = lo * step, hi * step
+        region = (final - first) / float(count)
+        for b in range(count):
+            edge_lo, edge_hi = first + b * region, first + (b + 1) * region
+            take([pair for pair in scored if edge_lo <= pair[1] < edge_hi])
+    while len(chosen) < count and take(scored):
+        pass
+    if len(chosen) < count:
+        raise ShotError(
+            "%s yielded %d shot%s worth using, not %d: %.0fs of usable footage "
+            "cannot hold %d beats %.1fs apart. Use a longer source, cut the "
+            "script, or lower the spacing."
+            % (path, len(chosen), "" if len(chosen) == 1 else "s", count,
+               len(a) * step, count, gap))
+    return sorted(chosen)
+
+
+def cut_shots(path, out_dir, count, seconds, licence=None, **kwargs):
+    """Cut `count` clips out of one source into `out_dir`, with their licence.
+
+    This is the step between "a film is downloadable" and "a folder of clips":
+    the same provenance rule as every other clip source applies, so the licence
+    is written beside them and nothing renders without it.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    at = pick_shots(path, count, seconds, **kwargs)
+    ff = ffmpeg_bin()
+    made, ledger = [], {}
+    for i, t in enumerate(at, 1):
+        dst = out_dir / ("clip%02d.mp4" % i)
+        _run([ff, "-hide_banner", "-loglevel", "error", "-y",
+              "-ss", "%.3f" % t, "-t", "%.3f" % seconds, "-i", str(path),
+              "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
+              "-pix_fmt", "yuv420p", str(dst)], "cutting shot %d" % i)
+        made.append(dst)
+        if licence:
+            ledger[dst.name] = licence
+    if licence:
+        (out_dir / "licenses.json").write_text(
+            json.dumps(ledger, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8")
+    return made
+
+
+def _narrowest_band(energy, keep):
+    """(centre, width) of the shortest run of columns holding `keep` of the
+    total, both as fractions of the whole width."""
+    n = len(energy)
+    total = float(sum(energy))
+    if n == 0 or total <= 0:
+        return 0.5, 1.0
+    want = total * float(keep)
+    best_width, best_start = n, 0
+    running, lo = 0.0, 0
+    for hi in range(n):
+        running += float(energy[hi])
+        while running - float(energy[lo]) >= want and lo < hi:
+            running -= float(energy[lo])
+            lo += 1
+        if running >= want and (hi - lo + 1) < best_width:
+            best_width, best_start = hi - lo + 1, lo
+    return (best_start + best_width / 2.0) / n, best_width / float(n)
+
+
+def focus_window(path, start=0.0, duration=1.0, keep=0.72):
+    """Where a beat's detail sits horizontally, as (centre, width) fractions.
+
+    (0.5, 1.0) -- the whole frame, which is what reframing did before this
+    existed -- whenever the measurement is unavailable.
+    """
+    energy = _detail_columns(path, start, duration)
+    if energy is None:
+        return 0.5, 1.0
+    return _narrowest_band(energy, keep)
+
+
+def precrop(src_w, src_h, w, h, focus, coverage, max_upscale=1.9):
+    """(crop_w, crop_x): how much of the source width to keep, and from where.
+
+    None means keep all of it. Three floors decide how narrow the crop may go,
+    and the widest wins: the band the detail sits in, the width that fills
+    `coverage` of the output, and the width below which the source would have
+    to be blown up by more than `max_upscale`. That last one is what a 2.35:1
+    film needs -- filling a vertical frame from one would mean a 2.2x upscale,
+    and soft is worse than small.
+    """
+    if not (src_w and src_h and w and h):
+        return None
+    centre, span = focus
+    fills = float(src_h) * float(w) / max(0.05, float(coverage)) / float(h)
+    sharp = float(w) / max(1.0, float(max_upscale))
+    need = max(float(span) * src_w, fills, sharp)
+    cw = int(min(float(src_w), max(2.0, need))) // 2 * 2
+    if cw >= src_w - 1:
+        return None                       # nothing to gain: keep the frame
+    cx = int(round(float(centre) * src_w - cw / 2.0))
+    return cw, max(0, min(src_w - cw, cx)) // 2 * 2
+
+
 # zoompan recomputes its crop window every frame and rounds the origin to whole
 # pixels. On a slow push the ideal origin creeps by a fraction of a pixel, so
 # the rounded value sticks, jumps, sticks -- a stutter rather than a drift.
@@ -660,7 +919,7 @@ def _reframe(w, h, mode, zoom=1.0):
 
 
 def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
-                 blur_zoom=1.0, push_out=False):
+                 blur_zoom=1.0, push_out=False, crop_to=None):
     """Reframe to the style's format, and apply its push-in.
 
     The slow push is what stops a run of stock clips reading as a slideshow;
@@ -670,19 +929,29 @@ def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
     not on the finished frame. Zooming the composite drags the strip's own
     edges across a static background, and a hard edge creeping against
     stillness reads as a shake far more than the image inside it ever does.
+
+    `crop_to` is (width, x) from `precrop`: the band of the source worth
+    keeping. Everything downstream then treats that band as the whole frame,
+    so a shot that would have been a letterboxed strip is fitted as if it had
+    been shot closer.
     """
+    head = ""
+    if crop_to and src_h:
+        cw, cx = crop_to
+        head = "crop=%d:%d:%d:0," % (cw, src_h, cx)
+        src_w = cw
     mode = choose_fit(fit, w, h, src_w, src_h)
     if mode == "blur":
         sw, sh = _strip_size(w, h, blur_zoom, src_w, src_h)
         chain = _reframe(w, h, mode, blur_zoom) % _push(sw, sh, fps, push,
                                                         duration, push_out)
-        return "%s,fps=%d,setsar=1" % (chain, fps)
+        return "%s%s,fps=%d,setsar=1" % (head, chain, fps)
     chain = _reframe(w, h, mode, blur_zoom)
     # Driven off `on` (the output frame counter), not the accumulating `zoom`
     # variable: with d=1 zoom resets on every input frame, so the usual
     # zoom+step recipe silently produces no motion at all.
     chain += _push(w, h, fps, push, duration, push_out)
-    return "%s,fps=%d,setsar=1" % (chain, fps)
+    return "%s%s,fps=%d,setsar=1" % (head, chain, fps)
 
 
 def _source_size(beat):
@@ -918,6 +1187,9 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
     enc = look["encode"]
     fit = look["format"].get("fit", "auto")
     blur_zoom = float(look["format"].get("blur_zoom", 1.0) or 1.0)
+    coverage = float(look["format"].get("min_coverage", 0.64) or 0.64)
+    focus_keep = float(look["format"].get("focus_keep", 0.72) or 0.72)
+    max_upscale = float(look["format"].get("max_upscale", 1.9) or 1.9)
     alternate = bool(look["motion"].get("alternate", False))
     crf = str(enc["crf"])
     preset = str(enc["preset"])
@@ -930,15 +1202,24 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
         parts = []
         for i, beat in enumerate(plan["beats"]):
             part = tmp / ("part%03d.mp4" % i)
-            progress("  beat %d/%d  %.1fs  %s" % (
-                i + 1, len(plan["beats"]), beat["duration"], Path(beat["_path"]).name))
+            src_w, src_h = _source_size(beat)
+            crop_to = precrop(src_w, src_h, w, h,
+                              focus_window(beat["_path"], beat["in"],
+                                           beat["duration"], focus_keep),
+                              coverage, max_upscale)
+            progress("  beat %d/%d  %.1fs  %s%s" % (
+                i + 1, len(plan["beats"]), beat["duration"],
+                Path(beat["_path"]).name,
+                "  reframed to %d%% of the width" % round(100.0 * crop_to[0] / src_w)
+                if crop_to else ""))
             _run([
                 ff, "-hide_banner", "-loglevel", "error", "-y",
                 "-ss", "%.3f" % beat["in"], "-t", "%.3f" % beat["duration"],
                 "-i", beat["_path"],
                 "-vf", _beat_filter(w, h, fps, push, beat["duration"], fit,
-                                    *_source_size(beat), blur_zoom=blur_zoom,
-                                    push_out=(alternate and i % 2 == 1)),
+                                    src_w, src_h, blur_zoom=blur_zoom,
+                                    push_out=(alternate and i % 2 == 1),
+                                    crop_to=crop_to),
                 "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", crf,
                 "-pix_fmt", "yuv420p", str(part),
             ], "trimming beat %d" % (i + 1))

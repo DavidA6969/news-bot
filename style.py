@@ -42,7 +42,20 @@ DEFAULT_STYLE = {
     # when fitting by blur. 1.0 shows the whole source frame but leaves it small
     # on a phone; above 1.0 trades a little off the sides for a bigger picture.
     "format": {"width": 1080, "height": 1920, "fps": 30, "fit": "auto",
-               "blur_zoom": 1.2},
+               "blur_zoom": 1.2,
+               # How much of the vertical frame the real picture should fill
+               # before blurred fill takes over. A whole 16:9 frame dropped
+               # into 9:16 fills 32% of it, which reads as a small window
+               # rather than a Short; cropping the source down to the band its
+               # detail actually sits in gets the picture back up to this.
+               "min_coverage": 0.64,
+               # The share of a frame's detail that band has to contain. Higher
+               # keeps more of the shot and crops less.
+               "focus_keep": 0.72,
+               # How far the source may be blown up to fill the frame. A 2.35:1
+               # film would need 2.2x to fill a vertical one; soft is worse
+               # than small, so the crop stops here and fill covers the rest.
+               "max_upscale": 1.9},
     "captions": {
         "font": "DejaVu Sans",
         "size_pct": 3.6,             # of frame height
@@ -136,6 +149,8 @@ _NUMERIC = {
     "captions.margin_bottom_pct": (0.0, 60.0), "captions.side_margin_pct": (0.0, 30.0),
     "captions.pop_ms": (0, 600), "captions.max_lines": (0, 6),
     "format.blur_zoom": (1.0, 2.0),
+    "format.min_coverage": (0.3, 1.0), "format.focus_keep": (0.3, 1.0),
+    "format.max_upscale": (1.0, 4.0),
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34), "encode.audio_rate": (8000, 48000),

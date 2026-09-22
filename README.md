@@ -211,6 +211,38 @@ It runs the three gates before encoding and refuses on a failure:
 The steps underneath are all still separate commands, documented below, for
 when you want to intervene between them.
 
+### One long film into a folder of clips
+
+A compilation starts from a source that is mostly not worth cutting to. Fades,
+held blacks and empty establishing frames are all fine in a film and all dead
+screen time in a twenty-second Short. `render.cut_shots` scores every position
+in the source on how much there is to look at over the seconds that follow it,
+throws out the near-black, and writes the winners out as numbered clips with
+their licence beside them:
+
+```python
+import render
+render.cut_shots("sintel.mp4", "assets/", 12, 2.6,
+                 licence="CC BY 3.0 — Sintel, © Blender Foundation",
+                 start=14.0, end=730.0, gap=20.0,
+                 avoid=[(68, 95), (176, 235)])
+```
+
+`start` and `end` keep it out of the logo sting and the credits. `avoid` is for
+spans a score cannot judge — brightness and detail do not know what an
+advertiser will object to, so the scene with the blood in it goes here.
+
+**Scoring alone does not give you a compilation.** One well-lit sequence
+outscores the rest of a film, so the best twelve positions land inside ninety
+seconds of it and the video looks like a single scene — on Sintel, nine of
+twelve picks fell between 2:36 and 4:37. `spread` (on by default) divides the
+source into one region per shot and takes the best of each instead; the same
+twelve then run from 0:58 to 11:48. A region with nothing usable in it falls
+back to the best that is left anywhere.
+
+It raises rather than padding the list out. Quietly reusing a shot is what made
+an earlier video look like it had four clips in it when it had seven beats.
+
 ## Making the video
 
 `render.py` builds the file: it trims each source clip to the beat it covers,
@@ -433,6 +465,34 @@ blurred fill is the standard way to put landscape footage in a vertical frame
 without recomposing it, and it reads as deliberate, which a half-visible subject
 does not.
 
+**Fill is not the whole answer, though.** A 16:9 frame dropped whole into a 9:16
+one fills 32% of the height. That is a small window in the middle of a phone, and
+three rounds of "the edit is sloppy" turned out to be mostly this. Cropping to
+fill instead keeps every pixel of height and throws away two thirds of the width
+blind to what was in it, which is how a two-shot loses one of the two people.
+
+Neither is necessary, because detail in a frame is not spread evenly — it sits in
+a band and the rest is background. Before each beat is cut, `render.py` samples a
+few tiny greyscale frames from it, sums the gradient down each column, and finds
+the narrowest band holding `format.focus_keep` (default 0.72) of that total. The
+beat is cropped to the band and fitted as if it had been shot closer.
+
+| setting | default | what it does |
+| --- | --- | --- |
+| `format.focus_keep` | 0.72 | share of a frame's detail the crop has to keep — higher crops less |
+| `format.min_coverage` | 0.64 | how much of the output height the real picture should fill |
+| `format.max_upscale` | 1.9 | how far the source may be blown up to get there |
+
+The three fight, and the widest crop wins. `min_coverage` pulls the crop tighter;
+`max_upscale` stops it there, because a 2.35:1 film would need a 2.2× blow-up to
+fill a vertical frame and soft is worse than small. Measured on a synthetic
+source with detail across the whole frame: 0.34 of the output height carried real
+picture before, 0.69 after. On Sintel, a 2.35:1 source, the upscale cap binds
+first and the crop stops at 568 of 1280 pixels.
+
+The measurement decides *where*, not just how much. Given the same clip with its
+detail on the left and on the right, the two crops land in opposite halves.
+
 **The push-in moves the picture, not the frame.** Zooming the finished
 composite drags the blurred fill and the strip's own hard edges along with it,
 and a straight edge creeping against a still background reads as a shake far
@@ -587,6 +647,26 @@ So the pipeline gets the same *form* — found footage, clipped, narrated over �
 from material that is actually cleared for it: public-domain and CC archives for
 footage that is about something, stock for footage that illustrates. That is a
 route to the video you wanted, not a lesser substitute for it.
+
+**What is actually reachable from here.** Fourteen stock and archive hosts,
+`archive.org`, Wikimedia and `nasa.gov` are all blocked at this environment's
+egress gateway, which is what killed the first niche. `raw.githubusercontent.com`
+is not, and neither is `media.githubusercontent.com`, which serves Git LFS
+objects — so a film committed to a public repository through LFS downloads at
+full length. That is how the Blender open movies got here:
+
+| film | licence | where |
+| --- | --- | --- |
+| Elephants Dream (2006) | CC BY 2.5 | HLS segments in `italia/bootstrap-italia` |
+| Sintel (2010) | CC BY 3.0 | LFS object in `andreubotella/media-events-test` |
+
+**Check the file is the film before you credit it.** A contact sheet from the
+first of these did not look like Elephants Dream at all; the subtitle track
+settled it by naming a character. Sintel's file runs 887.999s against a stated
+runtime of 14:48, which is the kind of agreement worth having before a credit
+line goes out under a name that is not yours. The repository hosting a file
+tells you nothing about the licence of what is in it — the film's own licence
+governs, and a repo that declares none is not a source.
 
 ### Shaped for the feed
 
