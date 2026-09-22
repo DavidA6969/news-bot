@@ -135,7 +135,8 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
     progress("  narrated  %s, %d lines" % (engine, len(spoken)))
 
     failed = []
-    for name, check in (("retention", R.retention_report),
+    for name, check in (("narration", R.narration_report),
+                        ("retention", R.retention_report),
                         ("rights", R.rights_report),
                         ("monetize", R.monetize_report)):
         ok, findings = check(plan_path)

@@ -289,6 +289,78 @@ def _overlap(first, last):
     return len(opening & closing) / float(min(len(opening), len(closing)))
 
 
+def narration_report(plan_path):
+    """Is the script varied enough to listen to, or is it one sentence long?
+
+    Every timing check can pass on a script that is still a slog, because what
+    makes narration tiring is not its pace. The video this was written for had
+    seven of twelve beats opening with "She" and thirty-two distinct words in
+    sixty; it cut cleanly, it was fitted to the voice, and it read as one long
+    sentence. None of the other gates had anything to say about it.
+
+    Returns (ok, findings) shaped like the others.
+    """
+    path = Path(plan_path)
+    plan = json.loads(path.read_text(encoding="utf-8"))
+    import style as style_mod
+    look = style_mod._fill_defaults(json.loads(json.dumps(
+        plan.get("_style") or the_style())))
+    want = look.get("narration") or {}
+    lines = [str(b.get("caption") or "").strip() for b in (plan.get("beats") or [])]
+    lines = [l for l in lines if l]
+    if not lines:
+        return False, [("fail", "the plan has lines to check", "none found")]
+    findings = []
+
+    openings = {}
+    for line in lines:
+        first = re.split(r"[^\w']+", line.lower(), 1)[0]
+        if first:
+            openings.setdefault(first, []).append(line)
+    cap = int(want.get("max_same_opening", 3))
+    worst = max(openings.items(), key=lambda kv: len(kv[1]))
+    over = {w: len(v) for w, v in openings.items() if len(v) > cap}
+    findings.append((
+        "ok" if not over else "fail",
+        "the lines do not all start the same way",
+        ("%s — %s. Rewrite the openings; a run of them reads as one sentence "
+         "however well it is cut." % (
+             ", ".join('%d of %d begin "%s"' % (n, len(lines), w)
+                       for w, n in sorted(over.items(), key=lambda kv: -kv[1])),
+             "the limit is %d" % cap))
+        if over else 'commonest opening is "%s", %d of %d (limit %d)'
+        % (worst[0], len(worst[1]), len(lines), cap)))
+
+    words = [w for line in lines for w in re.findall(r"[a-z']+", line.lower())]
+    variety = len(set(words)) / float(len(words)) if words else 0.0
+    floor = float(want.get("min_word_variety", 0.55))
+    findings.append((
+        "ok" if variety >= floor - 0.001 else "fail",
+        "the script is not saying the same few words over and over",
+        "%d distinct words in %d, %.2f against a %.2f floor%s"
+        % (len(set(words)), len(words), variety, floor,
+           "" if variety >= floor - 0.001
+           else " — say more of it in different words")))
+
+    seen = {}
+    for line in lines:
+        seen[line.lower().rstrip(".!?")] = seen.get(line.lower().rstrip(".!?"), 0) + 1
+    dupes = {l: n for l, n in seen.items() if n > 1}
+    allowed = int(want.get("repeat_lines_allowed", 1))
+    findings.append((
+        "ok" if len(dupes) <= allowed else "fail",
+        "no line is said more often than the loop needs",
+        ("%d repeated: %s — the ending running back into the opening is one "
+         "line, not four" % (len(dupes), "; ".join('"%s" x%d' % (l[:34], n)
+                                                   for l, n in list(dupes.items())[:3])))
+        if len(dupes) > allowed else
+        "%d repeated line%s, %d allowed" % (len(dupes),
+                                            "" if len(dupes) == 1 else "s", allowed)))
+
+    ok = not any(level == "fail" for level, _, _ in findings)
+    return ok, findings
+
+
 def retention_report(plan_path):
     """Does this cut match what the Shorts feed actually rewards?
 
@@ -675,6 +747,14 @@ DARK_FLOOR = 30.0          # mean luma, 0-255, below which a shot reads as black
 SCAN_FPS = 4.0
 
 
+# ffmpeg's scene score, above which the picture is a different shot. 0.3 is the
+# usual suggestion and it misses too much in a dark film -- at 0.3 Sintel reads
+# as 97 shots over fifteen minutes and at 0.12 as 222, which is nearer the
+# truth. A boundary found that is not really there only nudges an in-point; one
+# missed puts a cut in the middle of a beat.
+SCENE_THRESHOLD = 0.12
+
+
 class ShotError(RenderError):
     """The source could not supply the shots asked of it."""
 
@@ -768,7 +848,49 @@ def pick_shots(path, count, seconds, start=0.0, end=None, gap=None,
     return sorted(chosen)
 
 
-def cut_shots(path, out_dir, count, seconds, licence=None, at=None, **kwargs):
+def shot_boundaries(path, threshold=SCENE_THRESHOLD):
+    """Times where the source cuts to a different shot, in seconds.
+
+    A clip that straddles one of these is a clip with a cut inside it, which
+    lands in the finished video as a second cut nobody planned -- the beat
+    starts on the shot you chose and finishes somewhere else. Picking an
+    in-point off a contact sheet cannot see this: the sampled frame is the shot
+    you wanted and the two seconds after it are not.
+    """
+    try:
+        out = subprocess.run(
+            [ffmpeg_bin(), "-v", "error", "-i", str(path),
+             "-vf", "select='gt(scene,%.3f)',metadata=print:file=-" % float(threshold),
+             "-an", "-f", "null", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=900,
+            text=True).stdout
+    except Exception:
+        return []
+    return sorted(float(m) for m in re.findall(r"pts_time:([0-9.]+)", out or ""))
+
+
+def snap_to_shot(at, seconds, cuts, lead=0.12):
+    """Move `at` so a `seconds` clip starting there stays inside one shot.
+
+    Returns (start, room) -- where to cut from, and how much unbroken shot
+    there is. `room` under `seconds` means the shot itself is too short and no
+    start avoids the cut; the caller decides whether that is worth having.
+    """
+    at = float(at)
+    before = [c for c in cuts if c <= at + 0.001]
+    after = [c for c in cuts if c > at + 0.001]
+    opens = max(before) if before else 0.0
+    closes = min(after) if after else float("inf")
+    room = closes - opens
+    if at + seconds <= closes - 0.04:
+        return at, room                   # already clear of the next cut
+    # the clip would run over the end of this shot; pull it back towards the
+    # start of the shot it was aimed at rather than jumping to another one
+    return max(opens + lead, min(at, closes - seconds - 0.04)), room
+
+
+def cut_shots(path, out_dir, count, seconds, licence=None, at=None,
+              cuts=None, **kwargs):
     """Cut `count` clips out of one source into `out_dir`, with their licence.
 
     This is the step between "a film is downloadable" and "a folder of clips":
@@ -778,7 +900,11 @@ def cut_shots(path, out_dir, count, seconds, licence=None, at=None, **kwargs):
     `at` is an explicit list of in-points, in beat order, for when the cut has
     to follow the story rather than the light. Scoring finds the shots worth
     looking at; it has no idea which one is the dragon. Given `at`, nothing is
-    scored and the order is kept exactly as passed.
+    scored and the order is kept exactly as passed -- but each one is still
+    snapped so the clip cannot straddle a cut in the source, and a moment
+    sitting in a shot too short to hold the clip is an error rather than a beat
+    that quietly changes picture half way through. `cuts` passes in a cached
+    boundary list; finding them means decoding the whole source.
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -786,6 +912,22 @@ def cut_shots(path, out_dir, count, seconds, licence=None, at=None, **kwargs):
         at = [float(t) for t in at]
         if len(at) != count:
             raise ShotError("%d in-points given for %d shots" % (len(at), count))
+        cuts = shot_boundaries(path) if cuts is None else list(cuts)
+        if cuts:
+            snapped, cramped = [], []
+            for i, t in enumerate(at, 1):
+                start, room = snap_to_shot(t, seconds, cuts)
+                if room < seconds:
+                    cramped.append((i, t, room))
+                snapped.append(start)
+            if cramped:
+                raise ShotError(
+                    "%s in a shot shorter than the %.1fs asked for: %s. Pick a "
+                    "different moment, or cut shorter clips."
+                    % ("shot %d is" % cramped[0][0] if len(cramped) == 1
+                       else "%d shots are" % len(cramped), seconds,
+                       ", ".join("#%d at %.1fs has %.1fs" % c for c in cramped[:4])))
+            at = snapped
     else:
         at = pick_shots(path, count, seconds, **kwargs)
     ff = ffmpeg_bin()
@@ -1312,6 +1454,27 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             if not got["video"]:
                 raise RenderError("beat %d produced no video — is %s really a video file?"
                                   % (i + 1, beat["_path"]))
+            # A clip with less material than its beat needs makes a short part,
+            # and a short part is not a small problem: the xfade offsets are
+            # computed from the planned lengths, so one of them lands past the
+            # end of its input and the whole chain collapses. Measured once:
+            # four beats a few frames short took a 59.2s video to 50.2s. Catch
+            # it here, where the beat and its clip can be named.
+            short_by = want - got["duration"]
+            if short_by > 1.5 / float(fps):
+                have = 0.0
+                try:
+                    have = probe(beat["_path"])["duration"] - float(beat["in"])
+                except Exception:
+                    pass
+                raise RenderError(
+                    "beat %d came out %.2fs, not %.2fs. Its line needs %.2fs%s "
+                    "and %s only has %.2fs after its in-point of %.2fs. Cut a "
+                    "longer clip for this beat, or shorten the line."
+                    % (i + 1, got["duration"], want, beat["duration"],
+                       " plus %.2fs of transition overlap"
+                       % (fade_extra[i] / float(fps)) if fade_extra[i] else "",
+                       Path(beat["_path"]).name, have, float(beat["in"])))
             parts.append(part)
 
         # 2. join them, with transitions if the style asks for any
@@ -1504,6 +1667,9 @@ def main(argv=None):
     p_ret = sub.add_parser("retention", help="does this cut match what the feed rewards?")
     p_ret.add_argument("plan")
 
+    p_nar = sub.add_parser("narration", help="is the script varied enough to listen to?")
+    p_nar.add_argument("plan")
+
     p_mon = sub.add_parser("monetize", help="exposure under the inauthentic content policy")
     p_mon.add_argument("plan")
 
@@ -1539,6 +1705,17 @@ def main(argv=None):
             print("\nNothing here breaks the policy. It is still a reviewer's "
                   "call, not a check's.")
             return 0
+        if args.command == "narration":
+            ok, findings = narration_report(args.plan)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            if not ok:
+                print("\nThe script will read as one long sentence. Rewrite it "
+                      "before cutting to it.", file=sys.stderr)
+            return 0 if ok else 4
         if args.command == "retention":
             ok, findings = retention_report(args.plan)
             for level, headline, detail in findings:

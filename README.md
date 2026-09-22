@@ -536,6 +536,32 @@ rounds its crop origin to whole pixels — on a slow push the ideal origin creep
 by a fraction of a pixel, so the rounded value sticks, jumps, sticks, and that
 stutter is the rest of the shake.
 
+### Cutting to the story, not to the light
+
+`pick_shots` scores what is worth looking at. It has no idea which shot is the
+dragon, so a narration *about* a film has to be cut by hand — `cut_shots` takes
+an explicit list of in-points for that.
+
+**Read off a contact sheet, those in-points are wrong about a third of the time.**
+The sampled frame is the shot you wanted; the two seconds after it are often a
+different shot. Ten of the first forty cut this way had a cut inside them, which
+lands in the finished video as a second cut nobody planned — the beat starts on
+the shot you chose and finishes somewhere else. That is what "the cut scenes are
+off" looks like from the inside.
+
+So every in-point is now snapped: `shot_boundaries` finds where the source cuts
+(ffmpeg's scene score, at 0.12 rather than the usual 0.3 — at 0.3 a dark film
+like Sintel reads as 97 shots in fifteen minutes and at 0.12 as 222, which is
+nearer the truth), and `snap_to_shot` pulls each clip back so it cannot straddle
+one. A moment sitting in a shot too short to hold its beat is an error naming
+the beat, not a picture that quietly changes half way through.
+
+**A clip shorter than its beat is also an error now.** It used to make a short
+part, and a short part is not a small problem: the transition offsets are
+computed from the planned lengths, so one lands past the end of its input and
+the chain collapses. Measured once — four beats a few frames short took a 59.2s
+video to 50.2s.
+
 ### Between the shots
 
 `transition.kind` was in the style from the start and nothing read it, so every
@@ -733,6 +759,46 @@ runtime of 14:48, which is the kind of agreement worth having before a credit
 line goes out under a name that is not yours. The repository hosting a file
 tells you nothing about the licence of what is in it — the film's own licence
 governs, and a repo that declares none is not a source.
+
+### Is the script worth listening to
+
+Every timing check can pass on a script that is still a slog, because what
+makes narration tiring is not its pace. The first cut of the Sintel story had
+**seven of twelve beats opening with "She"** and thirty-two distinct words in
+sixty. It was fitted to the voice, it cut cleanly, and it read as one long
+sentence. None of the other gates had anything to say about it.
+
+```
+$ python3 render.py narration render.json
+ FAIL  the lines do not all start the same way
+         7 of 12 begin "she" — the limit is 3.
+ FAIL  the script is not saying the same few words over and over
+         32 distinct words in 60, 0.53 against a 0.55 floor
+```
+
+| setting | default | |
+| --- | --- | --- |
+| `narration.max_same_opening` | 3 | beats that may begin with the same word |
+| `narration.min_word_variety` | 0.55 | distinct words over total words |
+| `narration.repeat_lines_allowed` | 1 | the loop line, said twice, and nothing else |
+
+### What the biggest Shorts actually do
+
+Worth being specific rather than repeating "hook them early". The structural
+findings that changed the edit:
+
+- **The hook is cognitive incompletion, not entertainment.** Start mid-action.
+  *"She wins this fight. It ruins her life. Watch the wing."* — three beats,
+  three unanswered questions, no preamble.
+- **Open loops every 10–15 seconds, converging at the end.** The strongest
+  long Shorts stack two or three unresolved threads. "Watch the wing" is planted
+  at 3 seconds and paid off at 50.
+- **The retention curve should hump, not slope.** A payoff in the *second third*
+  retains through the middle and is what gets a Short shared. Here that is the
+  dragon being taken, at around 0:30 of a 0:60.
+- **40–55% completion is realistic at 30–60s**, against more for a 20s cut. A
+  longer video is a worse-retaining video, so `retention.total_target_seconds`
+  still warns past its number — going long is a decision, not a free upgrade.
 
 ### Shaped for the feed
 

@@ -90,6 +90,15 @@ DEFAULT_STYLE = {
     # re-asks "is this worth continuing?" every second or two, so a beat that
     # outlasts that is where they leave. hook_seconds is the swipe window:
     # roughly 1.5-2s to interrupt a thumb that is already moving.
+    # A script can pass every timing check and still be a slog, because the
+    # thing that makes narration tiring is not its pace. Seven of twelve beats
+    # opening with the same word reads as one long sentence however well it is
+    # cut.
+    "narration": {
+        "max_same_opening": 3,      # beats that may begin with the same word
+        "min_word_variety": 0.55,   # distinct words over total words
+        "repeat_lines_allowed": 1,  # the loop line, said twice, and nothing else
+    },
     "retention": {
         "hook_seconds": 2.0,
         "beat_target_seconds": 2.0,
@@ -159,6 +168,8 @@ _NUMERIC = {
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
+    "narration.max_same_opening": (1, 20), "narration.min_word_variety": (0.1, 1.0),
+    "narration.repeat_lines_allowed": (0, 10),
     "retention.hook_seconds": (0.5, 6.0),
     "retention.beat_target_seconds": (0.5, 10.0),
     "retention.beat_ceiling_seconds": (0.5, 12.0),
@@ -209,7 +220,7 @@ def _validate(style):
         raise StyleError("the style must be a JSON object")
     _fill_defaults(style)
     for section in ("format", "captions", "motion", "transition", "pacing",
-                    "encode", "shorts", "voice", "retention"):
+                    "encode", "shorts", "voice", "retention", "narration"):
         if not isinstance(style.get(section), dict):
             raise StyleError('style is missing the "%s" section' % section)
     for dotted, (low, high) in _NUMERIC.items():
