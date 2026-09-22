@@ -75,6 +75,12 @@ enough that the video runs back into itself. A loop turns one view into two,
 and rewatches count. The check compares the words of both lines, so an echo
 works — it does not have to be a repeat.
 
+**Mark where the voice should slow.** Hand FORGE an `emphasis` map alongside
+the script — `{2: 0.85, 11: 0.88}` — naming the beats that should drop in pace
+and the ones that can move. The payoff, the number and the last line want air;
+the mechanism in the middle does not. A line delivered at the same rate as
+everything around it is not a payoff, it is just the next sentence.
+
 **Write three openings, not one.** Several versions of the same idea can swing
 a Short from nothing to a million, and the variable is almost always the hook.
 Give ATLAS a curiosity gap, a bold claim and a contradiction for the same body,

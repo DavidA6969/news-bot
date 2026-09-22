@@ -534,8 +534,16 @@ def beats_from_script(script_path):
     return beats
 
 
-def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None):
-    """One wav per beat. Returns [(path, seconds), ...] in beat order."""
+def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None,
+          emphasis=None):
+    """One wav per beat. Returns [(path, seconds), ...] in beat order.
+
+    `emphasis` is an optional {beat number: rate multiplier} -- below 1.0 slows
+    a line down, above speeds it up. A narrator drops the pace for the line
+    that matters and pushes through the setup; a narrator who reads everything
+    at one rate is the thing people mean when they say a voice sounds
+    synthetic. Engines without a rate control ignore it.
+    """
     beats = beats_from_script(script_path)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -572,10 +580,18 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
                 "better than any of them for commentary.")
         engine = options[0]
 
+    emphasis = emphasis or {}
     clips = []
     for i, line in enumerate(beats, 1):
         target = out_dir / ("beat%02d.wav" % i)
-        _synthesise(engine, line, target, voice, settings)
+        rate = float(emphasis.get(i, 1.0))
+        per_line = settings
+        if abs(rate - 1.0) > 0.001:
+            per_line = dict(settings)
+            for key in ("kokoro_speed", "words_per_minute"):
+                if key in per_line and per_line[key]:
+                    per_line[key] = type(per_line[key])(per_line[key] * rate)
+        _synthesise(engine, line, target, voice, per_line)
         clips.append((target, _duration(target)))
     return clips
 

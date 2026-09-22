@@ -369,6 +369,14 @@ percent of the target rather than wherever the engine happened to land.
 Changing the look or the voice once in `style.json` moves every future video
 together, and each render records the `styleVersion` it used.
 
+**Slow down for the line that matters.** `speak()` takes an optional
+`emphasis` of `{beat number: rate multiplier}` — below 1.0 slows a line, above
+pushes it. A narrator drops the pace for the payoff and moves through the
+setup; one that reads everything at a single rate is most of what people mean
+by "it sounds like AI". On the second Short here that spreads the delivery from
+148 words a minute on the payoff to 263 in the middle, where it used to be
+flat. Engines with no rate control ignore it.
+
 For a channel you intend to keep, record the voice yourself. Commentary is a
 person having a view, and synthesised narration is audibly not that.
 
