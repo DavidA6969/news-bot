@@ -159,6 +159,10 @@ DEFAULT_STYLE = {
         # is nothing at all.
         "silence_floor_db": -45,
         "keep_head_ms": 25,             # left at the head so no consonant clips
+        # Left at the TAIL, which needs far more: a sentence falls off over
+        # 0.03-0.185s and cutting into that makes it end dead, which reads as
+        # running into the next one however much silence follows.
+        "keep_tail_ms": 140,
         "gap_seconds": 0.09,            # breath between lines, not a pause
         # A full stop inside a line. Kokoro gives one 0.06s -- the same as a
         # comma -- so voice.py speaks the line in two takes and puts this
@@ -214,7 +218,8 @@ _NUMERIC = {
     "retention.beat_ceiling_seconds": (0.5, 12.0),
     "retention.total_target_seconds": (5.0, 180.0),
     "voice.kokoro_speed": (0.5, 2.0), "voice.silence_floor_db": (-70, -20),
-    "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
+    "voice.keep_head_ms": (0, 200), "voice.keep_tail_ms": (0, 400),
+    "voice.gap_seconds": (0.0, 1.0),
     "voice.sentence_pause_seconds": (0.0, 1.5),
     "voice.comma_pause_seconds": (0.0, 0.8),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),

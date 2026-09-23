@@ -90,9 +90,16 @@ one that never pauses sounds like it is being read off a card. On the 36-beat
 cut above: 27 stops averaging 0.36s, 8 run-ons averaging 0.06s.
 
 **A comma is a breath, a full stop is a stop, and nothing is neither.** The
-three lengths are measured, not guessed: 0.06s where a beat runs on into the
-next, 0.13s at a comma, 0.35s at a sentence end. You get them by punctuating
+three lengths are measured, not guessed: 0.11s where a beat runs on into the
+next, 0.11s at a comma, 0.57s at a sentence end. You get them by punctuating
 the line properly -- there is no directive for a comma.
+
+**Never put `{breath}`, `{hold}` or `{beat}` on a line that ends mid-sentence.**
+They end the take, so a sentence marked that way is split across two
+recordings: the first half comes back with a rising, unfinished tune and a full
+sentence-sized gap behind it. That is heard as the narration stopping in the
+middle of a thought. Mark the pause on the line that ends the sentence; the
+commas inside it already breathe.
 
 **Two sentences on one line are allowed, and they land hard.** The line is one
 beat and one picture, and `voice.py` speaks it in two takes with real silence

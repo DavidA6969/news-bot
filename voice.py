@@ -334,17 +334,25 @@ def trim_silence(path, settings=None):
 
     A few milliseconds are kept at the head so the first consonant is not
     clipped, which is worse than the silence.
+
+    The TAIL keeps more, and that is not symmetry gone wrong. A sentence does
+    not stop, it falls off: measured on four of these lines, the decay after
+    the last strong sound ran 0.03-0.185s. Trimmed to the head's 25ms, the
+    voice cuts out mid-fall and the next sentence begins -- which is heard as
+    two sentences run together no matter how much silence is put between them,
+    because the first one never finished.
     """
     settings = settings or {}
     path = Path(path)
     floor = float(settings.get("silence_floor_db", -45))
     keep = float(settings.get("keep_head_ms", 25)) / 1000.0
+    tail = float(settings.get("keep_tail_ms", 140)) / 1000.0
     before = _duration(path)
     trimmed = path.with_name(path.stem + ".trim.wav")
     chain = ("silenceremove=start_periods=1:start_threshold=%ddB:start_silence=%.3f"
              ":detection=peak,areverse,"
              "silenceremove=start_periods=1:start_threshold=%ddB:start_silence=%.3f"
-             ":detection=peak,areverse" % (floor, keep, floor, keep))
+             ":detection=peak,areverse" % (floor, keep, floor, tail))
     proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
                            "-i", str(path), "-af", chain,
                            "-ar", str(SAMPLE_RATE), "-ac", "1", str(trimmed)],

@@ -417,13 +417,24 @@ lands off a vowel, and writes in `voice.comma_pause_seconds` with a 6ms fade
 either side. If the quietest point near a comma is still louder than 40% of the
 take's median, there is no gap there to open and the line is left as spoken.
 
-Measured on the finished 36-beat narration:
+**A take that ends on a comma is a bug in the script, not in the engine.** A
+`{breath}` mark ends a group, so putting one on a line that ends mid-sentence
+splits the sentence across two takes: the first half comes back with a rising,
+unfinished tune and then gets a full sentence-sized gap after it. Four of them
+were doing exactly that. Mark the breath where the sentence ends, and let the
+commas inside it breathe on their own.
+
+```
+  narrated  kokoro, 37 lines as 25 sentences   <- every take ends on a full stop
+```
+
+Measured on the finished 37-beat narration:
 
 | | cuts | silence |
 | --- | --- | --- |
-| inside a sentence | 8 | 0.13s median -- a breath, not a stop |
-| at a sentence boundary | 27 | 0.35s median, 0.17s at the shortest |
-| at a stop inside a line | 4 | 0.33-0.52s |
+| inside a sentence | 12 | 0.11s median -- a breath, not a stop |
+| at a sentence boundary | 24 | **0.57s** median, 0.38s at the shortest |
+| at a stop inside a line | 3 | **0.64-0.67s** |
 
 ```
   narrated  kokoro, 36 lines as 28 sentences
@@ -454,6 +465,39 @@ supply one.
 failure fitting to the voice exists to prevent — and with beats sharing an
 utterance it would desync everything after it. The note says the line is too
 long; the cut still follows the voice.
+
+### A sentence does not stop, it falls off
+
+Two rounds of widening the pauses changed nothing a listener could hear, and
+measuring the wrong artefact is why. The narration track had the silence in it
+all along. What was missing was in front of it.
+
+**The tail was being trimmed to 25ms.** `trim_silence` used `keep_head_ms` at
+both ends, which is symmetrical and wrong: a sentence does not stop, it decays.
+Measured over four of these lines, the fall-off after the last strong sound ran
+**0.03-0.185s**. Cut to 25ms, the voice stops mid-fall and the next sentence
+begins -- and that reads as two sentences run together *no matter how much
+silence is put between them*, because the first one never finished.
+`voice.keep_tail_ms` is 140ms and separate from the head for that reason.
+
+**And the gap was never really the design.** `voice.gap_seconds` was 0.14s;
+the 0.35s that got measured at a boundary was the frame quantisation and the
+beat floor making up the difference, which is to say luck. Where the beat was
+tight it collapsed to **0.17s**, which at this reading speed is a blink. The
+gap is 0.26s now, so it is the stop, not a contribution to one.
+
+```
+                     before   after
+  between sentences   0.35s    0.57s median
+  the shortest one    0.17s    0.38s
+  two sentences on one line
+                      0.33s    0.65s
+  inside a sentence   0.13s    0.11s   -- unchanged, still flowing
+```
+
+One thing this is *not*: the music bed filling the gaps. That was the first
+suspect and the measurement cleared it -- through a narration gap the mix holds
+steady within 0.4 dB, 18 dB below the speech. The bed does not rush in.
 
 ### One level, measured rather than normalised
 
