@@ -453,6 +453,71 @@ MAX_GAIN_DB = 40.0
 SILENCE_FLOOR_DB = -60.0    # under this there is no speech to level
 
 
+# How fast Kokoro may be ASKED to speak. Past this it stops compressing a
+# phrase evenly and starts squeezing the end of it, which is heard as a line
+# that sets off at a sensible pace and then runs out. Measured over five
+# phrases, splitting each at its comma and comparing how much each half
+# actually shortened against how much was asked for:
+#
+#     speed   first half   last half   skew
+#      1.15      0.93x        0.94x     0.99
+#      1.22      0.93x        0.96x     0.96
+#      1.28      1.07x        0.87x     1.23    <- the end is squeezed
+#      1.40      1.17x        0.99x     1.18
+#      1.52      1.13x        0.95x     1.19
+#
+# Above 1.22 it is not a smooth degradation, it is erratic, which is worse:
+# two lines marked the same way come back paced differently.
+ARTICULATE_SPEED = 1.22
+
+
+def _split_speed(settings, want):
+    """(settings to synthesise with, tempo to apply after) for a wanted speed.
+
+    Anything past what the engine can say evenly is done afterwards with
+    atempo, which compresses the whole line by the same factor and therefore
+    cannot squeeze its end. At the same finished speed, measured:
+
+                                    skew   syllable valleys
+        engine at 1.368             1.18        5.7 dB
+        engine at 1.22 + atempo     0.96        5.6 dB
+        engine at 1.512             1.19        3.3 dB
+        engine at 1.22 + atempo     0.97        5.4 dB
+
+    The reference, an unhurried 1.0, measures 6.4 dB.
+    """
+    if "kokoro_speed" not in settings or not settings.get("kokoro_speed"):
+        return settings, 1.0
+    if want <= ARTICULATE_SPEED + 1e-6:
+        return settings, 1.0
+    out = dict(settings)
+    out["kokoro_speed"] = ARTICULATE_SPEED
+    return out, want / ARTICULATE_SPEED
+
+
+def _stretch(path, tempo):
+    """Speed a take up without changing its pitch, evenly across the line."""
+    if tempo <= 1.0001:
+        return path
+    steps, left = [], float(tempo)
+    while left > 2.0:                       # atempo's own range, chained
+        steps.append(2.0); left /= 2.0
+    steps.append(left)
+    chain = ",".join("atempo=%.5f" % s for s in steps)
+    tmp = Path(path).with_name(Path(path).stem + ".tempo.wav")
+    proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
+                           "-i", str(path), "-af", chain,
+                           "-ar", str(SAMPLE_RATE), "-ac", "1", str(tmp)],
+                          capture_output=True, text=True)
+    if proc.returncode == 0 and tmp.exists() and tmp.stat().st_size > 256:
+        tmp.replace(path)
+    else:
+        tmp.unlink(missing_ok=True)
+        print("voice.py: could not speed %s up by %.2fx — leaving it as spoken"
+              % (Path(path).name, tempo), file=sys.stderr)
+    return path
+
+
 def _mean_volume(path):
     """(mean dB, peak dB) for a wav, from ffmpeg's volumedetect, or None."""
     proc = subprocess.run([_ffmpeg(), "-hide_banner", "-i", str(path),
@@ -888,7 +953,7 @@ def sentence_pause(settings):
     return float(held)
 
 
-def _say(engine, pieces, out_path, voice, settings, weights=None):
+def _say(engine, pieces, out_path, voice, settings, weights=None, tempo=1.0):
     """Speak one line, in the order that keeps each step honest.
 
     Say it, trim the engine's own silence off both ends, apply the style's
@@ -906,6 +971,9 @@ def _say(engine, pieces, out_path, voice, settings, weights=None):
             "%s.p%02d.wav" % (out_path.stem, n))
         _engine_say(engine, piece, part, voice, settings)
         trim_silence(part, settings)
+        # before the tone and the level, and well before the silence: a
+        # pause written in seconds must not then be sped up with the words
+        _stretch(part, tempo)
         _master(part, settings)
         count = len(re.findall(r"[\w']+", piece))
         slices.append((weights or [])[taken:taken + count] if weights else None)
@@ -940,7 +1008,8 @@ def _say(engine, pieces, out_path, voice, settings, weights=None):
     return out_path
 
 
-def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None):
+def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None,
+                tempo=1.0):
     """One line of text to one wav, spoken and treated to the committed style.
 
     Two silences no engine here supplies are put in by hand. A line holding
@@ -956,14 +1025,14 @@ def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None)
     out_path = Path(out_path)
     pieces = sentence_pieces(text)
     try:
-        return _say(engine, pieces, out_path, voice, settings, weights)
+        return _say(engine, pieces, out_path, voice, settings, weights, tempo)
     except VoiceError:
         if len(pieces) == 1:
             raise                           # nothing left to fall back to
         # a run-on line is better than a missing one
         print("voice.py: could not speak %r in %d takes — one instead"
               % (text[:40], len(pieces)), file=sys.stderr)
-        return _say(engine, [(text, 0.0)], out_path, voice, settings, weights)
+        return _say(engine, [(text, 0.0)], out_path, voice, settings, weights, tempo)
 
 
 # --------------------------------------------------------------------------
@@ -1215,7 +1284,7 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
 
     emphasis = emphasis or {}
     delivery = delivery or {}
-    spoken = []
+    spoken, said_ceiling = [], False
     for n, group in enumerate(utterances(beats, delivery), 1):
         text = " ".join(beats[i - 1] for i in group)
         rate, pitch, hold = _group_spec(group, delivery)
@@ -1234,7 +1303,19 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
             for key in ("kokoro_speed", "words_per_minute"):
                 if key in per_line and per_line[key]:
                     per_line[key] = type(per_line[key])(per_line[key] * rate)
-        _synthesise(engine, text, target, voice, per_line, flat)
+        # A rate mark is a multiplier on the style's base, and the style's base
+        # has been raised since the marks were chosen -- {faster} on a 1.2 base
+        # asks for 1.512, well past what the engine says evenly. Ask for what it
+        # can say and do the rest afterwards.
+        per_line, tempo = _split_speed(per_line, float(per_line.get("kokoro_speed") or 0.0))
+        if tempo > 1.0001 and not said_ceiling:
+            said_ceiling = True             # once per narration, not per take
+            print("voice.py: a line wants %.3fx; asking kokoro for %.2f and "
+                  "taking the rest evenly with atempo, because past %.2f it "
+                  "squeezes the end of a phrase"
+                  % (float(settings.get("kokoro_speed") or 0) * rate,
+                     ARTICULATE_SPEED, ARTICULATE_SPEED), file=sys.stderr)
+        _synthesise(engine, text, target, voice, per_line, flat, tempo)
         if pitch:
             _pitch(target, pitch)
         seconds = _duration(target)

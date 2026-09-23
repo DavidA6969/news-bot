@@ -142,7 +142,7 @@ the end of a beat and `voice.py` strips it before speaking or captioning:
 
 | | |
 | --- | --- |
-| `fast` / `faster` | rate ×1.14 / ×1.26 |
+| `fast` / `faster` | rate ×1.14 / ×1.26 — on the committed base these are 1.37x and 1.51x, which the engine cannot say evenly, so voice.py asks it for 1.22 and takes the rest with atempo. Nothing for you to do; the mark means what it says. |
 | `slow` / `slower` | rate ×0.86 / ×0.76 |
 | `breath` / `hold` / `beat` | 0.18s / 0.34s / 0.6s of silence after the line |
 | `low` / `high` | ±0.5 semitones — deliberately tiny, see below |

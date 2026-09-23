@@ -466,6 +466,48 @@ failure fitting to the voice exists to prevent — and with beats sharing an
 utterance it would desync everything after it. The note says the line is too
 long; the cut still follows the voice.
 
+### Never ask the engine for more speed than it can say
+
+A rate mark is a multiplier on the style's base, and the base has been raised
+three times since the marks were chosen. `{faster}` meant 1.26 when the base
+was 1.0; on a base of 1.20 it means **1.512**, and 13 of 37 beats were being
+synthesised at 1.368 or above.
+
+Past about 1.22 Kokoro stops compressing a phrase evenly and starts squeezing
+the end of it -- which is heard as a line that sets off at a sensible pace and
+then runs out. Measured over five phrases, splitting each at its comma and
+comparing how much each half actually shortened against how much was asked for:
+
+| speed | first half | last half | skew |
+| --- | --- | --- | --- |
+| 1.15 | 0.93x | 0.94x | 0.99 |
+| 1.22 | 0.93x | 0.96x | 0.96 |
+| 1.28 | 1.07x | 0.87x | **1.23** |
+| 1.40 | 1.17x | 0.99x | **1.18** |
+| 1.52 | 1.13x | 0.95x | **1.19** |
+
+Above 1.22 it is not a smooth degradation, it is erratic, which is worse: two
+lines marked the same way come back paced differently.
+
+So `_split_speed` asks the engine for at most `ARTICULATE_SPEED` and hands the
+rest to `atempo`, which shortens the whole line by one factor and therefore
+cannot squeeze its end. At the same finished speed:
+
+| | skew | syllable valleys |
+| --- | --- | --- |
+| engine at 1.368 | 1.18 | 5.7 dB |
+| engine at 1.22 + atempo | **0.96** | 5.6 dB |
+| engine at 1.512 | 1.19 | **3.3 dB** |
+| engine at 1.22 + atempo | **0.97** | 5.4 dB |
+
+An unhurried 1.0 measures 6.4 dB between syllables; at 1.512 the engine's own
+compression leaves 3.3 dB, which is syllables running into each other. In the
+finished narration the `{fast}` and `{faster}` takes now measure 6.2 dB against
+7.1 dB for everything else.
+
+The stretch goes on before the tone, the level and the silence -- a pause
+written in seconds must not be sped up along with the words.
+
 ### A sentence does not stop, it falls off
 
 Two rounds of widening the pauses changed nothing a listener could hear, and
