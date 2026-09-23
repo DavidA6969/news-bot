@@ -98,6 +98,13 @@ DEFAULT_STYLE = {
         "max_same_opening": 3,      # beats that may begin with the same word
         "min_word_variety": 0.55,   # distinct words over total words
         "repeat_lines_allowed": 1,  # the loop line, said twice, and nothing else
+        # The share of beats that run on from, or into, the one beside them.
+        # A script written one self-contained sentence per beat stops being
+        # narration and becomes a caption track -- "Desert. Bamboo. Gone." is
+        # a list of what is on screen, not somebody telling you a story. Prose
+        # split at clause boundaries instead lets the voice carry across the
+        # cuts, which is what every narrated Short actually does.
+        "min_flow": 0.35,
     },
     # Silence under a narration is the cheapest thing that makes a video feel
     # thin. The bed is synthesised by music.py rather than licensed, because a
@@ -180,6 +187,7 @@ _NUMERIC = {
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
     "music.gain_db": (-60.0, 0.0), "music.duck_db": (-30.0, 0.0),
     "narration.max_same_opening": (1, 20), "narration.min_word_variety": (0.1, 1.0),
+    "narration.min_flow": (0.0, 1.0),
     "narration.repeat_lines_allowed": (0, 10),
     "retention.hook_seconds": (0.5, 6.0),
     "retention.beat_target_seconds": (0.5, 10.0),

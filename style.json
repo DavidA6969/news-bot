@@ -46,8 +46,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 34,
-    "committedAt": "2026-09-23T02:06:37Z",
+    "version": 35,
+    "committedAt": "2026-09-23T04:49:36Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -84,7 +84,8 @@
     "narration": {
       "max_same_opening": 3,
       "min_word_variety": 0.55,
-      "repeat_lines_allowed": 1
+      "repeat_lines_allowed": 1,
+      "min_flow": 0.35
     },
     "music": {
       "enabled": true,
@@ -396,6 +397,14 @@
       "from": -21.0,
       "to": -19,
       "version": 34
+    },
+    {
+      "at": "2026-09-23T04:49:36Z",
+      "action": "upgrade",
+      "added": [
+        "narration.min_flow"
+      ],
+      "version": 35
     }
   ]
 }

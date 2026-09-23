@@ -357,6 +357,29 @@ def narration_report(plan_path):
         "%d repeated line%s, %d allowed" % (len(dupes),
                                             "" if len(dupes) == 1 else "s", allowed)))
 
+    # Does it read as somebody telling a story, or as labels for the pictures?
+    # A beat that does not finish its sentence, or that opens lower-case or on
+    # a connective, is one the voice carries across the cut. A script with none
+    # of those is forty captions in a row, which is what "random words from
+    # what the clips show" sounds like from the outside.
+    joins = ("and", "but", "so", "or", "which", "because", "while", "where",
+             "who", "that", "with", "then", "until", "over", "through",
+             "across", "instead", "a", "the", "one", "at", "for", "by")
+    flowing = [l for l in lines
+               if not l.rstrip().endswith((".", "!", "?"))
+               or l[:1].islower()
+               or re.split(r"[^\w']+", l.lower(), 1)[0] in joins]
+    share = len(flowing) / float(len(lines))
+    floor = float(want.get("min_flow", 0.35))
+    findings.append((
+        "ok" if share >= floor - 0.001 else "fail",
+        "it reads as narration rather than as labels for the pictures",
+        "%d of %d beats run on from or into another, %.0f%% against a %.0f%% "
+        "floor%s" % (len(flowing), len(lines), 100 * share, 100 * floor,
+                     "" if share >= floor - 0.001 else
+                     " — split the sentences across the beats instead of "
+                     "writing one per beat, so the voice carries over the cuts")))
+
     ok = not any(level == "fail" for level, _, _ in findings)
     return ok, findings
 

@@ -825,6 +825,25 @@ $ python3 render.py narration render.json
 | `narration.max_same_opening` | 3 | beats that may begin with the same word |
 | `narration.min_word_variety` | 0.55 | distinct words over total words |
 | `narration.repeat_lines_allowed` | 1 | the loop line, said twice, and nothing else |
+| `narration.min_flow` | 0.35 | beats that run on from, or into, a neighbour |
+
+**`min_flow` is the one that matters most, and it took two more rounds to find.**
+A script can clear every other check and still not be a story, because writing
+one self-contained sentence per beat turns narration into a caption track. This
+passed everything:
+
+> So she goes after it. Desert. Bamboo. Snow that nearly finishes her.
+> Seasons. Then years. Less of the village girl each one.
+
+Eight of forty-one beats ran on from the one before. That is a list of what is
+on screen, read aloud. Splitting the same story at *clause* boundaries instead
+lets the voice carry across the cuts, which is what narrated Shorts actually do:
+
+> So she goes after him. Across deserts, through forests, over mountains that
+> nearly kill her. Not for weeks. For years. Long enough to stop being that girl.
+
+Thirty of forty-one now. The check counts a beat as flowing if it does not end
+its sentence, or opens lower-case, or opens on a connective.
 
 ### What the biggest Shorts actually do
 
