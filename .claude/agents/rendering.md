@@ -17,6 +17,82 @@ step — it sets the timings**, and you build it before you cut.
 All commands below run from the project root (the folder holding `status.py`).
 If one reports `can't open file`, you are somewhere else — `cd` there first.
 
+## The short way, when you already have the clips
+
+`short.py` is the whole pipeline in one command and it runs every gate before
+it encodes anything:
+
+```bash
+python3 short.py script.md --clips assets/ -o out/today.mp4 \
+  --attribution "Creator, CC BY 4.0 — https://..."
+```
+
+```
+  plan      41 beats from 41 clips
+  narrated  kokoro, 41 lines as 13 sentences
+  narration pass
+  retention pass
+  rights    pass
+  monetize  pass
+  built     1080x1920  74.5s  35.8 MB
+```
+
+Use the step-by-step commands below when you need to intervene between stages.
+
+## Cutting a long source into beats
+
+A film is mostly not worth cutting to — fades, held blacks and empty
+establishing frames are all fine in a film and all dead screen time in a Short.
+`render.cut_shots` scores every position on how much there is to look at, drops
+the near-black, and writes the winners out with their licence beside them.
+
+```python
+import render
+render.cut_shots("film.mp4", "assets/", 40, 3.0,
+                 licence="CC BY 3.0 — ...", start=14.0, end=730.0,
+                 avoid=[(68, 95)])              # spans a score cannot judge
+```
+
+**Two things it will refuse, and both are worth understanding.**
+
+An in-point read off a contact sheet is wrong about a third of the time,
+because the sampled frame is the shot you wanted and the two seconds after it
+are often a different shot — that lands in the finished video as a second cut
+nobody planned. Every in-point is snapped inside one shot, and a moment sitting
+in a shot too short to hold its beat is an error naming the beat.
+
+A clip shorter than its beat is an error too. It used to make a short part, and
+because the transition offsets come from the planned lengths, one then lands
+past the end of its input and the chain collapses — four beats a few frames
+short took a 59.2s video to 50.2s.
+
+**Scoring cannot tell you which shot is the dragon.** It finds shots worth
+looking at, not shots that match the line. When the narration is *about* the
+footage, pass `at=[...]` with in-points chosen by eye and let the snapping keep
+them honest.
+
+## Four gates, not three
+
+```bash
+python3 render.py narration render.json   # is it a story or a caption track?
+python3 render.py retention render.json   # does the cut match the feed?
+python3 render.py rights    render.json   # the copyright position
+python3 render.py monetize  render.json   # exposure under the policy
+```
+
+`narration` is the newest and the one that catches the most. A script can pass
+every timing check and still be forty captions in a row; it checks that the
+beats flow into each other, that they do not all open with the same word, and
+that the vocabulary is not four words repeated.
+
+## The bed under it
+
+`music.py` synthesises the background rather than licensing it — a Content ID
+claim on the audio would take the revenue off a video whose pictures were
+cleared specifically to avoid that. `render.py` makes one automatically when
+`music.enabled` is set, and ducks it under the narration by sidechain. Nothing
+for you to do beyond leaving it on.
+
 ## The look is not yours to choose
 
 Every video uses the one committed editing style in `style.json` — format,

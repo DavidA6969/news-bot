@@ -584,6 +584,10 @@ DELIVERY = {
     "lower": {"pitch": -1.0},
     "high":  {"pitch": 0.5},
     "higher": {"pitch": 1.0},
+    # Three lengths of silence, because a narration with none is as wrong as
+    # one with a gap at every cut. A breath separates two thoughts, a hold
+    # lands a line, a beat is the one before a reveal.
+    "breath": {"hold": 0.18},
     "hold":  {"hold": 0.34},          # sit on the shot before the next line
     "beat":  {"hold": 0.6},
 }

@@ -62,8 +62,33 @@ tunnel test footage"), not abstractions.
 ## Write beats FORGE can actually render
 
 `render.py plan` turns each **numbered** line of your script into one video
-beat, so number them (`1.`, `2.`, ...) and keep one idea per beat. The spoken
-line becomes the burned-in caption.
+beat, so number them (`1.`, `2.`, ...). The spoken line becomes the burned-in
+caption.
+
+**A beat is a clause, not a sentence.** This is the single mistake that has
+cost the most rewrites here. Write one self-contained sentence per beat and the
+narration stops being narration and becomes a caption track — a list of what is
+on screen, read aloud:
+
+> So she goes after it. Desert. Bamboo. Snow that nearly finishes her.
+> Seasons. Then years.
+
+Split the same story at **clause** boundaries instead, and the voice carries
+across the cuts the way narrated video actually works:
+
+> So she goes after him, across deserts, through forests, over mountains that
+> nearly kill her. Not for weeks. For years.
+
+Same shots, same length. `voice.py` speaks consecutive clauses as one
+continuous take, so a beat that ends on a comma is a cut with no pause in it.
+`render.py narration` fails a script where fewer than `narration.min_flow` of
+the beats run on from or into a neighbour, and also fails one where more than
+`narration.max_same_opening` beats begin with the same word, or where the
+vocabulary is thinner than `narration.min_word_variety`:
+
+```bash
+python3 render.py narration render.json
+```
 
 **The first line has under two seconds.** Not two seconds to get going — two
 seconds total, before the thumb moves. `render.py retention` fails a plan whose
@@ -75,11 +100,34 @@ enough that the video runs back into itself. A loop turns one view into two,
 and rewatches count. The check compares the words of both lines, so an echo
 works — it does not have to be a repeat.
 
-**Mark where the voice should slow.** Hand FORGE an `emphasis` map alongside
-the script — `{2: 0.85, 11: 0.88}` — naming the beats that should drop in pace
-and the ones that can move. The payoff, the number and the last line want air;
-the mechanism in the middle does not. A line delivered at the same rate as
-everything around it is not a payoff, it is just the next sentence.
+**Direct the delivery in the script itself.** Put the direction in braces at
+the end of a beat and `voice.py` strips it before speaking or captioning:
+
+```
+18. takes him, and she can only watch. {faster, beat}
+31. She kills it. {slower, hold}
+35. By her. {slower, beat}
+```
+
+| | |
+| --- | --- |
+| `fast` / `faster` | rate ×1.14 / ×1.26 |
+| `slow` / `slower` | rate ×0.86 / ×0.76 |
+| `breath` / `hold` / `beat` | 0.18s / 0.34s / 0.6s of silence after the line |
+| `low` / `high` | ±0.5 semitones — deliberately tiny, see below |
+
+**Silence is the strongest one, and it needs using in both directions.** A
+narration with a pause at every cut sounds broken; one with no pauses anywhere
+sounds like it is being read off a card. Mark the moment of choice, the loss,
+the line before a reveal and the last line — and leave the rest to run on. The
+delivery applies to the whole passage it sits in, not to one clause: you cannot
+change pace halfway through a sentence, which is also true of people.
+
+**Do not reach for pitch.** Shifting pitch by resampling drags the formants
+with it, so the same voice stops sounding like the same person — lines told to
+drop 1.6–3 semitones came back reading as a different speaker mid-sentence.
+`low` and `high` are half a semitone and the filter refuses anything past two.
+Pace and silence carry a delivery; pitch barely does.
 
 **Write three openings, not one.** Several versions of the same idea can swing
 a Short from nothing to a million, and the variable is almost always the hook.
@@ -96,7 +144,9 @@ Check before you hand the script on:
 python3 style.py check render.json
 ```
 
-Short lines are better writing here anyway. One clause, one idea, one beat.
+Short lines are better writing here anyway — but short *clauses*, joined into
+sentences, not a stack of one-line sentences. See the caption-track warning
+above.
 
 The whole video must come in under the Shorts limit in `style.json`
 (`shorts.max_seconds`, currently 180) and should aim at `shorts.target_seconds`.

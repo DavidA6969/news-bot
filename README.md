@@ -466,11 +466,17 @@ words rather than in a command-line flag, so they are written into the script:
 | `slow` / `slower` | rate ×0.86 / ×0.76 |
 | `high` / `higher` | pitch +1.6 / +3.0 semitones |
 | `low` / `lower` | pitch −1.6 / −3.0 semitones |
-| `hold` / `beat` | 0.34s / 0.6s of silence on the shot before the next line |
+| `breath` / `hold` / `beat` | 0.18s / 0.34s / 0.6s of silence after the line |
 
 Two of a kind compound, so `{slow, slower}` is slower than either — writing
 both was asking for that. An unrecognised word is an error rather than a
-silent no-op. The directions are stripped before the line is spoken *and*
+silent no-op.
+
+**Silence needs using in both directions.** A pause at every cut sounds broken;
+no pauses anywhere sounds like someone reading off a card. Three lengths exist
+so the moment of choice, the loss, the line before a reveal and the last line
+can each land differently, and everything between them can run on. The Sintel
+cut is 41 beats in 17 takes with 17 marked pauses. The directions are stripped before the line is spoken *and*
 before it is captioned, so the script stays the script.
 
 **Pitch moves are small on purpose, and that was learned the hard way.**
@@ -1221,6 +1227,28 @@ anything goes live; there is no publish path here, deliberately.
 
 Note that Etsy's API needs approval: a Personal App first, then
 [Commercial Access is a separate, manually reviewed request](https://developers.etsy.com/documentation/essentials/rate-limits/).
+
+## What reaches the agents
+
+Everything in `render.py`, `voice.py`, `music.py` and `style.py` runs on every
+video automatically — the reframing, the transitions, frame-exact cutting,
+shot-boundary snapping, the four gates, the music bed, the grouped narration.
+Nothing there has to be remembered or invoked.
+
+The **agent definitions in `.claude/agents/` are a separate thing and they go
+stale.** `scriptwriting.md` told the writer "one clause, one idea, one beat" —
+which is exactly the advice that produces a caption track instead of a
+narration, the failure the `narration` gate now exists to catch. Code that
+fixes a mistake does not stop an agent being instructed to make it.
+
+So when a rule changes, both move: the check goes in the code, and the reason
+goes in the agent that would otherwise keep writing the old thing.
+
+**One step is still not automated.** `pick_shots` finds shots worth looking at
+by brightness and detail; it has no idea which shot is the dragon. When the
+narration is about the footage, the in-points are chosen by eye and passed to
+`cut_shots(at=[...])`, which then snaps them inside real shot boundaries. The
+snapping is automatic; the choosing is not.
 
 ## The agents
 
