@@ -477,51 +477,34 @@ SILENCE_FLOOR_DB = -60.0    # under this there is no speech to level
 ARTICULATE_SPEED = 1.22
 
 
-def _split_speed(settings, want):
-    """(settings to synthesise with, tempo to apply after) for a wanted speed.
+def _engine_speed(settings, want):
+    """Settings clamped to a speed the engine can actually say.
 
-    Anything past what the engine can say evenly is done afterwards with
-    atempo, which compresses the whole line by the same factor and therefore
-    cannot squeeze its end. At the same finished speed, measured:
+    Returns (settings, whether it had to clamp). Nothing is time-stretched to
+    make up the difference. An earlier version asked the engine for 1.22 and
+    took the rest with a phase vocoder, on the strength of a
+    halves-of-a-phrase measurement that a better one did not reproduce.
+    Measured over six phrases, by how close each landed to the speed it was
+    asked for:
 
-                                    skew   syllable valleys
-        engine at 1.368             1.18        5.7 dB
-        engine at 1.22 + atempo     0.96        5.6 dB
-        engine at 1.512             1.19        3.3 dB
-        engine at 1.22 + atempo     0.97        5.4 dB
+        engine asked for 1.368      mean 1.091   spread 0.044
+        1.22 + time-stretch         mean 0.969   spread 0.081
 
-    The reference, an unhurried 1.0, measures 6.4 dB.
+    The stretch lands nearer the number and varies twice as much doing it.
+    With nothing to choose between them, the version with one less stage in
+    the signal path wins.
+
+    So a mark asking for more than the engine has simply gets what the engine
+    has. The read stays between 0.91x and 1.22x -- real variation, all of it
+    inside what comes back evenly, and no line 14% faster than its neighbour
+    for a reason a listener can hear but not account for.
     """
-    if "kokoro_speed" not in settings or not settings.get("kokoro_speed"):
-        return settings, 1.0
-    if want <= ARTICULATE_SPEED + 1e-6:
-        return settings, 1.0
+    speed = settings.get("kokoro_speed")
+    if not speed or want <= ARTICULATE_SPEED + 1e-6:
+        return settings, False
     out = dict(settings)
     out["kokoro_speed"] = ARTICULATE_SPEED
-    return out, want / ARTICULATE_SPEED
-
-
-def _stretch(path, tempo):
-    """Speed a take up without changing its pitch, evenly across the line."""
-    if tempo <= 1.0001:
-        return path
-    steps, left = [], float(tempo)
-    while left > 2.0:                       # atempo's own range, chained
-        steps.append(2.0); left /= 2.0
-    steps.append(left)
-    chain = ",".join("atempo=%.5f" % s for s in steps)
-    tmp = Path(path).with_name(Path(path).stem + ".tempo.wav")
-    proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y",
-                           "-i", str(path), "-af", chain,
-                           "-ar", str(SAMPLE_RATE), "-ac", "1", str(tmp)],
-                          capture_output=True, text=True)
-    if proc.returncode == 0 and tmp.exists() and tmp.stat().st_size > 256:
-        tmp.replace(path)
-    else:
-        tmp.unlink(missing_ok=True)
-        print("voice.py: could not speed %s up by %.2fx — leaving it as spoken"
-              % (Path(path).name, tempo), file=sys.stderr)
-    return path
+    return out, True
 
 
 def _mean_volume(path):
@@ -845,56 +828,74 @@ def _samples(path):
     return np.frombuffer(raw, dtype="<i2").astype("float32") / 32768.0
 
 
-# How loud the quietest point near a comma may be, against the take's own
-# median, before the splice is abandoned. A word boundary dips even when it
-# does not go silent; the middle of a vowel does not. Cutting there would put a
-# stutter in the line, which is worse than the run-on it was meant to fix.
-QUIET_ENOUGH = 0.40
+def _search_band(x, lo=200.0, hi=2500.0):
+    """The band a word boundary is easiest to SEE in.
 
+    Not the band it is judged in. Vowel formants live between 200 and 2500 Hz
+    and are loud there; the fundamental of a deep voice sits below it and rings
+    straight through a gap, hiding it; fricatives sit mostly above it.
 
-def _above(x, hz=400.0):
-    """The signal with everything under `hz` taken out, for finding gaps.
-
-    A word boundary is a mid and high frequency event: the consonants stop and
-    the formants move. The fundamental does not stop -- on a deep voice it
-    rings straight through the gap and hides it. Searched on the full-band
-    signal, a voice at 85 Hz looked like it had no word boundaries at all and
-    every comma was refused. One difference per sample is a crude high pass,
-    and crude is all this needs: it is used to FIND the gap, never to splice.
+    A first-order high pass was tried here first and it was worse than nothing.
+    Differencing lifts 4 kHz fricative energy about 20 dB over 400 Hz, so `s`
+    and `f` tower over every vowel and the middle of a vowel becomes the
+    quietest point in the line -- and because the guard measured on that same
+    signal, a vowel also looked quiet enough to cut. Five splices in one
+    narration landed inside a word, one of them on a vowel at full level.
     """
     import numpy as np
-    a = float(np.exp(-2.0 * np.pi * hz / SAMPLE_RATE))
-    y = np.empty_like(x)
-    y[0] = 0.0
-    y[1:] = x[1:] - x[:-1]
-    return y * (1.0 / max(1e-6, 1.0 - a))
+    X = np.fft.rfft(x)
+    f = np.fft.rfftfreq(len(x), 1.0 / SAMPLE_RATE)
+    X[(f < lo) | (f > hi)] = 0
+    return np.fft.irfft(X, len(x))
 
 
-def _quietest(x, want, search=0.10, win=0.02):
+def _envelope(x, hop=0.005, win=0.020):
+    """RMS every `hop` seconds, and the hop, so callers can convert to time."""
+    import numpy as np
+    h, w = int(hop * SAMPLE_RATE), int(win * SAMPLE_RATE)
+    n = (len(x) - w) // h
+    if n <= 0:
+        return np.zeros(1), hop
+    return np.array([np.sqrt((x[i * h:i * h + w] ** 2).mean())
+                     for i in range(n)]), hop
+
+
+# How loud the chosen instant may be, against the take's own speech level,
+# before the splice is abandoned. Judged on the FULL-BAND signal, because a gap
+# between words is quiet at every frequency and that is the only honest test.
+# The search may use whatever band shows boundaries best; the verdict may not.
+QUIET_ENOUGH = 0.30
+
+
+def _quietest(x, want, search=0.14):
     """The quietest instant near `want` seconds, so a splice lands off a vowel.
 
-    Returns (seconds, how loud it is against the take's median) or None when
-    the search window falls outside the take. The estimate from word counts is
+    Returns (seconds, how loud it is against the take's speech level) or None
+    when the window falls outside the take. The estimate from word durations is
     good to about a tenth of a second, which is enough to land inside a word,
-    so the local energy minimum is a much better place to cut than the estimate
-    itself -- and the caller still gets to refuse it.
-
-    Both the search and the comparison happen above `_above`'s corner, so the
-    answer does not depend on how deep the voice is.
+    so the local minimum is a much better place to cut than the estimate -- and
+    the caller still gets to refuse it.
     """
     import numpy as np
-    x = _above(x)
-    w = max(8, int(win * SAMPLE_RATE))
-    lo = max(w, int((want - search) * SAMPLE_RATE))
-    hi = min(len(x) - w, int((want + search) * SAMPLE_RATE))
-    if hi <= lo:
+    band, hop = _envelope(_search_band(x))
+    full, _ = _envelope(x)
+    n = min(len(band), len(full))
+    if n < 8:
         return None
-    power = np.convolve(x[lo - w:hi + w] ** 2, np.ones(w) / w, mode="same")[w:-w or None]
-    if not len(power):
+    lo = max(0, int((want - search) / hop))
+    hi = min(n, int((want + search) / hop))
+    if hi - lo < 2:
         return None
-    k = int(np.argmin(power))
-    loud = float(np.median(np.convolve(x ** 2, np.ones(w) / w, mode="same"))) or 1e-9
-    return (lo + k) / float(SAMPLE_RATE), float(power[k]) / loud
+    k = lo + int(np.argmin(band[lo:hi]))
+    speech = float(np.percentile(full[:n], 90)) or 1e-9
+    # The NEIGHBOURHOOD, not the instant. A stop consonant inside a word --
+    # the closure in "ba-by" -- is genuinely silent for 20ms, so judging the
+    # single quietest sample lets a splice land in the middle of a word that
+    # happens to have a gap in it. What a word boundary has, and a closure
+    # does not, is quiet on both sides of it.
+    pad = max(1, int(0.025 / hop))
+    near = full[max(0, k - pad):min(n, k + pad + 1)]
+    return k * hop, float(near.max()) / speech
 
 
 def _breathe(path, text, settings, weights=None):
@@ -981,7 +982,7 @@ def sentence_pause(settings):
     return float(held)
 
 
-def _say(engine, pieces, out_path, voice, settings, weights=None, tempo=1.0):
+def _say(engine, pieces, out_path, voice, settings, weights=None):
     """Speak one line, in the order that keeps each step honest.
 
     Say it, trim the engine's own silence off both ends, apply the style's
@@ -999,9 +1000,6 @@ def _say(engine, pieces, out_path, voice, settings, weights=None, tempo=1.0):
             "%s.p%02d.wav" % (out_path.stem, n))
         _engine_say(engine, piece, part, voice, settings)
         trim_silence(part, settings)
-        # before the tone and the level, and well before the silence: a
-        # pause written in seconds must not then be sped up with the words
-        _stretch(part, tempo)
         _master(part, settings)
         count = len(re.findall(r"[\w']+", piece))
         slices.append((weights or [])[taken:taken + count] if weights else None)
@@ -1036,8 +1034,7 @@ def _say(engine, pieces, out_path, voice, settings, weights=None, tempo=1.0):
     return out_path
 
 
-def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None,
-                tempo=1.0):
+def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None):
     """One line of text to one wav, spoken and treated to the committed style.
 
     Two silences no engine here supplies are put in by hand. A line holding
@@ -1053,14 +1050,14 @@ def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None,
     out_path = Path(out_path)
     pieces = sentence_pieces(text)
     try:
-        return _say(engine, pieces, out_path, voice, settings, weights, tempo)
+        return _say(engine, pieces, out_path, voice, settings, weights)
     except VoiceError:
         if len(pieces) == 1:
             raise                           # nothing left to fall back to
         # a run-on line is better than a missing one
         print("voice.py: could not speak %r in %d takes — one instead"
               % (text[:40], len(pieces)), file=sys.stderr)
-        return _say(engine, [(text, 0.0)], out_path, voice, settings, weights, tempo)
+        return _say(engine, [(text, 0.0)], out_path, voice, settings, weights)
 
 
 # --------------------------------------------------------------------------
@@ -1335,15 +1332,14 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
         # has been raised since the marks were chosen -- {faster} on a 1.2 base
         # asks for 1.512, well past what the engine says evenly. Ask for what it
         # can say and do the rest afterwards.
-        per_line, tempo = _split_speed(per_line, float(per_line.get("kokoro_speed") or 0.0))
-        if tempo > 1.0001 and not said_ceiling:
+        per_line, clamped = _engine_speed(per_line, float(per_line.get("kokoro_speed") or 0.0))
+        if clamped and not said_ceiling:
             said_ceiling = True             # once per narration, not per take
-            print("voice.py: a line wants %.3fx; asking kokoro for %.2f and "
-                  "taking the rest evenly with atempo, because past %.2f it "
-                  "squeezes the end of a phrase"
+            print("voice.py: a line asks for %.3fx and gets %.2f — past that "
+                  "the engine does not come back evenly"
                   % (float(settings.get("kokoro_speed") or 0) * rate,
-                     ARTICULATE_SPEED, ARTICULATE_SPEED), file=sys.stderr)
-        _synthesise(engine, text, target, voice, per_line, flat, tempo)
+                     ARTICULATE_SPEED), file=sys.stderr)
+        _synthesise(engine, text, target, voice, per_line, flat)
         if pitch:
             _pitch(target, pitch)
         seconds = _duration(target)
