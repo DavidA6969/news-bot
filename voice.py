@@ -459,22 +459,34 @@ MAX_GAIN_DB = 40.0
 SILENCE_FLOOR_DB = -60.0    # under this there is no speech to level
 
 
-# How fast Kokoro may be ASKED to speak. Past this it stops compressing a
-# phrase evenly and starts squeezing the end of it, which is heard as a line
-# that sets off at a sensible pace and then runs out. Measured over five
-# phrases, splitting each at its comma and comparing how much each half
-# actually shortened against how much was asked for:
+# How fast Kokoro may be ASKED to speak. Two separate measurements put the
+# limit in the same place.
+#
+# Above it the engine's compression of a phrase stops being predictable.
+# Measured over five phrases, splitting each at its comma and comparing how
+# much each half actually shortened against how much was asked for:
 #
 #     speed   first half   last half   skew
 #      1.15      0.93x        0.94x     0.99
 #      1.22      0.93x        0.96x     0.96
-#      1.28      1.07x        0.87x     1.23    <- the end is squeezed
+#      1.28      1.07x        0.87x     1.23
 #      1.40      1.17x        0.99x     1.18
 #      1.52      1.13x        0.95x     1.19
 #
-# Above 1.22 it is not a smooth degradation, it is erratic, which is worse:
-# two lines marked the same way come back paced differently.
-ARTICULATE_SPEED = 1.22
+# It is not a smooth degradation, it is erratic, which is worse: two lines
+# marked the same way come back paced differently.
+#
+# And the voice itself gets rougher. Measured over six lines of one script,
+# cycle-to-cycle variation in the pitch period:
+#
+#     1.00  1.33%    1.14  1.37%    1.22  1.57%
+#     1.05  1.38%    1.18  1.40%    1.25  1.49%
+#     1.10  1.31%    1.20  1.38%    1.30  1.52%
+#
+# Flat to 1.20 and a step up at 1.22. The ceiling was 1.22 and sat on the
+# wrong side of that step -- every {fast} beat in a narration, a third of the
+# video, was being spoken at the roughest speed on the table for no gain.
+ARTICULATE_SPEED = 1.20
 
 
 def _engine_speed(settings, want):

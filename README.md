@@ -466,219 +466,70 @@ failure fitting to the voice exists to prevent — and with beats sharing an
 utterance it would desync everything after it. The note says the line is too
 long; the cut still follows the voice.
 
-### The voice itself was the roughest one available
+### How rough the voice is, and what does not fix it
 
-`am_michael` was the committed voice for no better reason than that it was the
-first one tried. There are 54 of them, and they are not equally smooth.
-Measured on five lines of the script -- jitter is how much the pitch period
-wobbles cycle to cycle, shimmer how much the amplitude does, and both are what
-"robotic" means when someone says it:
+`am_michael` measures **1.38%** jitter -- cycle-to-cycle variation in the pitch
+period, which is most of what "robotic" means when someone says it. Natural
+speech is under 1%. Of fifteen Kokoro voices tested on five lines of the
+script, it is near the bottom:
 
 | voice | jitter | shimmer | periodicity |
 | --- | --- | --- | --- |
 | af_bella | 0.87% | 0.62 | 0.82 |
-| **am_onyx** | **0.90%** | **0.51** | 0.62 |
+| am_onyx | 0.90% | 0.51 | 0.62 |
 | bm_lewis | 1.01% | 0.76 | 0.54 |
-| am_adam | 1.25% | 0.81 | 0.58 |
 | **am_michael** | **1.38%** | 0.66 | 0.64 |
 
-Natural speech sits under 1% jitter. `am_onyx` has the lowest shimmer of all
-fifteen tested and 35% less jitter than what was committed, and it keeps the
-narrator male; `af_bella` measures smoother still on every count.
+It is the committed voice anyway, because it is the one wanted. Three things
+were tried to smooth it without changing it, and it is worth recording that
+two of them did nothing:
 
-Two settings follow from the voice rather than from taste. `am_onyx` has a
-fundamental at **85 Hz** and `voice.highpass_hz` was 85, which took **2.8 dB**
-off it -- a deep voice made thin, which is its own kind of synthetic. The
-highpass is 60 now. And `lowpass_hz` went 8500 to 11000: at a 24 kHz sample
-rate 8500 was throwing away most of the air above the voice to "take the fizz
-off", and the fizz is what the smoother voice does not have.
+- **The full-precision weights.** The model in use is quantized, which is a
+  plausible source of exactly this. `kokoro-fp16-shards` on npm carries the
+  fp16 weights in ten parts; reassembled they load with an identical interface
+  and produce the same voice (f0 114 vs 117 Hz, durations within 0.05s). They
+  measure **1.64%** jitter against the quantized model's 1.38%. Quantization
+  is not the source, and the 163 MB model is not worth carrying.
+- **Blending the style vector.** A Kokoro voice is a 256-wide vector, so two
+  can be mixed. Every blend tried landed between 1.35% and 1.56% -- no better
+  than the voice alone -- while moving its pitch by up to 14 Hz. Paying for
+  nothing with the thing being protected.
+- **The speed.** This one was real. See below.
 
-The compressor eased from ratio 3 to ratio 2 for the same reason. Levelling is
-a separate measured step now, so it no longer has to carry the line-to-line
-level as well -- measured, shimmer 0.53 to 0.48 and periodicity 0.62 to 0.64.
-A compressor working less hard on a synthesised voice is a voice with fewer of
-its own artefacts pulled up.
-
-```
-                 jitter   shimmer
-  before          1.70%      0.74
-  after           1.02%      0.58
-```
-
-**A deep voice also broke the comma breaths, silently.** `_breathe` searches
-for the quietest instant near a word boundary and refuses to splice if it is
-not quiet enough. Searched full-band, an 85 Hz fundamental rings straight
-through the gap and hides it -- every comma in the script was being refused
-with a note on stderr. The search now runs above 400 Hz, where a word boundary
-actually shows, while the splice still happens on the untouched audio. A word
-boundary is a consonant event; the fundamental does not stop for it.
-
-### A breath spliced into the middle of a word
-
-This is the one that was actually being heard as glitching, and it took being
-told three times to go and find it. The narration track was fine on every
-measure that had been applied to it -- levels even, pauses present, no drift
-against the picture, no take truncated. What none of those looked at was
-**where** the silence had been put.
-
-`_breathe` cuts the take and drops silence in. It is guarded: the chosen
-instant has to be quiet, or the splice is abandoned. The guard was measuring
-the wrong signal.
-
-To find word boundaries on a deep voice, the search had been moved onto a
-first-order high pass -- and the guard came with it. Differencing lifts 4 kHz
-fricative energy about 20 dB over 400 Hz, so `s` and `f` tower over every
-vowel, **the middle of a vowel becomes the quietest point in the line**, and
-measured on that same signal a vowel looks quiet enough to cut. Five splices in
-one narration landed inside a word. One of them sat on a vowel at full level:
-140ms of silence dropped into the middle of a word, with a 6ms fade either
-side.
-
-Two things had to change, and they are different things:
-
-- **Search** in 200-2500 Hz. Vowel formants are loud there, a deep voice's
-  fundamental is below it and rings through gaps, fricatives are mostly above
-  it. In that band a word boundary is actually the quiet part.
-- **Judge** on the full-band signal, against the take's own speech level, over
-  a **neighbourhood** rather than an instant. A stop consonant inside a word --
-  the closure in "ba-by" -- is genuinely silent for 20ms. What a word boundary
-  has and a closure does not is quiet on *both sides*.
-
-```
-  splices landing inside a word    5  ->  1  ->  0
-  commas that get their breath    10  ->  8       (a refused comma just runs on)
-```
-
-A refused comma reads exactly as it did before the breaths existed. A splice
-inside a word is a defect. When the guard has to choose, it refuses.
+What remains is the voice. `af_bella` and `am_onyx` measure a third smoother
+and are a setting away.
 
 ### Never ask the engine for more speed than it can say
 
 A rate mark is a multiplier on the style's base, and the base has been raised
 three times since the marks were chosen. `{faster}` meant 1.26 when the base
-was 1.0; on a base of 1.20 it means **1.512**, and 13 of 35 beats were being
-synthesised at 1.368 or above -- each of them 14 to 26% faster than its
-neighbours, for a reason a listener can hear but not account for.
+was 1.0; on a base of 1.20 it means **1.512**.
 
-Past about 1.22 Kokoro's compression of a phrase stops being predictable.
-Measured over five phrases, splitting each at its comma:
-
-| speed | first half | last half | skew |
-| --- | --- | --- | --- |
-| 1.15 | 0.93x | 0.94x | 0.99 |
-| 1.22 | 0.93x | 0.96x | 0.96 |
-| 1.28 | 1.07x | 0.87x | 1.23 |
-| 1.40 | 1.17x | 0.99x | 1.18 |
-| 1.52 | 1.13x | 0.95x | 1.19 |
-
-**A word about that table, because it was over-read once already.** It was
-first taken as "the engine squeezes the end of a phrase", and a time-stretch
-was added to work around it. A better measurement did not reproduce the
-squeeze: correlating a uniform stretch of the fast take against the unhurried
-one scored 0.567 with the stretch and 0.603 without. And measured across six
-phrases by how close each landed to the speed asked for, the workaround was
-*less* consistent than the thing it replaced:
+Two separate measurements put a ceiling in the same place. Above about 1.22
+the engine's compression of a phrase stops being predictable -- splitting five
+phrases at their comma, the skew swings 1.23, 0.90, 1.18, 1.19 with no trend,
+and erratic is worse than slow because two lines marked the same way come back
+paced differently. And the voice roughens, measured over six lines:
 
 ```
-  engine asked for 1.368      mean 1.091   spread 0.044
-  1.22 + time-stretch         mean 0.969   spread 0.081
+  1.00  1.33%     1.14  1.37%     1.22  1.57%
+  1.05  1.38%     1.18  1.40%     1.25  1.49%
+  1.10  1.31%     1.20  1.38%     1.30  1.52%
 ```
 
-So the stretch is gone. What the table does support is that above 1.22 the
-engine is erratic -- the skew swings 1.23, 0.90, 1.18, 1.19 with no trend --
-and erratic is worse than slow, because two lines marked the same way come back
-paced differently. `_engine_speed` clamps there and nothing is stretched to make
-up the difference. The read spans **0.91x to 1.22x**: real variation, all of it
-inside what comes back evenly, and one less stage in the signal path.
+Flat to 1.20, then a step. **The ceiling was 1.22 and sat on the wrong side of
+it**: every `{fast}` beat in the narration, a third of the video, was being
+spoken at the roughest speed on the table for nothing. It is 1.20 now, which on
+the committed base means a pushed beat gets exactly the base -- there is no
+headroom, and pretending otherwise is what put it there.
 
-### The voice itself was the roughest one available
-
-`am_michael` was the committed voice for no better reason than that it was the
-first one tried. There are 54 of them, and they are not equally smooth.
-Measured on five lines of the script -- jitter is how much the pitch period
-wobbles cycle to cycle, shimmer how much the amplitude does, and both are what
-"robotic" means when someone says it:
-
-| voice | jitter | shimmer | periodicity |
-| --- | --- | --- | --- |
-| af_bella | 0.87% | 0.62 | 0.82 |
-| **am_onyx** | **0.90%** | **0.51** | 0.62 |
-| bm_lewis | 1.01% | 0.76 | 0.54 |
-| am_adam | 1.25% | 0.81 | 0.58 |
-| **am_michael** | **1.38%** | 0.66 | 0.64 |
-
-Natural speech sits under 1% jitter. `am_onyx` has the lowest shimmer of all
-fifteen tested and 35% less jitter than what was committed, and it keeps the
-narrator male; `af_bella` measures smoother still on every count.
-
-Two settings follow from the voice rather than from taste. `am_onyx` has a
-fundamental at **85 Hz** and `voice.highpass_hz` was 85, which took **2.8 dB**
-off it -- a deep voice made thin, which is its own kind of synthetic. The
-highpass is 60 now. And `lowpass_hz` went 8500 to 11000: at a 24 kHz sample
-rate 8500 was throwing away most of the air above the voice to "take the fizz
-off", and the fizz is what the smoother voice does not have.
-
-The compressor eased from ratio 3 to ratio 2 for the same reason. Levelling is
-a separate measured step now, so it no longer has to carry the line-to-line
-level as well -- measured, shimmer 0.53 to 0.48 and periodicity 0.62 to 0.64.
-A compressor working less hard on a synthesised voice is a voice with fewer of
-its own artefacts pulled up.
-
-```
-                 jitter   shimmer
-  before          1.70%      0.74
-  after           1.02%      0.58
-```
-
-**A deep voice also broke the comma breaths, silently.** `_breathe` searches
-for the quietest instant near a word boundary and refuses to splice if it is
-not quiet enough. Searched full-band, an 85 Hz fundamental rings straight
-through the gap and hides it -- every comma in the script was being refused
-with a note on stderr. The search now runs above 400 Hz, where a word boundary
-actually shows, while the splice still happens on the untouched audio. A word
-boundary is a consonant event; the fundamental does not stop for it.
-
-### Never ask the engine for more speed than it can say
-
-A rate mark is a multiplier on the style's base, and the base has been raised
-three times since the marks were chosen. `{faster}` meant 1.26 when the base
-was 1.0; on a base of 1.20 it means **1.512**, and 13 of 37 beats were being
-synthesised at 1.368 or above.
-
-Past about 1.22 Kokoro stops compressing a phrase evenly and starts squeezing
-the end of it -- which is heard as a line that sets off at a sensible pace and
-then runs out. Measured over five phrases, splitting each at its comma and
-comparing how much each half actually shortened against how much was asked for:
-
-| speed | first half | last half | skew |
-| --- | --- | --- | --- |
-| 1.15 | 0.93x | 0.94x | 0.99 |
-| 1.22 | 0.93x | 0.96x | 0.96 |
-| 1.28 | 1.07x | 0.87x | **1.23** |
-| 1.40 | 1.17x | 0.99x | **1.18** |
-| 1.52 | 1.13x | 0.95x | **1.19** |
-
-Above 1.22 it is not a smooth degradation, it is erratic, which is worse: two
-lines marked the same way come back paced differently.
-
-So `_split_speed` asks the engine for at most `ARTICULATE_SPEED` and hands the
-rest to `atempo`, which shortens the whole line by one factor and therefore
-cannot squeeze its end. At the same finished speed:
-
-| | skew | syllable valleys |
-| --- | --- | --- |
-| engine at 1.368 | 1.18 | 5.7 dB |
-| engine at 1.22 + atempo | **0.96** | 5.6 dB |
-| engine at 1.512 | 1.19 | **3.3 dB** |
-| engine at 1.22 + atempo | **0.97** | 5.4 dB |
-
-An unhurried 1.0 measures 6.4 dB between syllables; at 1.512 the engine's own
-compression leaves 3.3 dB, which is syllables running into each other. In the
-finished narration the `{fast}` and `{faster}` takes now measure 6.2 dB against
-7.1 dB for everything else.
-
-The stretch goes on before the tone, the level and the silence -- a pause
-written in seconds must not be sped up along with the words.
+**A time-stretch to make up the difference was tried and reverted.** It asked
+the engine for the ceiling and took the rest with a phase vocoder, on the
+strength of a halves-of-a-phrase measurement a better one did not reproduce:
+correlating a uniform stretch of the fast take against the unhurried one scored
+0.567 with it and 0.603 without, and across six phrases it landed nearer the
+requested speed with twice the spread. With nothing to choose between them, one
+less stage in the signal path wins.
 
 ### A sentence does not stop, it falls off
 
