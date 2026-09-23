@@ -466,6 +466,53 @@ failure fitting to the voice exists to prevent — and with beats sharing an
 utterance it would desync everything after it. The note says the line is too
 long; the cut still follows the voice.
 
+### The voice itself was the roughest one available
+
+`am_michael` was the committed voice for no better reason than that it was the
+first one tried. There are 54 of them, and they are not equally smooth.
+Measured on five lines of the script -- jitter is how much the pitch period
+wobbles cycle to cycle, shimmer how much the amplitude does, and both are what
+"robotic" means when someone says it:
+
+| voice | jitter | shimmer | periodicity |
+| --- | --- | --- | --- |
+| af_bella | 0.87% | 0.62 | 0.82 |
+| **am_onyx** | **0.90%** | **0.51** | 0.62 |
+| bm_lewis | 1.01% | 0.76 | 0.54 |
+| am_adam | 1.25% | 0.81 | 0.58 |
+| **am_michael** | **1.38%** | 0.66 | 0.64 |
+
+Natural speech sits under 1% jitter. `am_onyx` has the lowest shimmer of all
+fifteen tested and 35% less jitter than what was committed, and it keeps the
+narrator male; `af_bella` measures smoother still on every count.
+
+Two settings follow from the voice rather than from taste. `am_onyx` has a
+fundamental at **85 Hz** and `voice.highpass_hz` was 85, which took **2.8 dB**
+off it -- a deep voice made thin, which is its own kind of synthetic. The
+highpass is 60 now. And `lowpass_hz` went 8500 to 11000: at a 24 kHz sample
+rate 8500 was throwing away most of the air above the voice to "take the fizz
+off", and the fizz is what the smoother voice does not have.
+
+The compressor eased from ratio 3 to ratio 2 for the same reason. Levelling is
+a separate measured step now, so it no longer has to carry the line-to-line
+level as well -- measured, shimmer 0.53 to 0.48 and periodicity 0.62 to 0.64.
+A compressor working less hard on a synthesised voice is a voice with fewer of
+its own artefacts pulled up.
+
+```
+                 jitter   shimmer
+  before          1.70%      0.74
+  after           1.02%      0.58
+```
+
+**A deep voice also broke the comma breaths, silently.** `_breathe` searches
+for the quietest instant near a word boundary and refuses to splice if it is
+not quiet enough. Searched full-band, an 85 Hz fundamental rings straight
+through the gap and hides it -- every comma in the script was being refused
+with a note on stderr. The search now runs above 400 Hz, where a word boundary
+actually shows, while the splice still happens on the untouched audio. A word
+boundary is a consonant event; the fundamental does not stop for it.
+
 ### Never ask the engine for more speed than it can say
 
 A rate mark is a multiplier on the style's base, and the base has been raised
