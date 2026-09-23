@@ -433,7 +433,9 @@ def _pitch(path, semitones):
     step = float(semitones or 0)
     if abs(step) < 0.05:
         return path
-    step = max(-6.0, min(6.0, step))       # past this it stops being a voice
+    # Past a couple of semitones the formants have moved far enough that it is
+    # audibly a different speaker, whatever the delivery asked for.
+    step = max(-2.0, min(2.0, step))
     ratio = 2.0 ** (step / 12.0)
     tmp = path.with_name(path.stem + ".pitched.wav")
     proc = subprocess.run(
@@ -567,10 +569,19 @@ DELIVERY = {
     "slower": {"rate": 0.76},
     "fast":  {"rate": 1.14},
     "faster": {"rate": 1.26},
-    "low":   {"pitch": -1.6},
-    "lower": {"pitch": -3.0},
-    "high":  {"pitch": 1.6},
-    "higher": {"pitch": 3.0},
+    # Small on purpose. Shifting pitch by resampling drags the formants along
+    # with it, so the same voice stops sounding like the same person -- measured
+    # on a finished track, lines asked to drop 1.6 to 3 semitones had spectral
+    # centroids from 38% below the rest of the narration to 18% above, and it
+    # reads as the narrator being swapped mid-sentence rather than dropping
+    # their voice. ffmpeg's rubberband with formant=preserved was no better on
+    # speech this short. Under about a semitone the colour changes and the
+    # speaker does not, which is all this was ever meant to do; pace and
+    # silence carry the rest.
+    "low":   {"pitch": -0.5},
+    "lower": {"pitch": -1.0},
+    "high":  {"pitch": 0.5},
+    "higher": {"pitch": 1.0},
     "hold":  {"hold": 0.34},          # sit on the shot before the next line
     "beat":  {"hold": 0.6},
 }

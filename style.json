@@ -46,8 +46,8 @@
       "audio_channels": 2,
       "audio_kbps": 160
     },
-    "version": 32,
-    "committedAt": "2026-09-22T21:43:04Z",
+    "version": 34,
+    "committedAt": "2026-09-23T02:06:37Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -85,6 +85,12 @@
       "max_same_opening": 3,
       "min_word_variety": 0.55,
       "repeat_lines_allowed": 1
+    },
+    "music": {
+      "enabled": true,
+      "mood": "grief",
+      "gain_db": -19,
+      "duck_db": -7.0
     }
   },
   "history": [
@@ -371,6 +377,25 @@
       "from": 30.0,
       "to": 60,
       "version": 32
+    },
+    {
+      "at": "2026-09-22T23:07:35Z",
+      "action": "upgrade",
+      "added": [
+        "music.enabled",
+        "music.mood",
+        "music.gain_db",
+        "music.duck_db"
+      ],
+      "version": 33
+    },
+    {
+      "at": "2026-09-23T02:06:37Z",
+      "action": "set",
+      "field": "music.gain_db",
+      "from": -21.0,
+      "to": -19,
+      "version": 34
     }
   ]
 }

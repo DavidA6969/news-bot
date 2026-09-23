@@ -429,9 +429,16 @@ both was asking for that. An unrecognised word is an error rather than a
 silent no-op. The directions are stripped before the line is spoken *and*
 before it is captioned, so the script stays the script.
 
-Pitch is shifted by resampling and then putting the speed back with `atempo`,
-which leaves the pitch where the resampling moved it. It is clamped to ±6
-semitones, past which it stops being a voice. **The hold cannot live in the
+**Pitch moves are small on purpose, and that was learned the hard way.**
+Shifting pitch by resampling drags the formants along with it, so the same
+voice stops sounding like the same person. Measured on a finished track, lines
+asked to drop 1.6–3 semitones came back with spectral centroids from 38% *below*
+the rest of the narration to 18% above — which reads as the narrator being
+swapped mid-sentence, not as someone dropping their voice. ffmpeg's `rubberband`
+with `formant=preserved` was no better on speech this short (−9% at two
+semitones, against −6% for plain resampling). So `low` and `lower` are now half
+a semitone and one, the filter clamps at two, and pace and silence carry the
+delivery instead. **The hold cannot live in the
 audio** — the cut is timed off the beat, so a pause added to the recording
 alone would arrive after the picture had already moved on. It goes into the
 beat's length in `fit_plan`, which is why both the shot and the silence last
@@ -561,6 +568,43 @@ part, and a short part is not a small problem: the transition offsets are
 computed from the planned lengths, so one lands past the end of its input and
 the chain collapses. Measured once — four beats a few frames short took a 59.2s
 video to 50.2s.
+
+### A bed under it
+
+Silence under a narration is the cheapest thing that makes a video feel thin,
+so `music.py` synthesises one. **Not a licensed track**: a Content ID claim on
+the audio takes the revenue off a video whose pictures were cleared
+specifically to avoid that, and no library the channel has not paid for is
+worth that risk. The bed is generated from scratch and carries the licence
+"original composition", the same way the narration does.
+
+```bash
+python3 music.py bed --seconds 60 --mood grief -o bed.wav
+python3 music.py moods
+```
+
+A drone, a pad that swells one scale note at a time, and a little filtered
+noise. Nothing percussive and no melody to follow, because it is meant to sit
+under a voice rather than be listened to.
+
+**Where the energy sits matters more than what the notes are.** A first pass put
+94% of it below 300 Hz, which is mud on a laptop and silence on a phone — most
+phone speakers give up around 200 Hz, so a bed written down there is a bed
+nobody hears. Measured on the current one:
+
+| band | | |
+| --- | --- | --- |
+| under 150 Hz | 27% | felt, not heard |
+| 150–400 Hz | 27% | where a phone speaker still works |
+| 400 Hz–1 kHz | 21% | body |
+| 1–4 kHz | **11%** | deliberately thin — consonants live here |
+| over 4 kHz | 12% | air |
+
+The mix ducks itself: the narration is the sidechain key, so the music drops
+while a line is running and comes back in the gaps. `music.gain_db` (−21) sets
+how far under it sits and `music.duck_db` (−7) how much further while someone
+is speaking. A bed that cannot be made is a note and a quieter video, never a
+failed render.
 
 ### Between the shots
 

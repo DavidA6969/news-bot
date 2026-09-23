@@ -1166,6 +1166,45 @@ def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
     return "%s%s,fps=%d,setsar=1" % (head, chain, fps)
 
 
+# How loud the narration has to get before the bed gets out of its way. The
+# first attempt used 0.02, which a normalised voice track is over essentially
+# all the time -- the bed was ducked from -34 dBFS to -47 and could not be
+# heard at all, in the gaps or anywhere else. At 0.15 only actual speech
+# triggers it, and the bed comes back between the lines, which is the entire
+# point of ducking rather than just turning it down.
+DUCK_THRESHOLD = 0.15
+
+
+def _duck_ratio(duck_db):
+    """A compressor ratio that pulls the bed down by about `duck_db`.
+
+    sidechaincompress is set by ratio, not by an amount, so the style's "how
+    much quieter while someone is talking" has to become one. Measured against
+    a real narration at this threshold, 1 + |duck|/3 lands close: -7 dB asked
+    gives a ratio of 3.3 and a measured 4.9 dB of ducking. Approximate on
+    purpose -- the exact figure depends on the programme, and what matters is
+    that the voice stays on top and the music returns in the gaps.
+    """
+    return max(1.5, min(20.0, 1.0 + abs(float(duck_db)) / 3.0))
+
+
+def _make_bed(look, seconds, tmp, progress):
+    """A music bed for this render, or None if the style does not want one."""
+    want = look.get("music") or {}
+    if not want.get("enabled"):
+        return None
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import music as music_mod
+        return music_mod.make(seconds + 0.5, Path(tmp) / "bed.wav",
+                              mood=str(want.get("mood") or "grief"))
+    except Exception as exc:
+        # A missing bed is a quieter video, not a failed render.
+        progress("  note: no music bed (%s) — the narration carries it alone"
+                 % str(exc)[:70])
+        return None
+
+
 def _source_size(beat):
     """(width, height) of a beat's clip, or (None, None) if it cannot be read.
 
@@ -1512,6 +1551,9 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
         audio = plan.get("audio")
         if audio:
             args += ["-i", audio["_path"]]
+        bed = _make_bed(look, probe(silent)["duration"], tmp, progress) if audio else None
+        if bed:
+            args += ["-i", str(bed)]
         if has_captions:
             escaped = str(subs).replace("\\", "/").replace(":", r"\:")
             args += ["-vf", "subtitles='%s'" % escaped]
@@ -1529,10 +1571,31 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             args += ["-c:a", "aac",
                      "-b:a", "%dk" % int(enc.get("audio_kbps", 160)),
                      "-ar", str(int(enc.get("audio_rate", 48000))),
-                     "-ac", str(int(enc.get("audio_channels", 2))),
-                     "-map", "0:v:0", "-map", "1:a:0",
-                     "-af", "apad", "-t", "%.3f" % probe(silent)["duration"]]
-            progress("  laying the voice track")
+                     "-ac", str(int(enc.get("audio_channels", 2)))]
+            if bed:
+                # The bed ducks itself out of the way: the narration is the
+                # sidechain key, so the music drops while a line is running and
+                # comes back in the gaps. Set by ear-independent numbers in the
+                # style rather than by riding a fader.
+                music = look.get("music") or {}
+                args += ["-filter_complex",
+                         "[1:a]apad,atrim=0:%.3f,asplit=2[vv][vk];"
+                         "[2:a]volume=%.1fdB[bedq];"
+                         "[bedq][vk]sidechaincompress=threshold=%.3f:ratio=%.2f"
+                         ":attack=12:release=420[duck];"
+                         "[vv][duck]amix=inputs=2:duration=first:normalize=0[aout]"
+                         % (probe(silent)["duration"],
+                            float(music.get("gain_db", -19.0)),
+                            DUCK_THRESHOLD,
+                            _duck_ratio(float(music.get("duck_db", -7.0)))),
+                         "-map", "0:v:0", "-map", "[aout]",
+                         "-t", "%.3f" % probe(silent)["duration"]]
+                progress("  laying the voice over a %s bed"
+                         % (music.get("mood") or "grief"))
+            else:
+                args += ["-map", "0:v:0", "-map", "1:a:0",
+                         "-af", "apad", "-t", "%.3f" % probe(silent)["duration"]]
+                progress("  laying the voice track")
         else:
             args += ["-an"]
         args.append(str(out))

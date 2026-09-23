@@ -99,6 +99,16 @@ DEFAULT_STYLE = {
         "min_word_variety": 0.55,   # distinct words over total words
         "repeat_lines_allowed": 1,  # the loop line, said twice, and nothing else
     },
+    # Silence under a narration is the cheapest thing that makes a video feel
+    # thin. The bed is synthesised by music.py rather than licensed, because a
+    # Content ID claim on the audio takes the revenue off a video whose
+    # pictures were cleared specifically to avoid that.
+    "music": {
+        "enabled": True,
+        "mood": "grief",            # music.py moods
+        "gain_db": -21.0,           # how far under the narration it sits
+        "duck_db": -7.0,            # how much further while a line is running
+    },
     "retention": {
         "hook_seconds": 2.0,
         "beat_target_seconds": 2.0,
@@ -168,6 +178,7 @@ _NUMERIC = {
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
     "voice.elevenlabs_stability": (0.0, 1.0), "voice.elevenlabs_similarity": (0.0, 1.0),
+    "music.gain_db": (-60.0, 0.0), "music.duck_db": (-30.0, 0.0),
     "narration.max_same_opening": (1, 20), "narration.min_word_variety": (0.1, 1.0),
     "narration.repeat_lines_allowed": (0, 10),
     "retention.hook_seconds": (0.5, 6.0),
@@ -220,7 +231,8 @@ def _validate(style):
         raise StyleError("the style must be a JSON object")
     _fill_defaults(style)
     for section in ("format", "captions", "motion", "transition", "pacing",
-                    "encode", "shorts", "voice", "retention", "narration"):
+                    "encode", "shorts", "voice", "retention", "narration",
+                    "music"):
         if not isinstance(style.get(section), dict):
             raise StyleError('style is missing the "%s" section' % section)
     for dotted, (low, high) in _NUMERIC.items():
