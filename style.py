@@ -55,7 +55,16 @@ DEFAULT_STYLE = {
                # How far the source may be blown up to fill the frame. A 2.35:1
                # film would need 2.2x to fill a vertical one; soft is worse
                # than small, so the crop stops here and fill covers the rest.
-               "max_upscale": 1.9},
+               "max_upscale": 1.9,
+               # A phone in daylight is not a grading suite. Footage cut from a
+               # film swings from a 216-mean desert to a 15-mean cave, and the
+               # dark end goes to a black rectangle on the device most people
+               # watch on. Any beat measuring below this gets a gamma lift
+               # towards it -- enough to read, not enough to stop being night.
+               "min_luma": 52.0,
+               # How far that lift may go. Past this the grain comes up with
+               # the picture and it looks worse than it did dark.
+               "max_lift": 2.2},
     "captions": {
         "font": "DejaVu Sans",
         "size_pct": 3.6,             # of frame height
@@ -151,6 +160,10 @@ DEFAULT_STYLE = {
         "silence_floor_db": -45,
         "keep_head_ms": 25,             # left at the head so no consonant clips
         "gap_seconds": 0.09,            # breath between lines, not a pause
+        # A full stop inside a line. Kokoro gives one 0.06s -- the same as a
+        # comma -- so voice.py speaks the line in two takes and puts this
+        # much silence between them itself.
+        "sentence_pause_seconds": 0.30,
         "highpass_hz": 85,              # cut rumble below the voice
         "lowpass_hz": 8500,             # take the fizz off synthesised speech
         # Kokoro, when KOKORO_MODEL and KOKORO_VOICES point at local weights.
@@ -177,6 +190,7 @@ _NUMERIC = {
     "format.blur_zoom": (1.0, 2.0),
     "format.min_coverage": (0.3, 1.0), "format.focus_keep": (0.3, 1.0),
     "format.max_upscale": (1.0, 4.0),
+    "format.min_luma": (0.0, 160.0), "format.max_lift": (1.0, 4.0),
     "motion.push_in": (0.0, 0.6), "transition.seconds": (0.0, 2.0),
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34), "encode.audio_rate": (8000, 48000),
@@ -195,6 +209,7 @@ _NUMERIC = {
     "retention.total_target_seconds": (5.0, 180.0),
     "voice.kokoro_speed": (0.5, 2.0), "voice.silence_floor_db": (-70, -20),
     "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
+    "voice.sentence_pause_seconds": (0.0, 1.5),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 # The same names render.TRANSITIONS knows. They live here too rather than being

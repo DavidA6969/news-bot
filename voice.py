@@ -483,8 +483,14 @@ def _retime(raw, out_path, text, settings):
     return out_path
 
 
-def _synthesise(engine, text, out_path, voice=None, settings=None):
-    """One line of text to one wav, spoken and treated to the committed style."""
+def _engine_say(engine, text, out_path, voice=None, settings=None):
+    """Hand one stretch of text to the engine. No trimming, no mastering.
+
+    Kept separate from `_synthesise` because a line is sometimes spoken in
+    several takes -- see `sentence_pieces` -- and those are trimmed one by one
+    but levelled together, so the quiet half of "It breathes fire. She's
+    faster." does not come back louder than the loud half.
+    """
     settings = settings if settings is not None else _voice_style()
     out_path = Path(out_path)
     if engine == "piper":
@@ -549,7 +555,134 @@ def _synthesise(engine, text, out_path, voice=None, settings=None):
                          % (engine, ", ".join(n for n, _ in usable_engines()) or "none"))
     if not out_path.exists() or out_path.stat().st_size < 256:
         raise VoiceError("%s produced no audio for %r" % (engine, text[:40]))
-    trim_silence(out_path, settings)
+    return out_path
+
+
+# A full stop the engine does not honour.
+#
+# Kokoro reads a sentence end inside an utterance as a comma, and reads a comma
+# as nothing much: measured over four phrases, an internal full stop bought
+# 0.06s of silence -- the same as a comma, and the same as an arbitrary point
+# mid-clause. `utterances` already keeps consecutive sentences in separate
+# takes for that reason, but a single scripted line can still hold two of them:
+#
+#     23. Not for weeks. For years.  {breath}
+#
+# and those are the lines that need the stop most, because the second sentence
+# is the one that lands. So a line is spoken in as many takes as it has
+# sentences and the silence is put in by hand.
+ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "prof", "st", "sr", "jr",
+                 "vs", "etc", "no", "fig", "approx"}
+
+_BREAK = re.compile(r"""([.!?…]+|[;—–])(['"”’)\]]*)\s+""")
+
+# A closing stop gets the whole pause, a semicolon or a dash half of it: those
+# are a breath rather than the end of a thought.
+_BREATH_MARKS = ";—–"
+
+
+def sentence_pieces(text):
+    """Split a line where the voice should stop. [(text, pause weight), ...]
+
+    The weight multiplies the style's `sentence_pause_seconds`; the last piece
+    is always 0.0 because the gap after the line is the caller's business.
+    A line with nothing to split comes back as one piece, which is the usual
+    case -- this costs nothing on a line that does not need it.
+    """
+    pieces, start = [], 0
+    for m in _BREAK.finditer(text):
+        mark, after = m.group(1), text[m.end():]
+        if not after.strip():
+            continue                            # the line's own final stop
+        if mark[0] in _BREATH_MARKS:
+            weight = 0.5
+        else:
+            before = re.search(r"([\w']+)\W*$", text[start:m.start()])
+            word = (before.group(1) if before else "").lower()
+            if mark == "." and (word in ABBREVIATIONS or
+                                (len(word) == 1 and word.isalpha())):
+                continue                        # "Dr. Vale", "J. Smith"
+            if mark == "." and not (after[:1].isupper() or after[:1] in "\"'“‘"):
+                continue                        # a decimal point, or mid-word
+            weight = 1.0
+        pieces.append((text[start:m.end(2)].strip(), weight))
+        start = m.end()
+    tail = text[start:].strip()
+    if tail:
+        pieces.append((tail, 0.0))
+    elif pieces:
+        pieces[-1] = (pieces[-1][0], 0.0)
+    return pieces or [(text.strip(), 0.0)]
+
+
+def sentence_pause(settings):
+    """How long a stop inside a line is held for.
+
+    Longer than `gap_seconds` on purpose. Between two takes the silence is the
+    gap plus what frame quantisation and the beat floor add to it -- measured
+    at a 0.36s median. Inside a take there is none of that, so the number here
+    is the whole pause and has to stand in for all of it.
+    """
+    settings = settings or {}
+    held = settings.get("sentence_pause_seconds")
+    if held is None:
+        return float(settings.get("gap_seconds", PAD_SECONDS)) * 2.0
+    return float(held)
+
+
+def _say_pieces(engine, pieces, out_path, voice, settings):
+    """Speak a line as several takes and join them with real silence."""
+    held = sentence_pause(settings)
+    parts = []
+    for n, (piece, _) in enumerate(pieces, 1):
+        part = out_path.with_name("%s.p%02d.wav" % (out_path.stem, n))
+        _engine_say(engine, piece, part, voice, settings)
+        trim_silence(part, settings)
+        parts.append(part)
+    cmd = [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y"]
+    labels, n = [], 0
+    for part, (_, weight) in zip(parts, pieces):
+        cmd += ["-i", str(part)]
+        labels.append("[%d:a]" % n); n += 1
+        if weight > 0:
+            cmd += ["-f", "lavfi", "-t", "%.3f" % (held * weight),
+                    "-i", "anullsrc=r=%d:cl=mono" % SAMPLE_RATE]
+            labels.append("[%d:a]" % n); n += 1
+    graph = "%sconcat=n=%d:v=0:a=1[out]" % ("".join(labels), len(labels))
+    cmd += ["-filter_complex", graph, "-map", "[out]",
+            "-ar", str(SAMPLE_RATE), "-ac", "1", str(out_path)]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    for part in parts:
+        part.unlink(missing_ok=True)
+    if proc.returncode != 0 or not out_path.exists() or out_path.stat().st_size < 256:
+        raise VoiceError("could not join %d takes of %r: %s"
+                         % (len(pieces), pieces[0][0][:30],
+                            (proc.stderr or "").strip()[-200:]))
+    return out_path
+
+
+def _synthesise(engine, text, out_path, voice=None, settings=None):
+    """One line of text to one wav, spoken and treated to the committed style.
+
+    A line holding more than one sentence is spoken as one take per sentence
+    with the silence written in between, because no engine here puts a usable
+    stop inside an utterance.
+    """
+    settings = settings if settings is not None else _voice_style()
+    out_path = Path(out_path)
+    pieces = sentence_pieces(text)
+    if len(pieces) > 1:
+        try:
+            _say_pieces(engine, pieces, out_path, voice, settings)
+        except VoiceError as exc:
+            # a run-on line is better than a missing one
+            print("voice.py: %s — speaking it in one take instead" % exc,
+                  file=sys.stderr)
+            _engine_say(engine, text, out_path, voice, settings)
+            trim_silence(out_path, settings)
+    else:
+        _engine_say(engine, text, out_path, voice, settings)
+        trim_silence(out_path, settings)
     return _master(out_path, settings)
 
 
@@ -696,12 +829,26 @@ def _group_spec(beats, delivery):
     return rate, pitch, hold
 
 
-def _shares(beats, lines, weights=None):
+def _inside_pauses(beats, lines, settings):
+    """Seconds of hand-placed silence inside each beat of an utterance.
+
+    A beat holding two sentences carries a stop that the word weights know
+    nothing about, so without this the picture would cut early by however long
+    the stop runs.
+    """
+    held = sentence_pause(settings)
+    return [sum(w for _, w in sentence_pieces(lines[i - 1])) * held for i in beats]
+
+
+def _shares(beats, lines, weights=None, pauses=None, seconds=None):
     """How an utterance's length divides between the beats inside it.
 
     From measured word durations when they are available -- they are already
     computed for the karaoke timing -- and from syllables when they are not.
     Only the ratios matter; the total is whatever the engine actually took.
+
+    `pauses` and `seconds` fold in silence this module put inside a beat by
+    hand, which is time the beat takes but no word accounts for.
     """
     sizes = []
     for i in beats:
@@ -713,7 +860,13 @@ def _shares(beats, lines, weights=None):
     if not any(sizes):
         sizes = [max(1.0, float(len(re.findall(r"[\w']+", lines[i - 1])))) for i in beats]
     total = sum(sizes) or float(len(beats))
-    return [x / total for x in sizes]
+    shares = [x / total for x in sizes]
+    if not pauses or not any(pauses) or not seconds:
+        return shares
+    speech = max(0.0, float(seconds) - sum(pauses))
+    lengths = [s * speech + p for s, p in zip(shares, pauses)]
+    grand = sum(lengths) or 1.0
+    return [x / grand for x in lengths]
 
 
 def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None,
@@ -788,9 +941,12 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
         _synthesise(engine, text, target, voice, per_line)
         if pitch:
             _pitch(target, pitch)
-        spoken.append({"path": target, "seconds": _duration(target),
+        seconds = _duration(target)
+        spoken.append({"path": target, "seconds": seconds,
                        "beats": list(group),
-                       "shares": _shares(group, beats, weights),
+                       "shares": _shares(group, beats, weights,
+                                         _inside_pauses(group, beats, per_line),
+                                         seconds),
                        "hold": hold})
     return spoken
 

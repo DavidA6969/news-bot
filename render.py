@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -1003,6 +1004,38 @@ def focus_window(path, start=0.0, duration=1.0, keep=0.72):
     return _narrowest_band(energy, keep)
 
 
+def mean_luma(path, start, duration, samples=12):
+    """Average brightness of a beat, 0-255, or None if it cannot be read."""
+    frames = _grey_frames(path, start, duration, SCAN_FPS, samples, 64, 36)
+    if frames is None or not len(frames):
+        return None
+    return float(frames.mean())
+
+
+def lift_filter(mean, floor, max_gamma=2.2):
+    """A gamma that brings a dark beat up to `floor`, or "" if it is fine.
+
+    Brightness would do it by adding a constant, which lifts the blacks off
+    zero and leaves the shot looking washed rather than lit. Gamma moves the
+    midtones and leaves black where it was, which is what "turn the lamp up"
+    actually means.
+
+    The exponent is solved rather than guessed: for a mean m and a target f,
+    (m/255)^(1/g) = f/255, so g = ln(m/255) / ln(f/255). Capped, because past
+    a certain point the grain comes up faster than the picture.
+
+    Saturation goes with it. Lifting gamma alone flattens colour -- the same
+    shot reads greyer at the top of the curve than it did at the bottom.
+    """
+    if mean is None or floor <= 0 or mean <= 0 or mean >= floor:
+        return ""
+    gamma = math.log(mean / 255.0) / math.log(min(254.0, floor) / 255.0)
+    gamma = max(1.0, min(float(max_gamma), gamma))
+    if gamma <= 1.02:
+        return ""
+    return "eq=gamma=%.3f:saturation=%.3f" % (gamma, min(1.25, 1.0 + (gamma - 1.0) * 0.22))
+
+
 def precrop(src_w, src_h, w, h, focus, coverage, max_upscale=1.9):
     """(crop_w, crop_x): how much of the source width to keep, and from where.
 
@@ -1154,7 +1187,7 @@ def _reframe(w, h, mode, zoom=1.0):
 
 
 def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
-                 blur_zoom=1.0, push_out=False, crop_to=None):
+                 blur_zoom=1.0, push_out=False, crop_to=None, lift=""):
     """Reframe to the style's format, and apply its push-in.
 
     The slow push is what stops a run of stock clips reading as a slideshow;
@@ -1169,11 +1202,16 @@ def _beat_filter(w, h, fps, push, duration, fit="crop", src_w=None, src_h=None,
     keeping. Everything downstream then treats that band as the whole frame,
     so a shot that would have been a letterboxed strip is fitted as if it had
     been shot closer.
+
+    `lift` is `lift_filter`'s gamma for a dark beat. It goes on first, before
+    anything is scaled or blurred, so the blurred fill is lit from the same
+    picture as the strip in front of it rather than staying black behind a
+    brightened one.
     """
-    head = ""
+    head = "%s," % lift if lift else ""
     if crop_to and src_h:
         cw, cx = crop_to
-        head = "crop=%d:%d:%d:0," % (cw, src_h, cx)
+        head += "crop=%d:%d:%d:0," % (cw, src_h, cx)
         src_w = cw
     mode = choose_fit(fit, w, h, src_w, src_h)
     if mode == "blur":
@@ -1464,6 +1502,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
     coverage = float(look["format"].get("min_coverage", 0.64) or 0.64)
     focus_keep = float(look["format"].get("focus_keep", 0.72) or 0.72)
     max_upscale = float(look["format"].get("max_upscale", 1.9) or 1.9)
+    min_luma = float(look["format"].get("min_luma", 0.0) or 0.0)
+    max_lift = float(look["format"].get("max_lift", 2.2) or 2.2)
     fade, fade_len, fade_extra, fade_at = transition_plan(
         look["transition"].get("kind"), look["transition"].get("seconds"),
         [float(b["duration"]) for b in plan["beats"]], fps)
@@ -1484,11 +1524,15 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                               focus_window(beat["_path"], beat["in"],
                                            beat["duration"], focus_keep),
                               coverage, max_upscale)
-            progress("  beat %d/%d  %.1fs  %s%s" % (
+            luma = mean_luma(beat["_path"], beat["in"], beat["duration"]) \
+                if min_luma > 0 else None
+            lift = lift_filter(luma, min_luma, max_lift)
+            progress("  beat %d/%d  %.1fs  %s%s%s" % (
                 i + 1, len(plan["beats"]), beat["duration"],
                 Path(beat["_path"]).name,
                 "  reframed to %d%% of the width" % round(100.0 * crop_to[0] / src_w)
-                if crop_to else ""))
+                if crop_to else "",
+                "  lifted from luma %d" % round(luma) if lift else ""))
             # The transition eats into the NEXT beat, so this one has to supply
             # the frames for it. tpad holds the last frame if the clip runs out
             # -- a source shorter than its beat plus the overlap would otherwise
@@ -1501,7 +1545,7 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             chain = _beat_filter(w, h, fps, push, beat["duration"], fit,
                                  src_w, src_h, blur_zoom=blur_zoom,
                                  push_out=(alternate and i % 2 == 1),
-                                 crop_to=crop_to)
+                                 crop_to=crop_to, lift=lift)
             if fade_extra[i]:
                 chain += (",tpad=stop_mode=clone:stop_duration=%.4f"
                           % (fade_extra[i] / float(fps)))

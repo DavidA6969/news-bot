@@ -381,13 +381,32 @@ rather than shortening it, and the narration reads straight past the end of one
 thought into the next. A wider grouping was tried and this is what it sounded
 like.
 
-| | cuts | silence |
-| --- | --- | --- |
-| inside a sentence | 10 | continuous |
-| at a sentence boundary | 30 | `voice.gap_seconds` plus whatever the script marks |
+**A line holding two sentences is split the same way.** Grouping cannot help
+there -- the two sentences are one beat and one picture -- so `voice.py` speaks
+such a line in one take per sentence and writes the silence in itself:
 
 ```
-  narrated  kokoro, 41 lines as 13 sentences
+23. Not for weeks. For years.  {breath}
+```
+
+`voice.sentence_pause_seconds` is how long that stop runs, and it is longer
+than `gap_seconds` on purpose. Between two takes the silence is the gap plus
+whatever frame quantisation and the beat floor add to it, measured at a 0.36s
+median. Inside a take there is none of that, so the setting has to stand in for
+all of it. `sentence_pieces` decides where to split, and knows that `Dr.`,
+`J. Smith` and `3.5` are not sentence ends; a semicolon or a dash gets half the
+pause, because those are a breath rather than the end of a thought.
+
+Measured on the finished 36-beat narration:
+
+| | cuts | silence |
+| --- | --- | --- |
+| inside a sentence | 8 | 0.06s median -- the voice carries on |
+| at a sentence boundary | 27 | 0.36s median, 0.22s at the shortest |
+| at a stop inside a line | 4 | 0.33-0.52s |
+
+```
+  narrated  kokoro, 36 lines as 28 sentences
 ```
 
 Two things follow from that:
@@ -642,6 +661,38 @@ part, and a short part is not a small problem: the transition offsets are
 computed from the planned lengths, so one lands past the end of its input and
 the chain collapses. Measured once — four beats a few frames short took a 59.2s
 video to 50.2s.
+
+### A phone is not a grading suite
+
+Footage cut from one film swings further than anything shot for a Short. On the
+36 beats of the Sintel cut, the mean brightness of a beat ran from **216 in the
+desert to 15.5 in the cave** — and *half the video sat under 45*, which on a
+phone in daylight is a black rectangle with a caption on it. Cutting from 216 to
+20 is also the harshest edit in the video, and nobody wrote it.
+
+So every beat is measured before it is cut, and anything under
+`format.min_luma` is lifted towards it. The exponent is solved, not guessed: for
+a measured mean *m* and a target *f*, `(m/255)^(1/g) = f/255`, so
+`g = ln(m/255) / ln(f/255)`. `format.max_lift` caps it, because past a point the
+grain comes up faster than the picture does.
+
+It is gamma and not brightness. Brightness adds a constant, which lifts the
+blacks off zero and leaves the shot looking washed rather than lit; gamma moves
+the midtones and leaves black where it was, which is what turning the lamp up
+actually does. A little saturation goes with it, because lifting gamma alone
+reads greyer at the top of the curve than at the bottom.
+
+The lift goes on the source, ahead of the reframing crop and the blurred fill,
+so the fill is built from the same lit picture rather than staying black behind
+a brightened strip.
+
+```
+  beat 23/36  1.9s  clip23.mp4  reframed to 71% of the width  lifted from luma 18
+```
+
+Measured on the finished video: 19 of 36 beats lifted, mean brightness **77.8**,
+and 3 sampled frames of 120 still under 30 rather than 15 clips of 41. The cave
+is still a cave. You can see what is in it.
 
 ### A bed under it
 

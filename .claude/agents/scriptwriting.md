@@ -80,7 +80,26 @@ across the cuts the way narrated video actually works:
 > nearly kill her. Not for weeks. For years.
 
 Same shots, same length. `voice.py` speaks consecutive clauses as one
-continuous take, so a beat that ends on a comma is a cut with no pause in it.
+continuous take, so a beat that ends on a comma is a cut with no pause in it,
+and a beat that ends on a full stop is a cut the voice stops for.
+
+**That is the whole control you have over pausing, so use the punctuation
+deliberately.** A comma at the end of a beat means carry on; a full stop means
+stop. Both are wanted — a narration that pauses at every cut sounds broken, and
+one that never pauses sounds like it is being read off a card. On the 36-beat
+cut above: 27 stops averaging 0.36s, 8 run-ons averaging 0.06s.
+
+**Two sentences on one line are allowed, and they land hard.** The line is one
+beat and one picture, and `voice.py` speaks it in two takes with real silence
+between them:
+
+```
+20. Not for weeks. For years.  {breath}
+26. It breathes fire. She's faster. {faster, breath}
+```
+
+Use it for a reversal — a short second sentence that overturns the first. Do
+not use it as a way to fit two ideas in one beat; that is just a long beat.
 `render.py narration` fails a script where fewer than `narration.min_flow` of
 the beats run on from or into a neighbour, and also fails one where more than
 `narration.max_same_opening` beats begin with the same word, or where the

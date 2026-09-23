@@ -93,6 +93,26 @@ cleared specifically to avoid that. `render.py` makes one automatically when
 `music.enabled` is set, and ducks it under the narration by sidechain. Nothing
 for you to do beyond leaving it on.
 
+## Dark footage is fixed for you, so do not work around it
+
+Every beat's brightness is measured before it is cut, and anything under
+`format.min_luma` gets a gamma lift towards it, capped at `format.max_lift`.
+You will see it in the progress line:
+
+```
+  beat 23/36  1.9s  clip23.mp4  reframed to 71% of the width  lifted from luma 18
+```
+
+This exists because footage cut from a single film swings far wider than
+anything shot for a Short — on the Sintel cut, 216 in the desert against 15.5 in
+the cave, with half the video under 45. Under 45 is a black rectangle on a phone
+in daylight, and the cut from 216 to 20 is the harshest edit in the video.
+
+So: **do not reject a shot for being dark, and do not add your own `eq` or
+`curves` to a plan.** Pick the shot that tells the story. If a beat still reads
+as murk after the lift, the source is genuinely black, not dark — say so and
+pick another moment.
+
 ## The look is not yours to choose
 
 Every video uses the one committed editing style in `style.json` — format,
