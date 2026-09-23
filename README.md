@@ -475,8 +475,20 @@ silent no-op.
 **Silence needs using in both directions.** A pause at every cut sounds broken;
 no pauses anywhere sounds like someone reading off a card. Three lengths exist
 so the moment of choice, the loss, the line before a reveal and the last line
-can each land differently, and everything between them can run on. The Sintel
-cut is 41 beats in 17 takes with 17 marked pauses. The directions are stripped before the line is spoken *and*
+can each land differently, and everything between them can run on.
+
+**A hold belongs to the line that asked for it, not to the passage around it.**
+This was wrong for two builds and it cost the two biggest moments in the video.
+The hold was added to the utterance's total and then split between its beats by
+share, so `By her.` — marked for the longest pause in the script — received 29%
+of a 0.6s hold and came out as a **0.77s shot**, while the clause before it took
+the rest. `She kills it.` was 0.63s. The most important beats were the shortest
+ones, because their lines were short. The hold's frames now go to the last beat
+outright: 1.43s and 1.20s.
+
+The style's `pacing.min_beat_seconds` applies *after* that, to the finished shot
+length rather than to the spoken part — flooring the speech and then adding the
+hold counts the same silence twice. The directions are stripped before the line is spoken *and*
 before it is captioned, so the script stays the script.
 
 **Pitch moves are small on purpose, and that was learned the hard way.**

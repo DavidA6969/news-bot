@@ -48,7 +48,7 @@ __all__ = ["beats_from_script", "speak", "fit_plan", "build_track", "attach",
 
 HERE = Path(__file__).resolve().parent
 PAD_SECONDS = 0.09          # fallback gap after a line; the style sets the real one
-INSIDE_FLOOR = 0.40         # shortest a beat may be inside a continuous sentence
+INSIDE_FLOOR = 0.55         # shortest a beat may be inside a continuous sentence
 SAMPLE_RATE = 24000
 
 
@@ -807,14 +807,15 @@ def beat_lengths(spoken, fps, gap, floor):
     out = {}
     low = max(1, int(round(floor * fps)))
     for utt in spoken:
-        total = utt["seconds"] + float(utt.get("hold") or 0.0) + gap
+        # The hold belongs to the beat that asked for it, NOT to the passage it
+        # sits in. Adding it to the total and splitting by share gave "By her."
+        # -- a line marked for the longest pause in the script -- 29% of a 0.6s
+        # hold and a 0.77s shot, while the clause before it took the rest. The
+        # two most important moments in the video flashed past because their
+        # lines were short.
+        hold_frames = max(0, int(round(float(utt.get("hold") or 0.0) * fps)))
+        total = utt["seconds"] + gap
         frames = max(len(utt["beats"]), int(round(total * fps)))
-        if len(utt["beats"]) == 1:
-            # A whole sentence spoken on its own still gets the style's
-            # minimum, the way every beat used to: a shot that short is a
-            # flash, and the silence after a full stop is a normal pause
-            # rather than the voice breaking off mid-sentence.
-            frames = max(frames, low)
         want = [f * frames for f in utt["shares"]]
         got = [max(1, int(x)) for x in want]
         # hand out what rounding left over, biggest fractional part first
@@ -841,6 +842,14 @@ def beat_lengths(spoken, fps, gap, floor):
                         break
                     got[donor] -= 1
                     got[k] += 1
+        got[-1] += hold_frames           # the silence lands on the line that asked
+        if len(got) == 1 and got[0] < low:
+            # A whole passage spoken on its own still gets the style's minimum,
+            # the way every beat used to. Applied AFTER the hold, because the
+            # floor is about how long the shot is and the hold is part of that
+            # -- flooring the spoken part and then adding the hold counts the
+            # same silence twice.
+            got[0] = low
         for beat, f in zip(utt["beats"], got):
             out[beat] = round(f / float(fps), 6)
     return out
