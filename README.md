@@ -397,12 +397,32 @@ all of it. `sentence_pieces` decides where to split, and knows that `Dr.`,
 `J. Smith` and `3.5` are not sentence ends; a semicolon or a dash gets half the
 pause, because those are a breath rather than the end of a thought.
 
+**A comma is a third thing, and it is not a take boundary.** Kokoro gives one
+0.03-0.14s, which is not a breath, it is nothing: "Across deserts, through
+forests, over mountains that nearly kill her." came out as one unbroken run.
+The obvious fix -- break the take at the comma too -- is wrong, and measurably:
+
+| "Across deserts," | pitch over "deserts" |
+| --- | --- |
+| spoken inside the whole sentence | **falls** 17.6 Hz into the comma |
+| spoken as a clause on its own | **rises** 15.4 Hz |
+| spoken as the sentence "Across deserts." | rises 15.4 Hz — identical |
+
+The engine cannot tell a comma from a full stop, so a clause synthesised alone
+comes back with a sentence-final rise: a question mark where the script has a
+comma. `clause_breaths` therefore leaves the take whole and opens it up
+*afterwards*, in the recording. `_breathe` finds the word boundary from the
+measured word durations, searches ±0.10s for the quietest instant so the splice
+lands off a vowel, and writes in `voice.comma_pause_seconds` with a 6ms fade
+either side. If the quietest point near a comma is still louder than 40% of the
+take's median, there is no gap there to open and the line is left as spoken.
+
 Measured on the finished 36-beat narration:
 
 | | cuts | silence |
 | --- | --- | --- |
-| inside a sentence | 8 | 0.06s median -- the voice carries on |
-| at a sentence boundary | 27 | 0.36s median, 0.22s at the shortest |
+| inside a sentence | 8 | 0.13s median -- a breath, not a stop |
+| at a sentence boundary | 27 | 0.35s median, 0.17s at the shortest |
 | at a stop inside a line | 4 | 0.33-0.52s |
 
 ```
@@ -434,6 +454,40 @@ supply one.
 failure fitting to the voice exists to prevent — and with beats sharing an
 utterance it would desync everything after it. The note says the line is too
 long; the cut still follows the voice.
+
+### One level, measured rather than normalised
+
+Every take used to go through a single-pass `loudnorm`. Measured across 29
+takes of one narration, the levels ran **-21.5 to -15.9 LUFS**: a 5.6 dB spread
+on lines meant to sound like one person talking, with the short dramatic ones
+-- `By her.`, `Something bigger sees him.` -- sitting at the quiet end.
+
+Two causes, and `loudnorm` could not fix either:
+
+- **It is a streaming normaliser and needs seconds to settle.** Half these
+  takes are under two.
+- **It ran after the silence this module writes into a line.** Integrated
+  loudness counts that silence, so a line with a stop in it measures quiet and
+  gets turned up. The correlation between a take's level and the share of it
+  that was inserted silence was **-0.51**.
+
+So levelling is its own step, in its own place in the order: say it, trim it,
+apply the tone, **then level, then** write in the silence. `_level_together`
+measures mean RMS -- which tracked LUFS to within 0.32 dB (sd 0.28) on this
+material, and unlike an integrated reading does not need a minimum length --
+and applies one gain, with a limiter holding the peak rather than the gain
+being cut short to protect it. Capping the gain instead was tried and left
+every take 2-3 dB under target.
+
+One gain across all the pieces of a line, not one each: the parts of
+"It breathes fire. She's faster." are a deliberate contrast, and levelling them
+apart would undo the delivery the script asked for. Their relative levels are
+the performance; their shared level is production.
+
+```
+  before   -21.5 to -15.9 LUFS   spread 5.6 dB
+  after    -16.6 to -16.3        spread 0.3 dB on the speech, median -16.1
+```
 
 ### Captions that arrive with the voice
 

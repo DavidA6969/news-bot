@@ -89,6 +89,11 @@ stop. Both are wanted — a narration that pauses at every cut sounds broken, an
 one that never pauses sounds like it is being read off a card. On the 36-beat
 cut above: 27 stops averaging 0.36s, 8 run-ons averaging 0.06s.
 
+**A comma is a breath, a full stop is a stop, and nothing is neither.** The
+three lengths are measured, not guessed: 0.06s where a beat runs on into the
+next, 0.13s at a comma, 0.35s at a sentence end. You get them by punctuating
+the line properly -- there is no directive for a comma.
+
 **Two sentences on one line are allowed, and they land hard.** The line is one
 beat and one picture, and `voice.py` speaks it in two takes with real silence
 between them:

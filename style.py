@@ -164,6 +164,12 @@ DEFAULT_STYLE = {
         # comma -- so voice.py speaks the line in two takes and puts this
         # much silence between them itself.
         "sentence_pause_seconds": 0.30,
+        # A comma inside a line. The engine gives one 0.03-0.14s, which is
+        # not a breath, it is nothing -- three clauses in a row come out as
+        # one unbroken run. voice.py opens the recording up afterwards
+        # rather than asking for it, because a clause synthesised alone
+        # comes back with a rising, sentence-final tune.
+        "comma_pause_seconds": 0.13,
         "highpass_hz": 85,              # cut rumble below the voice
         "lowpass_hz": 8500,             # take the fizz off synthesised speech
         # Kokoro, when KOKORO_MODEL and KOKORO_VOICES point at local weights.
@@ -210,6 +216,7 @@ _NUMERIC = {
     "voice.kokoro_speed": (0.5, 2.0), "voice.silence_floor_db": (-70, -20),
     "voice.keep_head_ms": (0, 200), "voice.gap_seconds": (0.0, 1.0),
     "voice.sentence_pause_seconds": (0.0, 1.5),
+    "voice.comma_pause_seconds": (0.0, 0.8),
     "voice.lowpass_hz": (3000, 20000), "voice.loudness_lufs": (-30.0, -8.0),
 }
 # The same names render.TRANSITIONS knows. They live here too rather than being

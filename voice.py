@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import os
 import re
 import shutil
@@ -39,6 +40,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+import wave
 from pathlib import Path
 
 __all__ = ["beats_from_script", "speak", "fit_plan", "build_track", "attach",
@@ -399,12 +401,16 @@ def _master(path, settings):
         chain.append("lowpass=f=%d" % lowpass)
     if settings.get("compress"):
         chain.append("acompressor=threshold=-18dB:ratio=3:attack=8:release=140:makeup=2")
-    loudness = number("loudness_lufs")
-    if loudness is not None:
-        # single-pass loudnorm: not as exact as two-pass, but a per-beat clip is
-        # short enough that the difference is inaudible, and it keeps one line
-        # of narration from arriving twice as loud as the next
-        chain.append("loudnorm=I=%.1f:TP=-1.5:LRA=11" % loudness)
+    # Levelling is NOT done here. It used to be, with a single-pass loudnorm,
+    # and it did not work: measured across 29 takes of one narration the levels
+    # ran from -21.5 to -15.9 LUFS, a 5.6 dB spread on lines meant to sound
+    # like one person talking. Two reasons, and loudnorm cannot fix either.
+    # It is a streaming normaliser that needs seconds to settle, and half these
+    # takes are under two of them -- "By her." came back 3 dB under. And it ran
+    # after the silence this module writes into a line, which drags the
+    # integrated figure down: the correlation between a take's level and how
+    # much of it was inserted silence was -0.51. See `_level_together`, which
+    # measures the speech and applies one number.
     if not chain:
         return path
     tmp = path.with_name(path.stem + ".mastered.wav")
@@ -420,6 +426,93 @@ def _master(path, settings):
         return path
     tmp.replace(path)
     return path
+
+
+# A take is levelled by measuring it and applying one gain, not by asking a
+# normaliser to converge on something two seconds long. Mean RMS stands in for
+# loudness here: measured over a whole narration the two tracked each other to
+# within 0.32 dB (sd 0.28), because every take is one speaker through one
+# filter chain -- and unlike an integrated LUFS reading, RMS does not need a
+# minimum length to mean anything.
+RMS_TO_LUFS = 0.3           # measured offset between the two on this material
+PEAK_CEILING_DB = -1.5      # what the take may not exceed after the gain
+# Generous, because `recorded` takes whatever someone hands it and a quiet
+# recording really can arrive this far under. Refusing to bring it up leaves
+# it inaudible beneath the music, which is worse than lifting its noise floor
+# with it -- and the person can hear the result and record it again. The floor
+# below is what stops a gain this large landing on a take with nothing in it.
+MAX_GAIN_DB = 40.0
+SILENCE_FLOOR_DB = -60.0    # under this there is no speech to level
+
+
+def _mean_volume(path):
+    """(mean dB, peak dB) for a wav, from ffmpeg's volumedetect, or None."""
+    proc = subprocess.run([_ffmpeg(), "-hide_banner", "-i", str(path),
+                           "-af", "volumedetect", "-f", "null", "-"],
+                          capture_output=True, text=True)
+    mean = re.findall(r"mean_volume:\s*(-?[\d.]+) dB", proc.stderr)
+    peak = re.findall(r"max_volume:\s*(-?[\d.]+) dB", proc.stderr)
+    if not mean or not peak:
+        return None
+    return float(mean[-1]), float(peak[-1])
+
+
+def _level_together(parts, settings):
+    """Put these takes on the style's level, with ONE gain across all of them.
+
+    One gain rather than one each, deliberately. The parts of a line are its
+    sentences -- "It breathes fire." and "She's faster." -- and levelling them
+    apart would lift the quiet half of a deliberate contrast to match the loud
+    half, which is the delivery the script asked for being undone by the
+    plumbing. Their relative levels are the performance. Their shared level is
+    production.
+
+    The measurement happens before any silence is written in, so a line with a
+    stop in it is not read as a quiet line.
+    """
+    target = settings.get("loudness_lufs")
+    if target is None or not parts:
+        return 0.0
+    measured = []
+    for part in parts:
+        got = _mean_volume(part)
+        if got is None:
+            return 0.0                      # cannot measure: change nothing
+        measured.append((got[0], got[1], _duration(part)))
+    span = sum(d for _, _, d in measured) or 1.0
+    # energy-weighted, so a long take counts for more than a one-word one
+    energy = sum(10.0 ** (m / 10.0) * d for m, _, d in measured) / span
+    if energy <= 0:
+        return 0.0
+    level = 10.0 * math.log10(energy)
+    if level < SILENCE_FLOOR_DB:
+        print("voice.py: %s measures %.0f dB — nothing to level"
+              % (Path(parts[0]).name, level), file=sys.stderr)
+        return 0.0
+    gain = float(target) - RMS_TO_LUFS - level
+    gain = max(-MAX_GAIN_DB, min(MAX_GAIN_DB, gain))
+    if abs(gain) < 0.05:
+        return 0.0
+    # The gain goes on and a limiter holds the ceiling, rather than the gain
+    # being cut short to protect the peak. Capping it was tried: every take
+    # came back 2-3 dB under target, because compressed speech already peaks
+    # near full scale and the cap bound before the level ever reached the
+    # number the style asks for.
+    chain = "volume=%.2fdB,alimiter=limit=%.4f:attack=5:release=50:level=disabled" % (
+        gain, 10.0 ** (PEAK_CEILING_DB / 20.0))
+    for part in parts:
+        tmp = Path(part).with_name(Path(part).stem + ".gain.wav")
+        proc = subprocess.run([_ffmpeg(), "-hide_banner", "-loglevel", "error",
+                               "-y", "-i", str(part), "-af", chain,
+                               "-ar", str(SAMPLE_RATE), "-ac", "1", str(tmp)],
+                              capture_output=True, text=True)
+        if proc.returncode == 0 and tmp.exists() and tmp.stat().st_size > 256:
+            tmp.replace(part)
+        else:
+            tmp.unlink(missing_ok=True)
+            print("voice.py: could not level %s — leaving it as spoken"
+                  % Path(part).name, file=sys.stderr)
+    return gain
 
 
 def _pitch(path, semitones):
@@ -574,15 +667,28 @@ def _engine_say(engine, text, out_path, voice=None, settings=None):
 ABBREVIATIONS = {"mr", "mrs", "ms", "dr", "prof", "st", "sr", "jr",
                  "vs", "etc", "no", "fig", "approx"}
 
-_BREAK = re.compile(r"""([.!?…]+|[;—–])(['"”’)\]]*)\s+""")
+_BREAK = re.compile(r"""([.!?…]+)(['"”’)\]]*)\s+""")
 
-# A closing stop gets the whole pause, a semicolon or a dash half of it: those
-# are a breath rather than the end of a thought.
-_BREATH_MARKS = ";—–"
+# Everything short of a full stop -- a comma, a semicolon, a colon, a dash --
+# is a breath rather than the end of a thought, and is NOT a place to break the
+# take. Those are `clause_breaths`, which puts the air into the recording
+# afterwards instead of asking the engine for it.
+_BREATH_MARKS = ",;:—–"
+_BIGGER_BREATH = ";:—–"          # a beat longer than a comma, but not a stop
 
 
 def sentence_pieces(text):
-    """Split a line where the voice should stop. [(text, pause weight), ...]
+    """Split a line where the voice should FULLY stop. [(text, weight), ...]
+
+    Only at a sentence end, and for a measured reason. A clause synthesised on
+    its own comes back with the wrong tune. Measured on "Across deserts,
+    through forests, over mountains that nearly kill her.": spoken whole, the
+    pitch over "deserts" FALLS 17.6 Hz into the comma; spoken as the clause
+    "Across deserts," alone it RISES 15.4 Hz -- identical to the decimal to
+    speaking "Across deserts." as a sentence, because the engine cannot tell a
+    comma from a full stop. Breaking a take at a comma therefore puts a
+    question mark where the script has a comma. Commas are `clause_breaths`
+    instead: the tune is left alone and the air goes in afterwards.
 
     The weight multiplies the style's `sentence_pause_seconds`; the last piece
     is always 0.0 because the gap after the line is the caller's business.
@@ -594,18 +700,14 @@ def sentence_pieces(text):
         mark, after = m.group(1), text[m.end():]
         if not after.strip():
             continue                            # the line's own final stop
-        if mark[0] in _BREATH_MARKS:
-            weight = 0.5
-        else:
-            before = re.search(r"([\w']+)\W*$", text[start:m.start()])
-            word = (before.group(1) if before else "").lower()
-            if mark == "." and (word in ABBREVIATIONS or
-                                (len(word) == 1 and word.isalpha())):
-                continue                        # "Dr. Vale", "J. Smith"
-            if mark == "." and not (after[:1].isupper() or after[:1] in "\"'“‘"):
-                continue                        # a decimal point, or mid-word
-            weight = 1.0
-        pieces.append((text[start:m.end(2)].strip(), weight))
+        before = re.search(r"([\w']+)\W*$", text[start:m.start()])
+        word = (before.group(1) if before else "").lower()
+        if mark == "." and (word in ABBREVIATIONS or
+                            (len(word) == 1 and word.isalpha())):
+            continue                            # "Dr. Vale", "J. Smith"
+        if mark == "." and not (after[:1].isupper() or after[:1] in "\"'“‘"):
+            continue                            # a decimal point, or mid-word
+        pieces.append((text[start:m.end(2)].strip(), 1.0))
         start = m.end()
     tail = text[start:].strip()
     if tail:
@@ -613,6 +715,154 @@ def sentence_pieces(text):
     elif pieces:
         pieces[-1] = (pieces[-1][0], 0.0)
     return pieces or [(text.strip(), 0.0)]
+
+
+def clause_breaths(text):
+    """Where inside one spoken take the voice should take a little air.
+
+    Returns [(words before it, seconds multiplier), ...]. A comma is one
+    breath; a semicolon, colon or dash is a bigger one, because those separate
+    more than a comma does without ending the thought.
+
+    Counted in words rather than characters because the time of a word
+    boundary is what the caller has to find, and word counts are what it has.
+    """
+    words, out, seen = re.findall(r"[\w']+[^\w']*", text), [], 0
+    for i, chunk in enumerate(words, 1):
+        if i == len(words):
+            break                                # nothing after the last word
+        mark = next((c for c in chunk if c in _BREATH_MARKS), "")
+        if mark:
+            out.append((i, 1.6 if mark in _BIGGER_BREATH else 1.0))
+    return out
+
+
+def clause_pause(settings):
+    """How much air a comma inside a spoken line gets.
+
+    Kokoro gives one 0.03-0.14s, which is not a breath, it is nothing -- three
+    clauses in a row come out as one unbroken run. This is the whole of the
+    pause, and it is deliberately far short of `sentence_pause_seconds`: a
+    comma that lands like a full stop is the other failure.
+    """
+    settings = settings or {}
+    held = settings.get("comma_pause_seconds")
+    if held is None:
+        return sentence_pause(settings) * 0.4
+    return float(held)
+
+
+def _samples(path):
+    """A take as mono float samples at SAMPLE_RATE, or None."""
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+    raw = subprocess.run([_ffmpeg(), "-v", "error", "-i", str(path),
+                          "-f", "s16le", "-ac", "1", "-ar", str(SAMPLE_RATE), "-"],
+                         capture_output=True).stdout
+    if len(raw) < 2 * SAMPLE_RATE // 10:
+        return None
+    return np.frombuffer(raw, dtype="<i2").astype("float32") / 32768.0
+
+
+# How loud the quietest point near a comma may be, against the take's own
+# median, before the splice is abandoned. A word boundary dips even when it
+# does not go silent; the middle of a vowel does not. Cutting there would put a
+# stutter in the line, which is worse than the run-on it was meant to fix.
+QUIET_ENOUGH = 0.40
+
+
+def _quietest(x, want, search=0.10, win=0.02):
+    """The quietest instant near `want` seconds, so a splice lands off a vowel.
+
+    Returns (seconds, how loud it is against the take's median) or None when
+    the search window falls outside the take. The estimate from word counts is
+    good to about a tenth of a second, which is enough to land inside a word,
+    so the local energy minimum is a much better place to cut than the estimate
+    itself -- and the caller still gets to refuse it.
+    """
+    import numpy as np
+    w = max(8, int(win * SAMPLE_RATE))
+    lo = max(w, int((want - search) * SAMPLE_RATE))
+    hi = min(len(x) - w, int((want + search) * SAMPLE_RATE))
+    if hi <= lo:
+        return None
+    power = np.convolve(x[lo - w:hi + w] ** 2, np.ones(w) / w, mode="same")[w:-w or None]
+    if not len(power):
+        return None
+    k = int(np.argmin(power))
+    loud = float(np.median(np.convolve(x ** 2, np.ones(w) / w, mode="same"))) or 1e-9
+    return (lo + k) / float(SAMPLE_RATE), float(power[k]) / loud
+
+
+def _breathe(path, text, settings, weights=None):
+    """Put air at the commas of a take that the engine ran straight through.
+
+    The take is spoken whole so its tune is right, then opened up afterwards.
+    Silence is spliced in at the quietest point near each comma, with a few
+    milliseconds of fade either side so the join does not click.
+
+    Returns the seconds added, or 0.0 if nothing was done -- a missing numpy,
+    an unreadable wav or a line with no commas all mean "leave it alone".
+    """
+    marks = clause_breaths(text)
+    held = clause_pause(settings)
+    if not marks or held <= 0.001:
+        return 0.0
+    x = _samples(path)
+    if x is None:
+        return 0.0
+    try:
+        import numpy as np
+    except ImportError:
+        return 0.0
+    total = len(x) / float(SAMPLE_RATE)
+    words = re.findall(r"[\w']+", text)
+    sizes = [float(d or 0.0) for _, d in (weights or [])]
+    if len(sizes) != len(words) or not sum(sizes):
+        # no measured durations: a word's length tracks its spelling closely
+        # enough to put the search window in the right place
+        sizes = [len(w) + 1.0 for w in words]
+    run = sum(sizes)
+    cuts, refused = [], 0
+    for n, weight in marks:
+        want = total * (sum(sizes[:n]) / run)
+        found = _quietest(x, want)
+        if found is None:
+            continue
+        at, loud = found
+        if loud > QUIET_ENOUGH:
+            refused += 1               # nothing but voice there; leave it alone
+            continue
+        cuts.append((at, held * weight))
+    if refused:
+        print("voice.py: %d comma%s in %r had no gap to open — left as spoken"
+              % (refused, "" if refused == 1 else "s", text[:40]), file=sys.stderr)
+    if not cuts:
+        return 0.0
+    fade = int(0.006 * SAMPLE_RATE)
+    out, last, added = [], 0, 0.0
+    for at, seconds in sorted(cuts):
+        i = int(at * SAMPLE_RATE)
+        if i - last < fade * 2:
+            continue
+        head = x[last:i].copy()
+        head[-fade:] *= np.linspace(1.0, 0.0, fade, dtype="float32")
+        out.append(head)
+        out.append(np.zeros(int(seconds * SAMPLE_RATE), dtype="float32"))
+        added += seconds
+        last = i
+    tail = x[last:].copy()
+    tail[:fade] *= np.linspace(0.0, 1.0, fade, dtype="float32")
+    out.append(tail)
+    joined = np.concatenate(out)
+    with wave.open(str(path), "wb") as out_wav:
+        out_wav.setnchannels(1)
+        out_wav.setsampwidth(2)
+        out_wav.setframerate(SAMPLE_RATE)
+        out_wav.writeframes((np.clip(joined, -1.0, 1.0) * 32767).astype("<i2").tobytes())
+    return added
 
 
 def sentence_pause(settings):
@@ -630,15 +880,36 @@ def sentence_pause(settings):
     return float(held)
 
 
-def _say_pieces(engine, pieces, out_path, voice, settings):
-    """Speak a line as several takes and join them with real silence."""
-    held = sentence_pause(settings)
-    parts = []
+def _say(engine, pieces, out_path, voice, settings, weights=None):
+    """Speak one line, in the order that keeps each step honest.
+
+    Say it, trim the engine's own silence off both ends, apply the style's
+    tone, THEN level, THEN write in the silence the engine would not give.
+
+    The order is the whole point. Levelling used to happen last, over a take
+    that already had the pauses in it, and a line with a stop in the middle
+    therefore measured quiet and was turned up. Measure the speech, and only
+    the speech; the silence is not part of how loud someone is talking.
+    """
+    solo = len(pieces) == 1
+    parts, slices, taken = [], [], 0
     for n, (piece, _) in enumerate(pieces, 1):
-        part = out_path.with_name("%s.p%02d.wav" % (out_path.stem, n))
+        part = out_path if solo else out_path.with_name(
+            "%s.p%02d.wav" % (out_path.stem, n))
         _engine_say(engine, piece, part, voice, settings)
         trim_silence(part, settings)
+        _master(part, settings)
+        count = len(re.findall(r"[\w']+", piece))
+        slices.append((weights or [])[taken:taken + count] if weights else None)
+        taken += count
         parts.append(part)
+    _level_together(parts, settings)
+    for part, (piece, _), got in zip(parts, pieces, slices):
+        _breathe(part, piece, settings, got)
+    if solo:
+        return out_path
+
+    held = sentence_pause(settings)
     cmd = [_ffmpeg(), "-hide_banner", "-loglevel", "error", "-y"]
     labels, n = [], 0
     for part, (_, weight) in zip(parts, pieces):
@@ -661,29 +932,30 @@ def _say_pieces(engine, pieces, out_path, voice, settings):
     return out_path
 
 
-def _synthesise(engine, text, out_path, voice=None, settings=None):
+def _synthesise(engine, text, out_path, voice=None, settings=None, weights=None):
     """One line of text to one wav, spoken and treated to the committed style.
 
-    A line holding more than one sentence is spoken as one take per sentence
-    with the silence written in between, because no engine here puts a usable
-    stop inside an utterance.
+    Two silences no engine here supplies are put in by hand. A line holding
+    more than one sentence is spoken as one take per sentence with a full stop
+    between them; the commas inside each take are opened up afterwards, in the
+    recording, because asking the engine for them changes the tune.
+
+    `weights` is [(word, seconds), ...] for this line, from `measure_words`.
+    It only decides where a breath goes; without it the placement falls back to
+    spelling, which is close enough to find the gap between two words.
     """
     settings = settings if settings is not None else _voice_style()
     out_path = Path(out_path)
     pieces = sentence_pieces(text)
-    if len(pieces) > 1:
-        try:
-            _say_pieces(engine, pieces, out_path, voice, settings)
-        except VoiceError as exc:
-            # a run-on line is better than a missing one
-            print("voice.py: %s — speaking it in one take instead" % exc,
-                  file=sys.stderr)
-            _engine_say(engine, text, out_path, voice, settings)
-            trim_silence(out_path, settings)
-    else:
-        _engine_say(engine, text, out_path, voice, settings)
-        trim_silence(out_path, settings)
-    return _master(out_path, settings)
+    try:
+        return _say(engine, pieces, out_path, voice, settings, weights)
+    except VoiceError:
+        if len(pieces) == 1:
+            raise                           # nothing left to fall back to
+        # a run-on line is better than a missing one
+        print("voice.py: could not speak %r in %d takes — one instead"
+              % (text[:40], len(pieces)), file=sys.stderr)
+        return _say(engine, [(text, 0.0)], out_path, voice, settings, weights)
 
 
 # --------------------------------------------------------------------------
@@ -832,12 +1104,22 @@ def _group_spec(beats, delivery):
 def _inside_pauses(beats, lines, settings):
     """Seconds of hand-placed silence inside each beat of an utterance.
 
-    A beat holding two sentences carries a stop that the word weights know
-    nothing about, so without this the picture would cut early by however long
-    the stop runs.
+    A beat holding two sentences carries a stop, and a beat with a comma in it
+    carries a breath. The word weights know about neither, so without this the
+    picture would cut early by however long they run. A comma at the very end
+    of a beat is charged to that beat, because that is where it falls.
     """
-    held = sentence_pause(settings)
-    return [sum(w for _, w in sentence_pieces(lines[i - 1])) * held for i in beats]
+    held, air = sentence_pause(settings), clause_pause(settings)
+    out = [sum(w for _, w in sentence_pieces(lines[i - 1])) * held for i in beats]
+    counts = [len(re.findall(r"[\w']+", lines[i - 1])) for i in beats]
+    for n, weight in clause_breaths(" ".join(lines[i - 1] for i in beats)):
+        seen = 0
+        for k, count in enumerate(counts):
+            seen += count
+            if n <= seen:
+                out[k] += air * weight
+                break
+    return out
 
 
 def _shares(beats, lines, weights=None, pauses=None, seconds=None):
@@ -932,13 +1214,19 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
         for i in group:                      # emphasis is still per beat
             rate *= float(emphasis.get(i, 1.0))
         target = out_dir / ("say%02d.wav" % n)
+        # the measured words for this group, flattened -- they place the
+        # breaths inside the take
+        flat = None
+        if weights:
+            flat = [w for i in group
+                    for w in (weights[i - 1] if len(weights) >= i else [])]
         per_line = settings
         if abs(rate - 1.0) > 0.001:
             per_line = dict(settings)
             for key in ("kokoro_speed", "words_per_minute"):
                 if key in per_line and per_line[key]:
                     per_line[key] = type(per_line[key])(per_line[key] * rate)
-        _synthesise(engine, text, target, voice, per_line)
+        _synthesise(engine, text, target, voice, per_line, flat)
         if pitch:
             _pitch(target, pitch)
         seconds = _duration(target)
