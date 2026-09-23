@@ -360,6 +360,50 @@ actually speak** — piper installed without a voice model is present and useles
 and a check that cannot tell those apart reports green and then fails on the
 first line.
 
+### One take, cut underneath
+
+The narration used to be synthesised one beat at a time. Every clause was
+therefore spoken as its own sentence — its own falling intonation, its own
+trailing breath — and because the cuts land on the beats, that arrived as the
+voice stopping and starting again at every change of picture. Measured on a
+41-beat video: **0.16s of silence at the median cut, and over 0.15s at 22 of
+the 40.**
+
+`voice.utterances` groups the beats instead. A group runs until a `hold` is
+asked for, or until it has ~22 words and reaches a full stop, and it never
+breaks mid-sentence — so several clauses, and often several short sentences,
+are spoken as one continuous take and the pictures cut underneath them. The
+same script goes from 41 separate recordings to 13.
+
+```
+  narrated  kokoro, 41 lines as 13 sentences
+```
+
+Two things follow from that:
+
+- **Delivery belongs to a passage, not a clause.** `{slow}` on any beat in a
+  group applies to the whole group, and the `hold` comes from its last beat.
+  You cannot change pace halfway through a sentence, which is also true of
+  people.
+- **The beats inside a group have to sum to its audio exactly.** A rounding
+  error there is drift between voice and picture that never comes back, so
+  `voice.beat_lengths` hands out whole frames by the measured word durations,
+  gives the remainder to the beats with the largest fractional parts, and only
+  then borrows for anything under `INSIDE_FLOOR`. That floor is a safety net
+  for a share too small to see, not a target: set to the style's
+  `pacing.min_beat_seconds` it overrode the measurements entirely and a
+  50/30/20 sentence came out as three equal beats, which is the picture
+  ignoring the voice it is supposed to be cut to.
+
+`voice.gap_seconds` is charged once per passage now rather than once per beat,
+and is 0.04s.
+
+**An over-long line is no longer capped.** It used to be clamped to
+`pacing.max_beat_seconds`, which cut the narration off mid-sentence — the exact
+failure fitting to the voice exists to prevent — and with beats sharing an
+utterance it would desync everything after it. The note says the line is too
+long; the cut still follows the voice.
+
 ### Captions that arrive with the voice
 
 | `captions.mode` | what is on screen |

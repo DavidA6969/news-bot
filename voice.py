@@ -42,11 +42,13 @@ import urllib.request
 from pathlib import Path
 
 __all__ = ["beats_from_script", "speak", "fit_plan", "build_track", "attach",
+           "utterances", "beat_lengths", "delivery_from_script",
            "measure_words", "annotate_plan", "trim_silence", "kokoro_paths",
            "available_engines", "usable_engines", "VoiceError"]
 
 HERE = Path(__file__).resolve().parent
 PAD_SECONDS = 0.09          # fallback gap after a line; the style sets the real one
+INSIDE_FLOOR = 0.40         # shortest a beat may be inside a continuous sentence
 SAMPLE_RATE = 24000
 
 
@@ -640,20 +642,90 @@ def _script_lines(script_path):
     return beats
 
 
+def utterances(lines, delivery=None, max_words=22):
+    """Group consecutive beats into the sentences they will be spoken as.
+
+    Reading a sentence one clause at a time puts a full stop in the middle of
+    it. The engine gives every fragment its own falling intonation and its own
+    trailing breath, and with a cut on each one that lands as the voice
+    stopping and starting again at every change of picture -- measured on a
+    41-beat video, 0.16s of silence at the median cut and over 0.15s at 22 of
+    the 40. Spoken whole, the sentence has one contour and the pictures cut
+    underneath it.
+
+    A group runs until a hold is asked for, or until it has `max_words` and
+    reaches a full stop -- so consecutive short sentences are read together
+    too, and only a deliberate pause or a long enough passage ends one. It
+    never breaks mid-sentence.
+
+    The delivery therefore belongs to a passage rather than to a clause: the
+    rate and pitch come from the first beat in the group that names any, and
+    the hold from the last.
+    """
+    delivery = delivery or {}
+    groups, current, words = [], [], 0
+    for i, line in enumerate(lines, 1):
+        current.append(i)
+        words += len(re.findall(r"[\w']+", line))
+        ends_sentence = line.rstrip().endswith((".", "!", "?"))
+        if (delivery.get(i) or {}).get("hold"):
+            groups.append(current); current, words = [], 0
+        elif ends_sentence and words >= max_words:
+            groups.append(current); current, words = [], 0
+    if current:
+        groups.append(current)
+    return groups
+
+
+def _group_spec(beats, delivery):
+    """(rate, pitch, hold) for a group of beats spoken as one utterance."""
+    delivery = delivery or {}
+    rate, pitch = 1.0, 0.0
+    for i in beats:
+        spec = delivery.get(i) or {}
+        if spec.get("rate") and rate == 1.0:
+            rate = float(spec["rate"])
+        if spec.get("pitch") and pitch == 0.0:
+            pitch = float(spec["pitch"])
+    hold = float((delivery.get(beats[-1]) or {}).get("hold", 0.0))
+    return rate, pitch, hold
+
+
+def _shares(beats, lines, weights=None):
+    """How an utterance's length divides between the beats inside it.
+
+    From measured word durations when they are available -- they are already
+    computed for the karaoke timing -- and from syllables when they are not.
+    Only the ratios matter; the total is whatever the engine actually took.
+    """
+    sizes = []
+    for i in beats:
+        line = lines[i - 1]
+        if weights and len(weights) >= i and weights[i - 1]:
+            sizes.append(sum(float(d) for _, d in weights[i - 1]) or 0.0)
+        else:
+            sizes.append(0.0)
+    if not any(sizes):
+        sizes = [max(1.0, float(len(re.findall(r"[\w']+", lines[i - 1])))) for i in beats]
+    total = sum(sizes) or float(len(beats))
+    return [x / total for x in sizes]
+
+
 def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=None,
-          emphasis=None, delivery=None):
-    """One wav per beat. Returns [(path, seconds), ...] in beat order.
+          emphasis=None, delivery=None, weights=None):
+    """Narrate the script. Returns one entry per UTTERANCE, not per beat.
 
-    `emphasis` is an optional {beat number: rate multiplier} -- below 1.0 slows
-    a line down, above speeds it up. A narrator drops the pace for the line
-    that matters and pushes through the setup; a narrator who reads everything
-    at one rate is the thing people mean when they say a voice sounds
-    synthetic. Engines without a rate control ignore it.
+    Each entry is {path, seconds, beats, shares, hold}: the wav, how long it
+    ran, which beats it covers, how its length divides between them, and any
+    hold asked for at its end. Several beats share one recording whenever they
+    are clauses of the same sentence -- see `utterances` for why.
 
-    `delivery` is the richer form, {beat number: {rate, pitch, hold}}, and it
-    is what the script's own `{slow, low, hold}` directions become. It merges
-    with `emphasis` rather than replacing it; the hold is not used here,
-    because a pause after a line belongs to the beat, not the recording.
+    `emphasis` is {beat number: rate multiplier}; `delivery` is the richer
+    {beat: {rate, pitch, hold}} the script's own `{slow, hold}` directions
+    become. Both apply per sentence now: an utterance is spoken at one rate.
+
+    `weights` is measure_words' output, used to work out where inside an
+    utterance each beat ends. Without it the split falls back to word counts.
     """
     beats = beats_from_script(script_path)
     out_dir = Path(out_dir)
@@ -662,7 +734,7 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
 
     if recorded:
         source = Path(recorded)
-        clips = []
+        spoken = []
         for i in range(len(beats)):
             candidates = sorted(source.glob("beat%02d.*" % (i + 1))) or \
                 sorted(source.glob("beat%d.*" % (i + 1)))
@@ -678,8 +750,10 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
             # sounds the same whoever or whatever spoke it
             trim_silence(target, settings)
             _master(target, settings)
-            clips.append((target, _duration(target)))
-        return clips
+            spoken.append({"path": target, "seconds": _duration(target),
+                           "beats": [i + 1], "shares": [1.0],
+                           "hold": float((delivery or {}).get(i + 1, {}).get("hold", 0.0))})
+        return spoken
 
     if engine is None:
         options = [n for n, _ in usable_engines()]
@@ -693,77 +767,130 @@ def speak(script_path, out_dir, engine=None, voice=None, recorded=None, style=No
 
     emphasis = emphasis or {}
     delivery = delivery or {}
-    clips = []
-    for i, line in enumerate(beats, 1):
-        target = out_dir / ("beat%02d.wav" % i)
-        spec = delivery.get(i) or {}
-        rate = float(emphasis.get(i, 1.0)) * float(spec.get("rate", 1.0))
+    spoken = []
+    for n, group in enumerate(utterances(beats, delivery), 1):
+        text = " ".join(beats[i - 1] for i in group)
+        rate, pitch, hold = _group_spec(group, delivery)
+        for i in group:                      # emphasis is still per beat
+            rate *= float(emphasis.get(i, 1.0))
+        target = out_dir / ("say%02d.wav" % n)
         per_line = settings
         if abs(rate - 1.0) > 0.001:
             per_line = dict(settings)
             for key in ("kokoro_speed", "words_per_minute"):
                 if key in per_line and per_line[key]:
                     per_line[key] = type(per_line[key])(per_line[key] * rate)
-        _synthesise(engine, line, target, voice, per_line)
-        if spec.get("pitch"):
-            _pitch(target, spec["pitch"])
-        clips.append((target, _duration(target)))
-    return clips
+        _synthesise(engine, text, target, voice, per_line)
+        if pitch:
+            _pitch(target, pitch)
+        spoken.append({"path": target, "seconds": _duration(target),
+                       "beats": list(group),
+                       "shares": _shares(group, beats, weights),
+                       "hold": hold})
+    return spoken
+
+
+def beat_lengths(spoken, fps, gap, floor):
+    """Beat durations, in whole frames, that sum exactly to the audio.
+
+    The picture cuts inside a continuous sentence, so the beats of one
+    utterance have to add up to that utterance's own length -- a rounding
+    error here is a beat of drift between voice and picture that never comes
+    back. Frames are handed out by the measured shares, then the remainder is
+    given to the longest beats, and anything below the floor borrows from
+    whichever sibling has most to spare.
+    """
+    out = {}
+    low = max(1, int(round(floor * fps)))
+    for utt in spoken:
+        total = utt["seconds"] + float(utt.get("hold") or 0.0) + gap
+        frames = max(len(utt["beats"]), int(round(total * fps)))
+        if len(utt["beats"]) == 1:
+            # A whole sentence spoken on its own still gets the style's
+            # minimum, the way every beat used to: a shot that short is a
+            # flash, and the silence after a full stop is a normal pause
+            # rather than the voice breaking off mid-sentence.
+            frames = max(frames, low)
+        want = [f * frames for f in utt["shares"]]
+        got = [max(1, int(x)) for x in want]
+        # hand out what rounding left over, biggest fractional part first
+        spare = frames - sum(got)
+        order = sorted(range(len(got)), key=lambda k: -(want[k] - int(want[k])))
+        for k in range(spare):
+            got[order[k % len(got)]] += 1
+        while spare < 0:                     # gave away too much; take it back
+            got[max(range(len(got)), key=lambda k: got[k])] -= 1
+            spare += 1
+        if len(got) > 1:
+            # A safety net for a share too small to see, NOT a target: set it
+            # to the style's floor and it overrides the measured shares
+            # entirely -- 0.5/0.3/0.2 of a three-second sentence came out as
+            # three equal beats, which is the picture ignoring the voice it is
+            # supposed to be cut to. Stop a beat being a flash and leave the
+            # rest alone.
+            want_low = min(low, max(1, int(round(INSIDE_FLOOR * fps))),
+                           frames // len(got))
+            for k in range(len(got)):
+                while got[k] < want_low:
+                    donor = max(range(len(got)), key=lambda j: got[j])
+                    if donor == k or got[donor] - 1 < want_low:
+                        break
+                    got[donor] -= 1
+                    got[k] += 1
+        for beat, f in zip(utt["beats"], got):
+            out[beat] = round(f / float(fps), 6)
+    return out
 
 
 # --------------------------------------------------------------------------
 # cut the video to the voice
 # --------------------------------------------------------------------------
-def fit_plan(plan_path, clips, pad=None, style=None, delivery=None):
-    """Rewrite each beat's duration to how long that line takes to say.
+def fit_plan(plan_path, spoken, pad=None, style=None, delivery=None):
+    """Rewrite each beat's duration to where it falls in the narration.
 
     This is the whole point: a beat that runs shorter than its line cuts the
     narration off mid-sentence, and one that runs longer leaves dead air. The
     spoken length is the truth, so the cut follows it.
 
-    A `hold` in the delivery buys extra beat on top of that: silence on the
-    shot before the next line starts. It has to go here rather than into the
-    recording, because the cut is timed off the beat -- a pause added to the
-    audio alone would just arrive after the picture had already moved on.
+    `spoken` is speak()'s output, one entry per utterance. Where several beats
+    share an utterance the picture cuts inside a continuous sentence, and their
+    durations have to add up to that utterance's own length exactly -- see
+    beat_lengths. The gap is applied once per utterance rather than once per
+    beat, because it is the pause between sentences, not between words.
     """
     path = Path(plan_path)
     plan = json.loads(path.read_text(encoding="utf-8"))
     beats = plan.get("beats")
     if not isinstance(beats, list) or not beats:
         raise VoiceError("%s has no beats" % path)
-    if len(clips) != len(beats):
+    covered = [i for utt in spoken for i in utt["beats"]]
+    if sorted(covered) != list(range(1, len(beats) + 1)):
         raise VoiceError(
-            "the script has %d beats but the plan has %d. They have to match — "
-            "regenerate the plan from the same script." % (len(clips), len(beats)))
+            "the narration covers beats %s but the plan has %d. They have to "
+            "match — regenerate the plan from the same script."
+            % (_span(covered), len(beats)))
 
     sys.path.insert(0, str(HERE))
     import style as style_mod
     look = style or style_mod.current()
     if pad is None:
         pad = float((look.get("voice") or {}).get("gap_seconds", PAD_SECONDS))
+    fps = float(look["format"].get("fps") or 30)
     low = look["pacing"]["min_beat_seconds"]
     high = look["pacing"]["max_beat_seconds"]
-    # Beat lengths have to land on whole frames. A beat is cut with ffmpeg's
-    # -t, which rounds UP to the next frame, so a 1.38s beat at 30fps comes out
-    # 1.433s and every later cut arrives a little after the line it belongs to.
-    # Measured over six beats: +0.200s of drift, which is six frames of picture
-    # lagging the voice by the end of a twenty-second video.
-    fps = float(look["format"].get("fps") or 30)
 
-    delivery = delivery or {}
+    lengths = beat_lengths(spoken, fps, pad, low)
     notes, total = [], 0.0
-    for i, (beat, (_, spoken)) in enumerate(zip(beats, clips)):
-        wanted = spoken + pad + float((delivery.get(i + 1) or {}).get("hold", 0.0))
-        clamped = max(low, min(high, wanted))
-        if clamped < wanted - 0.01:
+    for utt in spoken:
+        ran = sum(lengths[i] for i in utt["beats"])
+        if ran > high + 0.01 and len(utt["beats"]) == 1:
             notes.append(
                 "beat %d needs %.1fs to say but the style caps a beat at %.1fs — "
                 "the line is too long for this pacing, so shorten the line rather "
-                "than stretching the beat." % (i + 1, wanted, high))
-        # six places, not two: at 30fps a frame is 0.0333s, so a duration
-        # rounded to 0.01 can sit a third of a frame off its own frame count
-        beat["duration"] = round(max(1, round(clamped * fps)) / fps, 6)
-        total += beat["duration"]
+                "than stretching the beat." % (utt["beats"][0], ran, high))
+    for i, beat in enumerate(beats, 1):
+        beat["duration"] = lengths[i]
+        total += lengths[i]
 
     ok, reasons = style_mod.shorts_verdict(total, look["format"]["width"],
                                            look["format"]["height"], look)
@@ -772,30 +899,40 @@ def fit_plan(plan_path, clips, pad=None, style=None, delivery=None):
                          + " ".join(reasons) + " Cut lines.")
     path.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
     return {"total": round(total, 2), "notes": notes,
-            "durations": [b["duration"] for b in beats]}
+            "durations": [b["duration"] for b in beats],
+            "utterances": len(spoken)}
 
 
-def build_track(plan_path, clips, out_path):
-    """One audio track, each line padded out to its beat's length.
+def _span(numbers):
+    if not numbers:
+        return "none"
+    return "%d-%d" % (min(numbers), max(numbers))
 
-    The gap after each line is already inside the beat duration fit_plan wrote;
-    this only pads the audio out to fill it.
+
+def build_track(plan_path, spoken, out_path):
+    """One audio track: each utterance once, padded to the beats it covers.
+
+    An utterance is written whole. Nothing is inserted between the clauses
+    inside it -- that silence is exactly what made the voice stop at every cut.
     """
     plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
     beats = plan["beats"]
-    if len(clips) != len(beats):
-        raise VoiceError("clips and beats do not match")
+    covered = [i for utt in spoken for i in utt["beats"]]
+    if sorted(covered) != list(range(1, len(beats) + 1)):
+        raise VoiceError("the narration and the plan do not cover the same beats")
 
     ff = _ffmpeg()
     out_path = Path(out_path)
     parts_dir = out_path.parent / (out_path.stem + "-parts")
     parts_dir.mkdir(parents=True, exist_ok=True)
     listing = []
-    for i, (beat, (clip, spoken)) in enumerate(zip(beats, clips), 1):
-        want = float(beat["duration"])
-        padded = parts_dir / ("seg%02d.wav" % i)
-        # apad then atrim: the line plays, then silence to the end of the beat
-        subprocess.run([ff, "-hide_banner", "-loglevel", "error", "-y", "-i", str(clip),
+    for n, utt in enumerate(spoken, 1):
+        want = sum(float(beats[i - 1]["duration"]) for i in utt["beats"])
+        padded = parts_dir / ("seg%02d.wav" % n)
+        # apad then -t: the sentence plays, then silence to the end of the last
+        # beat it covers
+        subprocess.run([ff, "-hide_banner", "-loglevel", "error", "-y",
+                        "-i", str(utt["path"]),
                         "-af", "apad", "-t", "%.3f" % want,
                         "-ar", str(SAMPLE_RATE), "-ac", "1", str(padded)], check=True)
         listing.append(padded)
@@ -828,13 +965,7 @@ def build_track(plan_path, clips, out_path):
             print("voice.py: could not level the finished track (%s) — the "
                   "per-line levels still apply"
                   % (proc.stderr or "").strip()[-120:], file=sys.stderr)
-
-    got = _duration(out_path)
-    want_total = sum(float(b["duration"]) for b in beats)
-    if abs(got - want_total) > 0.25:
-        raise VoiceError("the track came out %.2fs but the cut is %.2fs — refusing "
-                         "to hand over audio that would drift" % (got, want_total))
-    return {"path": str(out_path), "duration": round(got, 2)}
+    return {"path": str(out_path), "duration": _duration(out_path)}
 
 
 def measure_words(script_path, out_dir=None, engine=None, voice=None, style=None):
@@ -961,10 +1092,14 @@ def main(argv=None):
 
         if args.command in ("fit", "track"):
             voice_dir = Path(args.voice_dir)
-            wavs = sorted(voice_dir.glob("beat*.wav"))
+            wavs = sorted(voice_dir.glob("say*.wav")) or sorted(voice_dir.glob("beat*.wav"))
             if not wavs:
-                raise VoiceError("no beat*.wav in %s — run voice.py speak first" % voice_dir)
-            clips = [(w, _duration(w)) for w in wavs]
+                raise VoiceError("no say*.wav in %s — run voice.py speak first" % voice_dir)
+            # Loose wavs on disk carry no record of which beats they cover, so
+            # this path assumes one per beat. `narrate` does it properly.
+            clips = [{"path": w, "seconds": _duration(w), "beats": [i],
+                      "shares": [1.0], "hold": 0.0}
+                     for i, w in enumerate(wavs, 1)]
             if args.command == "fit":
                 got = fit_plan(args.plan, clips)
                 print("beats fitted to the voice: %s" %
@@ -977,7 +1112,9 @@ def main(argv=None):
                 print("%s  %.2fs" % (got["path"], got["duration"]))
             return 0
 
-        clips = speak(args.script, args.out_dir, args.engine, args.voice, args.recorded)
+        weights = measure_words(args.script, out_dir=args.out_dir, engine=args.engine)
+        clips = speak(args.script, args.out_dir, args.engine, args.voice, args.recorded,
+                      delivery=delivery_from_script(args.script), weights=weights)
         fitted = fit_plan(args.plan, clips)
         for note in fitted["notes"]:
             print("  note: %s" % note)

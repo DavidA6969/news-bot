@@ -123,16 +123,20 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
             "%d:%s" % (i, "/".join("%s%+g" % (k[0], v) if k != "rate"
                                    else "x%.2f" % v for k, v in sorted(spec.items())))
             for i, spec in sorted(delivery.items())))
-    spoken = V.speak(script, voice_dir, engine=engine, emphasis=emphasis,
-                     delivery=delivery)
-    V.fit_plan(plan_path, spoken, delivery=delivery)
+    # Measure the words BEFORE narrating: those durations are what decide
+    # where inside a continuous sentence each picture cuts, and they are
+    # needed by fit_plan rather than after it.
     measured = V.measure_words(script, out_dir=voice_dir, engine=engine)
+    spoken = V.speak(script, voice_dir, engine=engine, emphasis=emphasis,
+                     delivery=delivery, weights=measured)
+    fitted = V.fit_plan(plan_path, spoken, delivery=delivery)
     if measured:
         V.annotate_plan(plan_path, measured)
     track = Path(clips_dir).parent / "voice.wav"
     V.build_track(plan_path, spoken, track)
     V.attach(plan_path, str(track), licence="original narration (%s)" % engine)
-    progress("  narrated  %s, %d lines" % (engine, len(spoken)))
+    progress("  narrated  %s, %d lines as %d sentence%s"
+             % (engine, len(lines), len(spoken), "" if len(spoken) == 1 else "s"))
 
     failed = []
     for name, check in (("narration", R.narration_report),
