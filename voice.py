@@ -657,10 +657,13 @@ def utterances(lines, delivery=None, max_words=22):
     the 40. Spoken whole, the sentence has one contour and the pictures cut
     underneath it.
 
-    A group runs until a hold is asked for, or until it has `max_words` and
-    reaches a full stop -- so consecutive short sentences are read together
-    too, and only a deliberate pause or a long enough passage ends one. It
-    never breaks mid-sentence.
+    A group ends at every sentence boundary, at a hold, and as a backstop once
+    it reaches `max_words`. It does NOT run two sentences together, and that
+    is deliberate: measured on Kokoro, a full stop inside an utterance buys
+    0.06s of silence -- the same as a comma, and the same as an arbitrary point
+    mid-clause. Joining sentences therefore deletes the pause between them
+    rather than shortening it, and the narration reads straight past the end of
+    one thought into the next.
 
     The delivery therefore belongs to a passage rather than to a clause: the
     rate and pitch come from the first beat in the group that names any, and
@@ -672,9 +675,7 @@ def utterances(lines, delivery=None, max_words=22):
         current.append(i)
         words += len(re.findall(r"[\w']+", line))
         ends_sentence = line.rstrip().endswith((".", "!", "?"))
-        if (delivery.get(i) or {}).get("hold"):
-            groups.append(current); current, words = [], 0
-        elif ends_sentence and words >= max_words:
+        if ends_sentence or (delivery.get(i) or {}).get("hold") or words >= max_words:
             groups.append(current); current, words = [], 0
     if current:
         groups.append(current)

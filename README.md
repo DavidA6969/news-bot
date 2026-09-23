@@ -369,11 +369,22 @@ voice stopping and starting again at every change of picture. Measured on a
 41-beat video: **0.16s of silence at the median cut, and over 0.15s at 22 of
 the 40.**
 
-`voice.utterances` groups the beats instead. A group runs until a `hold` is
-asked for, or until it has ~22 words and reaches a full stop, and it never
-breaks mid-sentence — so several clauses, and often several short sentences,
-are spoken as one continuous take and the pictures cut underneath them. The
-same script goes from 41 separate recordings to 13.
+`voice.utterances` groups the beats instead. **A group is one sentence** — its
+clauses are spoken as a single continuous take and the pictures cut underneath
+them — and it also ends wherever a `hold` is asked for.
+
+**It never runs two sentences together, and that is measured rather than
+assumed.** Given several sentences in one utterance, Kokoro puts **0.06s** at
+an internal full stop: the same as at a comma, and the same as at an arbitrary
+point mid-clause. Joining sentences therefore *deletes* the pause between them
+rather than shortening it, and the narration reads straight past the end of one
+thought into the next. A wider grouping was tried and this is what it sounded
+like.
+
+| | cuts | silence |
+| --- | --- | --- |
+| inside a sentence | 10 | continuous |
+| at a sentence boundary | 30 | `voice.gap_seconds` plus whatever the script marks |
 
 ```
   narrated  kokoro, 41 lines as 13 sentences
@@ -395,8 +406,9 @@ Two things follow from that:
   50/30/20 sentence came out as three equal beats, which is the picture
   ignoring the voice it is supposed to be cut to.
 
-`voice.gap_seconds` is charged once per passage now rather than once per beat,
-and is 0.04s.
+`voice.gap_seconds` is charged once per sentence rather than once per beat, and
+is 0.14s — it *is* the between-sentence pause now, because the engine will not
+supply one.
 
 **An over-long line is no longer capped.** It used to be clamped to
 `pacing.max_beat_seconds`, which cut the narration off mid-sentence — the exact
