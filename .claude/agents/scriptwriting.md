@@ -89,6 +89,12 @@ stop. Both are wanted — a narration that pauses at every cut sounds broken, an
 one that never pauses sounds like it is being read off a card. On the 36-beat
 cut above: 27 stops averaging 0.36s, 8 run-ons averaging 0.06s.
 
+**Start sentences the way people talk.** `And`, `But`, `So`, `Then`, `Until`,
+`There's` -- a sentence that opens cold reads as a caption; one that carries a
+connective from the sentence before reads as someone telling you something. The
+repeated-opening gate counts SENTENCE openings, not beats, so a beat that
+continues a clause with "and" costs you nothing against the cap.
+
 **A comma is a breath, a full stop is a stop, and nothing is neither.** The
 three lengths are measured, not guessed: 0.11s where a beat runs on into the
 next, 0.11s at a comma, 0.57s at a sentence end. You get them by punctuating

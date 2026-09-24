@@ -499,37 +499,61 @@ two of them did nothing:
 What remains is the voice. `af_bella` and `am_onyx` measure a third smoother
 and are a setting away.
 
-### Never ask the engine for more speed than it can say
+### How fast it can be asked to go, measured twice
 
 A rate mark is a multiplier on the style's base, and the base has been raised
-three times since the marks were chosen. `{faster}` meant 1.26 when the base
-was 1.0; on a base of 1.20 it means **1.512**.
+since the marks were chosen, so `{faster}` on a 1.28 base asks for 1.61. There
+has to be a ceiling. Finding the right one took two goes, and the first was
+wrong because the sample was too small.
 
-Two separate measurements put a ceiling in the same place. Above about 1.22
-the engine's compression of a phrase stops being predictable -- splitting five
-phrases at their comma, the skew swings 1.23, 0.90, 1.18, 1.19 with no trend,
-and erratic is worse than slow because two lines marked the same way come back
-paced differently. And the voice roughens, measured over six lines:
+**The first attempt** measured six short phrases, read a jitter step at 1.22,
+and put the ceiling at 1.20. Measured again on **ten real takes from a
+script**, jitter is flat from 1.20 to 1.40 -- 1.51% to 1.73% with no trend. The
+voice does not roughen with speed in this range; short phrases were not enough
+to tell.
+
+**What does change** is whether a line comes back at the speed it was asked
+for. Twelve real takes, each against its own unhurried rendering:
+
+| speed | delivered | spread | | speed | delivered | spread |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1.20 | 0.948 | 0.022 | | 1.32 | 0.948 | 0.035 |
+| 1.24 | 0.943 | 0.021 | | 1.36 | **1.033** | 0.039 |
+| 1.28 | 0.944 | 0.027 | | 1.40 | 1.047 | 0.038 |
+
+Tight and consistent to 1.28. At 1.32 the spread starts climbing, and at 1.36
+the mean jumps -- the engine changing behaviour rather than degrading -- so two
+lines marked alike stop coming back alike. `ARTICULATE_SPEED` is the last speed
+that still delivers what it was asked for, and the base sits there too: a 7%
+quicker read than 1.20, at no measured cost.
+
+**A time-stretch to reach past it was tried and reverted.** It asked the engine
+for the ceiling and made up the rest with a phase vocoder, on the strength of a
+halves-of-a-phrase measurement a better one did not reproduce: correlating a
+uniform stretch of the fast take against the unhurried one scored 0.567 with it
+and 0.603 without, and across six phrases it landed nearer the requested speed
+with twice the spread. With nothing to choose between them, one less stage in
+the signal path wins.
+
+### Sentences that start the way people talk
+
+A sentence opening cold reads as a caption. One carrying a connective from the
+sentence before it reads as someone telling you something:
 
 ```
-  1.00  1.33%     1.14  1.37%     1.22  1.57%
-  1.05  1.38%     1.18  1.40%     1.25  1.49%
-  1.10  1.31%     1.20  1.38%     1.30  1.52%
+  A scar through it, healed crooked,      ->  There's a scar through it,
+  She could walk past.                    ->  And she could just walk past.
+  Something bigger sees him.              ->  But something bigger sees him.
+  At last, a cave.                        ->  Until at last, a cave.
+  A small dragon asleep inside.           ->  With a small dragon asleep inside.
 ```
 
-Flat to 1.20, then a step. **The ceiling was 1.22 and sat on the wrong side of
-it**: every `{fast}` beat in the narration, a third of the video, was being
-spoken at the roughest speed on the table for nothing. It is 1.20 now, which on
-the committed base means a pushed beat gets exactly the base -- there is no
-headroom, and pretending otherwise is what put it there.
-
-**A time-stretch to make up the difference was tried and reverted.** It asked
-the engine for the ceiling and took the rest with a phase vocoder, on the
-strength of a halves-of-a-phrase measurement a better one did not reproduce:
-correlating a uniform stretch of the fast take against the unhurried one scored
-0.567 with it and 0.603 without, and across six phrases it landed nearer the
-requested speed with twice the spread. With nothing to choose between them, one
-less stage in the signal path wins.
+That needed the repeated-opening gate fixed first. It counted every **beat**,
+and a beat continuing a sentence starts wherever the clause does -- `and calls
+him Scales.`, `and she just killed him.` -- so three clause continuations used
+up a cap meant for monotonous sentence openings, and there was no room left for
+a single natural `And`. It counts **sentence** openings now, which is what "a
+run of them reads as one sentence however well it is cut" was ever about.
 
 ### A sentence does not stop, it falls off
 
