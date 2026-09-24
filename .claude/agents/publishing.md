@@ -171,3 +171,22 @@ success the operator does not actually have.
 - Never upload the same content twice under different titles. That is squarely
   what the Inauthentic Content policy targets, and it risks the channel's
   monetization for no gain.
+
+## The credit, and what happens if you skip it
+
+`short.py` writes two files beside the video and you upload with both:
+
+    <name>.description.txt   the description, with the footage credit in it
+    <name>.rights.json       every shot's source, in-point and licence URL
+
+`youtube.py upload` finds them on its own and **refuses** if the description
+does not carry every credit the licences require. Do not work around that by
+passing a different `--description`: the licence on CC-BY footage asks for one
+thing, and leaving it out is infringement, not a policy risk.
+
+If a Content ID claim arrives on footage that is openly licensed, dispute it
+and quote `rights.json` — it names which seconds of which source were used and
+links the licence. Do not let a wrongful claim stand.
+
+Uploads are `selfDeclaredMadeForKids=false` by default. Keep it that way for
+anything with injury or death in it.

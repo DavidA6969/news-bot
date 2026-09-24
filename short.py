@@ -138,6 +138,20 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
     progress("  narrated  %s, %d lines as %d sentence%s"
              % (engine, len(lines), len(spoken), "" if len(spoken) == 1 else "s"))
 
+    # Written BEFORE the gates, because one of them checks it exists. A CC-BY
+    # credit that lives only in a JSON file beside the video has not been
+    # given to anybody; the description is where the licence means.
+    desc_path = out.with_suffix(".description.txt")
+    rights_path = out.with_suffix(".rights.json")
+    out.parent.mkdir(parents=True, exist_ok=True)
+    hook = R.hook_line(script) or (lines[0] if lines else "")
+    desc_path.write_text(R.description(plan_path, hook=hook), encoding="utf-8")
+    rights_path.write_text(
+        json.dumps(R.rights_receipt(plan_path), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8")
+    progress("  credit    %s, and %s for a Content ID dispute"
+             % (desc_path.name, rights_path.name))
+
     failed = []
     for name, check in (("narration", R.narration_report),
                         ("retention", R.retention_report),

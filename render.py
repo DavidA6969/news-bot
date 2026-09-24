@@ -196,6 +196,144 @@ ATTRIBUTION_REQUIRED = ("cc by", "cc-by", "creativecommons.org/licenses",
                         "attribution", "pexels", "pixabay")
 
 
+# Where a licence lives, so a description can point at it and a dispute can
+# cite it. Matched against the recorded licence text, longest marker first.
+LICENCE_URLS = (
+    ("cc by-sa 4", "https://creativecommons.org/licenses/by-sa/4.0/"),
+    ("cc by 4", "https://creativecommons.org/licenses/by/4.0/"),
+    ("cc by 3", "https://creativecommons.org/licenses/by/3.0/"),
+    ("cc by-sa", "https://creativecommons.org/licenses/by-sa/4.0/"),
+    ("cc by", "https://creativecommons.org/licenses/by/4.0/"),
+    ("cc0", "https://creativecommons.org/publicdomain/zero/1.0/"),
+    ("public domain", "https://creativecommons.org/publicdomain/mark/1.0/"),
+)
+
+
+def licence_url(text):
+    """The canonical URL for a recorded licence, or "" if it has no single one."""
+    low = (text or "").lower()
+    for marker, url in LICENCE_URLS:
+        if marker in low:
+            return url
+    return ""
+
+
+def hook_line(script_path):
+    """The script's `**Hook:**` line, which is what a description opens with."""
+    try:
+        text = Path(script_path).read_text(encoding="utf-8")
+    except OSError:
+        return ""
+    found = re.search(r"^\s*\*\*Hook:?\*\*\s*(.+?)\s*$", text, re.M | re.I)
+    return found.group(1).strip() if found else ""
+
+
+def credits_due(plan):
+    """The credit lines this plan obliges you to publish, in beat order.
+
+    A licence that requires attribution is not satisfied by having the text in
+    a JSON file next to the video. It has to be where a viewer can read it,
+    which on every platform means the description. This is what has to go
+    there, and `monetize_report` checks it actually did.
+    """
+    due, seen = [], set()
+    for beat in plan.get("beats") or []:
+        licence = str(beat.get("license") or "")
+        if not any(m in licence.lower() for m in ATTRIBUTION_REQUIRED):
+            continue
+        line = str(beat.get("attribution") or "").strip() or licence.strip()
+        url = licence_url(licence)
+        if url and url not in line:
+            line = "%s — %s" % (line, url)
+        if line and line not in seen:
+            seen.add(line)
+            due.append(line)
+    return due
+
+
+def description(plan_path, hook="", extra=""):
+    """The video description, with every credit the licences require in it.
+
+    Generated rather than written by hand, because the one obligation a CC-BY
+    licence puts on you is the one easiest to forget at upload time -- and a
+    missing credit is not a policy risk, it is infringement.
+    """
+    plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    parts = []
+    if hook:
+        parts.append(hook.strip())
+    due = credits_due(plan)
+    if due:
+        parts.append("\n".join(["Footage:"] + ["  %s" % line for line in due]))
+    audio = plan.get("audio") or {}
+    voice = str(audio.get("license") or "").strip()
+    if voice:
+        parts.append("Narration and edit: %s." % voice)
+    music = str((plan.get("music") or {}).get("license") or "").strip()
+    parts.append("Music: %s" % (music or "original, synthesised for this video."))
+    if extra:
+        parts.append(extra.strip())
+    return "\n\n".join(p for p in parts if p).strip() + "\n"
+
+
+def rights_receipt(plan_path):
+    """Everything needed to answer a Content ID claim, in one file.
+
+    A wrongful claim on openly licensed footage is answered by saying exactly
+    which seconds of which source were used and under what licence. Rebuilding
+    that months later from a render plan is work; writing it at render time is
+    not. Shot in-points are included because "we used 606.5s to 609.1s of
+    Sintel" is a specific, checkable answer and "we used Sintel" is not.
+    """
+    plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    beats = plan.get("beats") or []
+    shots, origins = [], {}
+    for beat in beats:                       # origins.json sits beside the clips
+        folder = Path(str(beat.get("clip") or "")).parent
+        book = folder / "origins.json"
+        if book.exists() and str(folder) not in origins:
+            try:
+                origins[str(folder)] = json.loads(book.read_text(encoding="utf-8"))
+            except (json.JSONDecodeError, OSError):
+                origins[str(folder)] = {}
+    for i, beat in enumerate(beats, 1):
+        licence = str(beat.get("license") or "")
+        clip = Path(str(beat.get("clip") or ""))
+        came = (origins.get(str(clip.parent)) or {}).get(clip.name) or {}
+        shot = {
+            "beat": i,
+            "clip": clip.name,
+            "in_seconds": round(float(beat.get("in") or 0.0), 3),
+            "duration_seconds": round(float(beat.get("duration") or 0.0), 3),
+            "license": licence,
+            "license_url": licence_url(licence),
+        }
+        if came:
+            # what a dispute actually needs: which seconds of the original
+            shot["source"] = came.get("source")
+            shot["source_in_seconds"] = round(
+                float(came.get("in_seconds") or 0.0) + float(beat.get("in") or 0.0), 3)
+        shots.append(shot)
+    audio = plan.get("audio") or {}
+    return {
+        "output": plan.get("output"),
+        "credits_required_in_description": credits_due(plan),
+        "narration": {"license": audio.get("license") or "",
+                      "synthetic": "kokoro" in str(audio.get("license") or "").lower()
+                      or "espeak" in str(audio.get("license") or "").lower()
+                      or "piper" in str(audio.get("license") or "").lower()
+                      or "elevenlabs" in str(audio.get("license") or "").lower()},
+        "music": "original, synthesised for this video — no third-party recording",
+        "made_for_kids": False,
+        "shots": shots,
+        "if_a_claim_arrives": (
+            "Dispute it. The footage is used under the licence recorded against "
+            "each shot; the licence URL is beside it, the credit the licence "
+            "requires is in the description, and the in-points above say exactly "
+            "which seconds were used. The narration and the music are original."),
+    }
+
+
 def rights_report(plan_path):
     """What this render's copyright position actually is, before it is uploaded.
 
@@ -518,6 +656,23 @@ def monetize_report(plan_path, history_path=None, used_path=None):
             " — third-party footage with little added is the first bucket the "
             "policy names, whoever or whatever narrated it")))
 
+    # A synthesised narrator clears none of this on its own. The policy is
+    # about the channel, not the file, and a reviewer looking at a run of
+    # videos made to one template with a stock TTS voice is looking at exactly
+    # what "mass-produced" describes. This cannot be checked from one plan, so
+    # it is said rather than tested.
+    synthetic = any(m in (audio.get("license") or "").lower()
+                    for m in ("kokoro", "espeak", "piper", "elevenlabs", "pico"))
+    if synthetic:
+        findings.append((
+            "warn", "the narration is not synthesised",
+            "narrated by %s. The words and the edit are original and that is "
+            "most of the way there, but a channel of TTS over other people's "
+            "footage, cut to one template, is what a reviewer means by "
+            "mass-produced. `voice.py --recorded <dir>` takes a real voice, and "
+            "it is the single biggest thing that moves this out of doubt."
+            % (audio.get("license") or "a speech engine")))
+
     # 2. an AI persona advising on health, money or the law is named explicitly
     lowered = captions.lower()
     topics = sorted({t.strip() for t in SENSITIVE if t in lowered})
@@ -574,7 +729,36 @@ def monetize_report(plan_path, history_path=None, used_path=None):
             "%d shot%s drawn from footage the ledger has seen before"
             % (len(already), "" if len(already) == 1 else "s")))
 
-    # 4. the one disclosure that actually applies
+    # 4. the credit the licence requires, where a viewer can actually read it
+    due = credits_due(plan)
+    if due:
+        out = Path(str(plan.get("output") or ""))
+        beside = [out.with_suffix(".description.txt"), out.parent / "description.txt"]
+        found = next((f for f in beside if f.exists()), None)
+        text = found.read_text(encoding="utf-8") if found else ""
+        missing = [d for d in due if d.split(" — ")[0].strip() not in text]
+        findings.append((
+            "ok" if found and not missing else "fail",
+            "the credit the licence requires is in the description",
+            "%s carries %d credit%s" % (found.name, len(due), "" if len(due) == 1 else "s")
+            if found and not missing else
+            ("no description file beside the video — write one with "
+             "`render.description(plan)`; a CC-BY credit that lives only in a "
+             "JSON file has not been given" if not found else
+             "%s does not name %s" % (found.name, "; ".join(m[:48] for m in missing)))))
+    else:
+        findings.append((
+            "ok", "the credit the licence requires is in the description",
+            "no clip here is under a licence that obliges one"))
+
+    # 5. this is not children's content and the upload has to say so
+    findings.append((
+        "warn", "the upload is marked not made for kids",
+        "youtube.py defaults to selfDeclaredMadeForKids=false and this video "
+        "should keep it. Anything with injury or death in it is not children's "
+        "content, and mislabelling is its own strike."))
+
+    # 6. the one disclosure that actually applies
     voice_licence = (audio.get("license") or "").lower()
     cloned = any(m in voice_licence for m in ("clone", "cloned", "likeness", "impersonat"))
     findings.append((
@@ -968,7 +1152,7 @@ def cut_shots(path, out_dir, count, seconds, licence=None, at=None,
     else:
         at = pick_shots(path, count, seconds, **kwargs)
     ff = ffmpeg_bin()
-    made, ledger = [], {}
+    made, ledger, origins = [], {}, {}
     for i, t in enumerate(at, 1):
         dst = out_dir / ("clip%02d.mp4" % i)
         _run([ff, "-hide_banner", "-loglevel", "error", "-y",
@@ -976,12 +1160,19 @@ def cut_shots(path, out_dir, count, seconds, licence=None, at=None,
               "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
               "-pix_fmt", "yuv420p", str(dst)], "cutting shot %d" % i)
         made.append(dst)
+        origins[dst.name] = {"source": Path(path).name, "in_seconds": round(t, 3),
+                             "duration_seconds": round(float(seconds), 3)}
         if licence:
             ledger[dst.name] = licence
     if licence:
         (out_dir / "licenses.json").write_text(
             json.dumps(ledger, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8")
+    # Where each clip came from IN THE SOURCE. Without this a rights receipt can
+    # only say "clip07.mp4 at 0.0s", which answers nothing: a Content ID dispute
+    # is won by naming the seconds of the original that were used.
+    (out_dir / "origins.json").write_text(
+        json.dumps(origins, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     return made
 
 

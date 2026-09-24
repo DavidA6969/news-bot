@@ -269,6 +269,33 @@ def load_credentials(client_secret_path=None, token_path=None):
 # --------------------------------------------------------------------------
 # upload
 # --------------------------------------------------------------------------
+def check_credits(rights_path, description):
+    """Refuse the upload if the description omits a credit the licence requires.
+
+    A CC-BY licence asks for one thing in return for footage you did not shoot,
+    and the moment it is easiest to forget is the upload. This is the last
+    place it can be caught, so it is caught here rather than warned about.
+    """
+    try:
+        rights = json.loads(Path(rights_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise YouTubeError("could not read %s (%s)" % (rights_path, exc)) from exc
+    due = rights.get("credits_required_in_description") or []
+    # match on the source's own name rather than the whole line, so reformatting
+    # the description does not trip it
+    missing = [d for d in due if d.split(" — ")[0].strip() not in (description or "")]
+    if missing:
+        raise YouTubeError(
+            "the description does not credit %s.\n"
+            "The licence on that footage requires it, and uploading without it "
+            "is infringement rather than a policy risk. %s lists what is owed; "
+            "short.py writes a description that carries it."
+            % ("; ".join(m[:60] for m in missing), Path(rights_path).name))
+    if due:
+        print("youtube.py: description carries %d required credit%s"
+              % (len(due), "" if len(due) == 1 else "s"))
+
+
 def build_body(title, description="", tags=None, category_id=CATEGORY_DEFAULT,
                privacy="private", publish_at=None, made_for_kids=False,
                language=None):
@@ -495,6 +522,8 @@ def main(argv=None):
     p_up.add_argument("--publish-at", help="ISO-8601; schedules the public go-live (needs an audited project)")
     p_up.add_argument("--made-for-kids", action="store_true")
     p_up.add_argument("--language", help="e.g. en")
+    p_up.add_argument("--rights", help="the video's .rights.json; refuses to upload "
+                                       "if the description omits a credit the licence requires")
     p_up.add_argument("--dry-run", action="store_true", help="validate and print, send nothing")
     p_up.add_argument("--agent", help="report progress to this dashboard agent id via status.py")
 
@@ -507,6 +536,19 @@ def main(argv=None):
         description = args.description
         if args.description_file:
             description = Path(args.description_file).read_text(encoding="utf-8")
+        if not args.description_file and not description:
+            # the sidecar short.py writes, if it is sitting there
+            beside = Path(args.video).with_suffix(".description.txt")
+            if beside.exists():
+                description = beside.read_text(encoding="utf-8")
+                print("youtube.py: using %s" % beside.name)
+        rights = args.rights
+        if not rights:
+            beside = Path(args.video).with_suffix(".rights.json")
+            if beside.exists():
+                rights = str(beside)
+        if rights:
+            check_credits(rights, description)
 
         reporter = _Reporter(args.agent, Path(args.video).name, dry=args.dry_run)
         try:

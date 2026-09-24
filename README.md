@@ -1202,6 +1202,57 @@ bold claim, a contradiction — each with its closing line echoing its own hook 
 the loop still closes, and let the numbers pick. `retention` will reject a hook
 that runs long before you spend a slot on it.
 
+### The credit is not optional, so it is not left to you
+
+A CC-BY licence asks for exactly one thing in return for footage you did not
+shoot, and the moment it is easiest to forget is the upload. Three places now
+stop that:
+
+- **`short.py` writes the description**, beside the video as
+  `<name>.description.txt`, built from the licences recorded in the plan. It
+  opens with the script's hook, then the footage credit with the licence URL,
+  then who narrated it and that the music is original.
+- **`render.py monetize` fails** if that file is missing or does not name every
+  source the licence obliges you to credit. A credit that lives only in a JSON
+  file next to the video has not been given to anybody.
+- **`youtube.py upload` refuses.** It picks up the sidecar automatically, checks
+  it against `<name>.rights.json`, and stops with an error naming what is owed.
+  Uploading without it is infringement rather than a policy risk, so it is an
+  error and not a warning.
+
+### A Content ID claim is answered with seconds, not with a licence name
+
+Wrongful claims land on openly licensed footage. The answer is specific: which
+seconds of which source, under which licence. `<name>.rights.json` carries that
+for every beat, written at render time because rebuilding it from a plan months
+later is work nobody does:
+
+```json
+{ "beat": 26, "clip": "clip26.mp4", "duration_seconds": 1.9,
+  "license": "CC BY 3.0 — Sintel, © copyright Blender Foundation",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "source": "sintel.mp4", "source_in_seconds": 606.5 }
+```
+
+`source_in_seconds` is the point in the *original*, which is what the dispute
+turns on -- "clip26.mp4 at 0.0s" answers nothing. `cut_shots` writes an
+`origins.json` beside the clips it cuts so the receipt can reach it.
+
+### What none of this fixes
+
+**A synthesised narrator.** The policy's first bucket is mass-produced content,
+and it is judged across a channel rather than on one file. Original words and
+original editing are most of the way there -- `monetize` measures the words a
+second and fails a video that is footage with a caption track -- but a run of
+uploads to one template with a stock TTS voice is what a reviewer means by the
+phrase. `voice.py --recorded <dir>` takes a folder of `beat01.wav` files and is
+the single biggest thing that moves this out of doubt. The gate says so on
+every synthesised render rather than staying quiet about it.
+
+**The audience setting.** `youtube.py` declares `selfDeclaredMadeForKids=false`
+unless told otherwise, which is right for anything with injury or death in it,
+and mislabelling is its own strike.
+
 ### Staying monetizable
 
 ```bash
