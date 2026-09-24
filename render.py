@@ -313,11 +313,24 @@ def narration_report(plan_path):
         return False, [("fail", "the plan has lines to check", "none found")]
     findings = []
 
-    openings = {}
+    # Counted per SENTENCE, not per beat. A beat that continues a sentence
+    # starts wherever the clause does -- "and calls him Scales.", "and she just
+    # killed him." -- and three of those tripped a check meant to catch a
+    # monotonous run of sentence openings. The thing being guarded against is
+    # "she did this. she did that. she did the other", which is about
+    # sentences, so a beat that does not begin one is not an opening at all.
+    openings, fresh = {}, True
     for line in lines:
-        first = re.split(r"[^\w']+", line.lower(), 1)[0]
-        if first:
-            openings.setdefault(first, []).append(line)
+        if fresh:
+            first = re.split(r"[^\w']+", line.lower(), 1)[0]
+            if first:
+                openings.setdefault(first, []).append(line)
+        fresh = line.rstrip().endswith((".", "!", "?", "\u2026"))
+    if not openings:                    # no line ends a sentence: fall back
+        for line in lines:
+            first = re.split(r"[^\w']+", line.lower(), 1)[0]
+            if first:
+                openings.setdefault(first, []).append(line)
     cap = int(want.get("max_same_opening", 3))
     worst = max(openings.items(), key=lambda kv: len(kv[1]))
     over = {w: len(v) for w, v in openings.items() if len(v) > cap}

@@ -483,10 +483,23 @@ SILENCE_FLOOR_DB = -60.0    # under this there is no speech to level
 #     1.05  1.38%    1.18  1.40%    1.25  1.49%
 #     1.10  1.31%    1.20  1.38%    1.30  1.52%
 #
-# Flat to 1.20 and a step up at 1.22. The ceiling was 1.22 and sat on the
-# wrong side of that step -- every {fast} beat in a narration, a third of the
-# video, was being spoken at the roughest speed on the table for no gain.
-ARTICULATE_SPEED = 1.20
+# That reading came from six short phrases and did not hold up. Measured again
+# on ten real takes from a script, jitter is flat from 1.20 to 1.40 (1.51% to
+# 1.73%, no trend): the voice does not roughen with speed in this range.
+#
+# What does change is whether a line comes back at the speed it was asked for.
+# Twelve real takes, each compared against its own unhurried rendering:
+#
+#     speed   delivered   spread        speed   delivered   spread
+#      1.20     0.948      0.022         1.32     0.948      0.035
+#      1.24     0.943      0.021         1.36     1.033      0.039
+#      1.28     0.944      0.027         1.40     1.047      0.038
+#
+# Tight and consistent to 1.28. At 1.32 the spread starts climbing, and at
+# 1.36 the mean jumps -- the engine changing behaviour, not degrading -- so
+# two lines marked alike stop coming back alike. The ceiling is the last speed
+# that still delivers what it was asked for.
+ARTICULATE_SPEED = 1.28
 
 
 def _engine_speed(settings, want):
@@ -872,11 +885,22 @@ def _envelope(x, hop=0.005, win=0.020):
                      for i in range(n)]), hop
 
 
-# How loud the chosen instant may be, against the take's own speech level,
-# before the splice is abandoned. Judged on the FULL-BAND signal, because a gap
-# between words is quiet at every frequency and that is the only honest test.
-# The search may use whatever band shows boundaries best; the verdict may not.
+# Two thresholds, because a word boundary has two properties and one number
+# cannot express both. Against the take's own speech level, on the FULL-BAND
+# signal -- a gap between words is quiet at every frequency, and that is the
+# only honest test; the search may use whatever band shows boundaries best,
+# the verdict may not.
+#
+#   QUIET_ENOUGH   how loud the cut instant may be. Strict: this is silence.
+#   FLANK_ENOUGH   how loud it may get within 40ms either side. Looser, because
+#                  speech legitimately decays into a gap and rises out of it.
+#
+# Taking the max over the window and testing it against the one strict number
+# was tried, and refused two commas in three: at a real boundary the shoulders
+# are often at half level 40ms out. Measured across both speeds, good cuts sit
+# at 0.33 or under on the flank and the one bad cut sat at 0.76.
 QUIET_ENOUGH = 0.30
+FLANK_ENOUGH = 0.55
 
 
 def _quietest(x, want, search=0.14):
@@ -900,14 +924,15 @@ def _quietest(x, want, search=0.14):
         return None
     k = lo + int(np.argmin(band[lo:hi]))
     speech = float(np.percentile(full[:n], 90)) or 1e-9
-    # The NEIGHBOURHOOD, not the instant. A stop consonant inside a word --
-    # the closure in "ba-by" -- is genuinely silent for 20ms, so judging the
-    # single quietest sample lets a splice land in the middle of a word that
-    # happens to have a gap in it. What a word boundary has, and a closure
-    # does not, is quiet on both sides of it.
-    pad = max(1, int(0.025 / hop))
+    # The instant AND its neighbourhood. A stop consonant inside a word -- the
+    # closure in "ba-by" -- is genuinely silent for 20ms, so the instant alone
+    # lets a splice land in the middle of a word that happens to have a gap in
+    # it. What a word boundary has and a closure does not is quiet on both
+    # sides. 40ms because at a faster read everything compresses, and at 25ms
+    # a cut passed with speech 30ms away at 0.76 of the speech level.
+    pad = max(1, int(0.040 / hop))
     near = full[max(0, k - pad):min(n, k + pad + 1)]
-    return k * hop, float(near.max()) / speech
+    return k * hop, float(full[k]) / speech, float(near.max()) / speech
 
 
 def _breathe(path, text, settings, weights=None):
@@ -945,8 +970,8 @@ def _breathe(path, text, settings, weights=None):
         found = _quietest(x, want)
         if found is None:
             continue
-        at, loud = found
-        if loud > QUIET_ENOUGH:
+        at, loud, flank = found
+        if loud > QUIET_ENOUGH or flank > FLANK_ENOUGH:
             refused += 1               # nothing but voice there; leave it alone
             continue
         cuts.append((at, held * weight))
