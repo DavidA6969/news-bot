@@ -996,8 +996,11 @@ export PEXELS_API_KEY=...      # free: https://www.pexels.com/api/
 export PIXABAY_API_KEY=...     # free: https://pixabay.com/api/docs/
 
 python3 fetch_clips.py autofill render.json      # finds and downloads a clip per beat
-python3 fetch_clips.py attribution render.json   # the credit block for the description
+python3 render.py describe render.json           # the description, credits already in it
 ```
+
+`fetch_clips.py attribution render.json` prints the same credits on their own
+if you want to read them; `describe` is what produces the file you upload with.
 
 `autofill` writes both the `clip` path and its **real** `license`, so the gate
 below is satisfied by recorded provenance rather than by typing something into a

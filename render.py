@@ -2007,6 +2007,13 @@ def main(argv=None):
     p_mon = sub.add_parser("monetize", help="exposure under the inauthentic content policy")
     p_mon.add_argument("plan")
 
+    p_desc = sub.add_parser("describe", help="write the description and rights receipt")
+    p_desc.add_argument("plan")
+    p_desc.add_argument("--script", help="script.md, so the description opens on the hook")
+    p_desc.add_argument("--extra", default="", help="anything else to append")
+    p_desc.add_argument("--print", dest="show", action="store_true",
+                        help="print the description instead of writing it")
+
     p_check = sub.add_parser("check", help="probe a finished file")
     p_check.add_argument("video")
     p_check.add_argument("--expect", type=float, help="expected duration in seconds")
@@ -2025,6 +2032,30 @@ def main(argv=None):
                 result["output"], result["resolution"], result["duration"],
                 result["size"] / 1048576, "" if result["audio"] else "  (no audio)"))
             return 0
+        if args.command == "describe":
+            hook = hook_line(args.script) if args.script else ""
+            text = description(args.plan, hook=hook, extra=args.extra)
+            if args.show:
+                print(text, end="")
+                return 0
+            plan = json.loads(Path(args.plan).read_text(encoding="utf-8"))
+            out = Path(str(plan.get("output") or ""))
+            if not out.name:
+                raise RenderError("%s has no output path, so there is nowhere "
+                                  "to put the description" % args.plan)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            desc = out.with_suffix(".description.txt")
+            rights = out.with_suffix(".rights.json")
+            desc.write_text(text, encoding="utf-8")
+            rights.write_text(json.dumps(rights_receipt(args.plan), indent=2,
+                                         ensure_ascii=False) + "\n", encoding="utf-8")
+            due = credits_due(plan)
+            print("wrote %s (%d credit%s) and %s"
+                  % (desc.name, len(due), "" if len(due) == 1 else "s", rights.name))
+            if not due:
+                print("  nothing here is under a licence that obliges a credit")
+            return 0
+
         if args.command == "monetize":
             ok, findings = monetize_report(args.plan)
             for level, headline, detail in findings:

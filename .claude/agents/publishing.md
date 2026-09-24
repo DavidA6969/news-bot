@@ -41,26 +41,48 @@ python3 status.py finish publishing "Scheduled for 2026-09-20T17:00Z"
 
    ```bash
    python3 youtube.py upload out/2026-09-19.mp4 \
-     --title "..." --description-file description.txt --tags a b c --dry-run
+     --title "..." --tags a b c --dry-run
    ```
+
+   The description and the rights receipt are picked up from beside the video;
+   pass `--description-file` only when you have something to add to them.
 
    This validates title length, description length, tag budget and the
    timestamp without sending anything. Fix what it complains about before
    spending an upload.
 
-3. **Carry the credits.** If the render used fetched footage, the description
-   must include the attribution block:
+3. **Carry the credits. You do not write them.**
+
+   `short.py` already wrote them beside the video, and if the render came
+   through `render.py build` instead, produce them now:
 
    ```bash
-   python3 fetch_clips.py attribution render.json >> description.txt
+   python3 render.py describe render.json --script script.md
    ```
 
-   Leaving it out breaks the licence the footage was used under — and these are
-   commentary videos built on other people's footage, so that licence is the
-   whole basis on which the video is allowed to exist. Pexels requires the
-   credit for API-sourced clips; CC-BY archive material requires the source
-   named. If the block comes back empty and the render used fetched clips,
-   something is wrong with the plan — `fail` rather than uploading uncredited.
+   That writes two files next to the output:
+
+       <name>.description.txt   the description, credits in it
+       <name>.rights.json       every shot's source, in-point and licence URL
+
+   `youtube.py upload` finds both on its own — you do not need
+   `--description-file` unless you are adding something. It **refuses** to
+   upload if the description does not name every source the licence obliges
+   you to credit.
+
+   Do not route around that refusal by passing a different `--description`.
+   A CC-BY licence asks one thing in return for footage you did not shoot, and
+   these are commentary videos built on other people's footage, so that licence
+   is the whole basis on which the video is allowed to exist. Leaving the credit
+   out is infringement, not a policy risk.
+
+   If you are adding to the description rather than replacing it, append:
+
+   ```bash
+   cp out/2026-09-19.description.txt d.txt
+   echo "" >> d.txt && echo "Subscribe for more." >> d.txt
+   python3 youtube.py upload out/2026-09-19.mp4 --title "..." --description-file d.txt
+   ```
 
 4. **Check the cut is shaped for the feed.**
 
@@ -172,21 +194,24 @@ success the operator does not actually have.
   what the Inauthentic Content policy targets, and it risks the channel's
   monetization for no gain.
 
-## The credit, and what happens if you skip it
+## If a Content ID claim arrives
 
-`short.py` writes two files beside the video and you upload with both:
+Dispute it, and quote `<name>.rights.json`. It names which seconds of which
+source were used, under which licence, with the licence URL — "sintel.mp4 at
+606.5s for 1.9s under CC BY 3.0" is checkable where "we used Sintel" is not.
+A wrongful claim on openly licensed footage takes the revenue off a video that
+was cleared; do not let one stand.
 
-    <name>.description.txt   the description, with the footage credit in it
-    <name>.rights.json       every shot's source, in-point and licence URL
+## Audience
 
-`youtube.py upload` finds them on its own and **refuses** if the description
-does not carry every credit the licences require. Do not work around that by
-passing a different `--description`: the licence on CC-BY footage asks for one
-thing, and leaving it out is infringement, not a policy risk.
+Uploads are `selfDeclaredMadeForKids=false` by default and should stay that way
+for anything with injury or death in it. Mislabelling is its own strike.
 
-If a Content ID claim arrives on footage that is openly licensed, dispute it
-and quote `rights.json` — it names which seconds of which source were used and
-links the licence. Do not let a wrongful claim stand.
+## The risk none of this covers
 
-Uploads are `selfDeclaredMadeForKids=false` by default. Keep it that way for
-anything with injury or death in it.
+A synthesised narrator clears nothing under the inauthentic-content policy on
+its own, and that policy is judged across a channel rather than on one file.
+`render.py monetize` warns on every synthesised render. If the channel starts
+looking like one template with a stock voice over other people's footage, say
+so to the human rather than uploading and hoping — `voice.py --recorded <dir>`
+takes a real voice and is the thing that moves it out of doubt.

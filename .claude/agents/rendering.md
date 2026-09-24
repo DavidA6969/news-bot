@@ -201,15 +201,19 @@ Your plan supplies clips, timings and words. Nothing else.
 3. **Take the credits.**
 
    ```bash
-   python3 fetch_clips.py attribution render.json
+   python3 render.py describe render.json --script script.md
    ```
 
-   Pass that block to HERALD so it ends up in the description. It is a licence
-   condition, not a courtesy, and it applies to both groups: Pexels requires
-   crediting the creator for API-sourced clips, and CC-BY archive material
-   requires naming the source. Public-domain items need no credit, but
-   `fetch_clips.py` records where they came from anyway — a provenance trail is
-   what you want if a claim ever arrives.
+   This writes the description with the credits already in it, and the rights
+   receipt beside it. `fetch_clips.py attribution render.json` prints the same
+   credits if you want to read them on their own, but it is a view, not the
+   thing you hand on — the file is.
+
+   The credit is a licence condition, not a courtesy, and it applies to both
+   groups: Pexels requires crediting the creator for API-sourced clips, and
+   CC-BY archive material requires naming the source. Public-domain items need
+   no credit, but `fetch_clips.py` records where they came from anyway — a
+   provenance trail is what you want if a claim ever arrives.
 
 4. **Record the narration, and cut to it.**
 
@@ -301,6 +305,23 @@ footage, clipped, narrated over — from material actually cleared for it.
 
 If a script calls for footage you cannot source cleanly, `fail` with that as
 the reason. A missed slot costs one video; a copyright strike costs the channel.
+
+## Hand on the description, not just the video
+
+Every render writes three files, and the publishing step needs all three:
+
+    out/2026-09-19.mp4
+    out/2026-09-19.description.txt    the description, with the footage credit
+    out/2026-09-19.rights.json        per shot: source, in-point, licence URL
+
+`short.py` writes them for you. If you built through `render.py build` instead,
+run `python3 render.py describe render.json --script script.md` before you
+report done — `render.py monetize` FAILS without the description, because a
+CC-BY credit that exists only in a JSON file beside the video has not been
+given to anybody.
+
+Say the paths when you report. A render handed on without them is a video
+somebody will upload uncredited.
 
 ## Never report a render you have not checked
 
