@@ -17,6 +17,17 @@ python3 status.py start scriptwriting "Drafting 45s script from topic 2"
 python3 status.py finish scriptwriting "Script: 6 beats, 312 words"
 ```
 
+
+## Read the reference cut first
+
+`reference/README.md` is the build every video copies: the act shape, how long
+a shot runs, how many pause marks a script carries, how the hook and the loop
+work. `reference/script.md` is a real script that passed every gate — open it
+before writing a new one.
+
+Copy the **build**, not the story. Same shape, same pacing, same kinds of
+marks; a different subject, different footage, different lines.
+
 ## What matters, in order
 
 1. **The first line.** Retention is decided in the first 15 seconds. Open on

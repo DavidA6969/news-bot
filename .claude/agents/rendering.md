@@ -306,6 +306,43 @@ footage, clipped, narrated over — from material actually cleared for it.
 If a script calls for footage you cannot source cleanly, `fail` with that as
 the reason. A missed slot costs one video; a copyright strike costs the channel.
 
+## Build it like the reference cut
+
+`reference/README.md` records how the video that set the house style was made:
+shot length, how in-points were chosen, the callbacks, what `style.json` fixes
+for you. `reference/shots.txt` is a real shot list. Read both before cutting.
+
+Index the whole source before picking anything — a contact sheet of the film at
+4s intervals — and choose each beat's shot against its line. Choosing from
+memory is how a tavern ended up under "splinted once by somebody guessing".
+
+## Footage is used once, and the ledger enforces it
+
+```bash
+python3 render.py fresh render.json
+```
+
+Two rules, and they are different problems:
+
+- **The same seconds of the same source, twice, is refused.** No override. A
+  viewer notices, and it is the clearest sign of a channel repeating itself.
+- **A source this channel has already made a video from is refused too.** If
+  the film genuinely has a second Short in it, set `"reuse_source": true` in
+  the plan — deliberately, and say why when you report.
+
+`clips_used.json` is local state and does not survive a fresh checkout. If
+`fresh` says the ledger is empty and this is not the channel's first video, stop
+and say so — the check is passing because it has no memory, not because the
+footage is new.
+
+`short.py` runs the check with the other gates and records the footage *after*
+a successful build, so a plan that failed a gate has not burned anything. The
+ledger is `clips_used.json`. `python3 render.py fresh render.json --forget
+<source>` releases a source if you genuinely need it back.
+
+**So plan the next video against different footage.** Check `fresh` before you
+cut clips, not after — finding out at build time means the cutting was wasted.
+
 ## Hand on the description, not just the video
 
 Every render writes three files, and the publishing step needs all three:

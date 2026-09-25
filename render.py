@@ -625,6 +625,139 @@ ADVISORY = ("you should", "you need to", "take ", "buy ", "sell ", "invest in",
             "stop taking", "start taking", "consult", "do this", "avoid ")
 
 
+USED_LEDGER = HERE / "clips_used.json"
+
+
+def _used_ledger(used_path=None):
+    path = Path(used_path or USED_LEDGER)
+    if not path.exists():
+        return {"clips": [], "spans": [], "sources": {}}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"clips": [], "spans": [], "sources": {}}
+    data.setdefault("clips", [])
+    data.setdefault("spans", [])
+    data.setdefault("sources", {})
+    return data
+
+
+def plan_spans(plan_path):
+    """(source, start, end) for every beat, in the SOURCE's own timeline.
+
+    A beat's `in` is an offset into its clip file; `origins.json` says where
+    that clip starts in the film it was cut from. Adding them is the only way
+    to ask "have we used this footage before" and get a true answer -- two
+    different clip files can hold the same seconds of the same source.
+    """
+    plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    origins, out = {}, []
+    for beat in plan.get("beats") or []:
+        clip = Path(str(beat.get("clip") or ""))
+        folder = str(clip.parent)
+        if folder not in origins:
+            book = clip.parent / "origins.json"
+            try:
+                origins[folder] = json.loads(book.read_text(encoding="utf-8")) \
+                    if book.exists() else {}
+            except (json.JSONDecodeError, OSError):
+                origins[folder] = {}
+        came = (origins[folder] or {}).get(clip.name) or {}
+        source = came.get("source") or clip.name
+        start = float(came.get("in_seconds") or 0.0) + float(beat.get("in") or 0.0)
+        out.append((source, round(start, 2),
+                    round(start + float(beat.get("duration") or 0.0), 2)))
+    return out
+
+
+def unused_report(plan_path, used_path=None):
+    """Is this footage new, or is the channel about to repeat itself?
+
+    Two levels, because they are different problems. A SHOT used twice is the
+    same seconds of the same film in two videos, which a viewer notices. A
+    SOURCE used twice is a channel that mines one film over and over, which is
+    what "a format rather than a body of work" means and what the Inauthentic
+    Content policy is actually looking at.
+
+    Set `"reuse_source": true` in the plan to allow the second deliberately --
+    a long film can carry more than one Short. There is no override for the
+    first: the same seconds twice is never what you meant.
+    """
+    plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    ledger = _used_ledger(used_path)
+    spans = plan_spans(plan_path)
+    findings = []
+    if not spans:
+        return False, [("fail", "the plan has beats to check", "none found")]
+
+    seen = [(s[0], float(s[1]), float(s[2])) for s in ledger.get("spans", [])]
+    clashes = []
+    for source, start, end in spans:
+        for was_source, was_start, was_end in seen:
+            if was_source == source and start < was_end and was_start < end:
+                clashes.append((source, start, end, was_start, was_end))
+                break
+    # An empty ledger passes everything, which is right on the first video and
+    # a silent failure on the fiftieth. `clips_used.json` is local state, like
+    # the niche and the performance history, so a run in a fresh checkout
+    # starts with no memory -- and the one thing worse than repeating footage
+    # is repeating it while a check says it did not.
+    if not seen and not ledger.get("sources"):
+        findings.append((
+            "warn", "the channel remembers what it has used",
+            "clips_used.json is empty, so nothing can be refused. That is "
+            "correct for a first video and a warning sign on any other: the "
+            "ledger is local state and does not survive a fresh checkout. Keep "
+            "the working directory between runs, or carry the file with it."))
+    findings.append((
+        "fail" if clashes else "ok",
+        "no shot has been used in an earlier video",
+        "%d shot%s already used: %s" % (
+            len(clashes), "" if len(clashes) == 1 else "s",
+            "; ".join("%s %.1f-%.1fs overlaps %.1f-%.1fs" % c for c in clashes[:3]))
+        if clashes else "%d shots, none seen before" % len(spans)))
+
+    used_sources = set(ledger.get("sources", {}))
+    mine = {s for s, _, _ in spans}
+    repeats = sorted(mine & used_sources)
+    allowed = bool(plan.get("reuse_source"))
+    findings.append((
+        "ok" if not repeats else ("warn" if allowed else "fail"),
+        "the footage comes from a source this channel has not used",
+        ("%s already made %s. Cut the next video from something else, or set "
+         '"reuse_source": true in the plan if this film genuinely has another '
+         "Short in it." % (", ".join(repeats[:3]),
+                           ", ".join(sorted(
+                               v for r in repeats[:3]
+                               for v in ledger["sources"].get(r, [])[:2]) ) or "an earlier video"))
+        if repeats and not allowed else
+        ("%s used before, allowed by the plan" % ", ".join(repeats[:3])) if repeats else
+        "%s, new to the channel" % ", ".join(sorted(mine)[:3])))
+    return all(level != "fail" for level, _, _ in findings), findings
+
+
+def remember_used(plan_path, used_path=None, name=None):
+    """Record this video's footage so the next one cannot repeat it."""
+    path = Path(used_path or USED_LEDGER)
+    data = _used_ledger(path)
+    plan = json.loads(Path(plan_path).read_text(encoding="utf-8"))
+    video = name or Path(str(plan.get("output") or "video")).name
+    spans = plan_spans(plan_path)
+    data["spans"] = (data["spans"] + [[s, a, b] for s, a, b in spans])[-4000:]
+    for source in sorted({s for s, _, _ in spans}):
+        data["sources"].setdefault(source, [])
+        if video not in data["sources"][source]:
+            data["sources"][source].append(video)
+    data["clips"] = (data["clips"] +
+                     [Path(str(b.get("clip") or "")).name
+                      for b in plan.get("beats") or []])[-400:]
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    return {"video": video, "shots": len(spans),
+            "sources": sorted({s for s, _, _ in spans})}
+
+
 def monetize_report(plan_path, history_path=None, used_path=None):
     """Would this survive the Partner Program's inauthentic content policy?
 
@@ -2007,6 +2140,14 @@ def main(argv=None):
     p_mon = sub.add_parser("monetize", help="exposure under the inauthentic content policy")
     p_mon.add_argument("plan")
 
+    p_fresh = sub.add_parser("fresh", help="is this footage new to the channel?")
+    p_fresh.add_argument("plan")
+    p_fresh.add_argument("--remember", action="store_true",
+                         help="record it as used, so no later video may repeat it")
+    p_fresh.add_argument("--forget", metavar="SOURCE",
+                         help="drop a source from the ledger and let it be used again")
+    p_fresh.add_argument("--used", help="the ledger to read (default: clips_used.json)")
+
     p_desc = sub.add_parser("describe", help="write the description and rights receipt")
     p_desc.add_argument("plan")
     p_desc.add_argument("--script", help="script.md, so the description opens on the hook")
@@ -2032,6 +2173,34 @@ def main(argv=None):
                 result["output"], result["resolution"], result["duration"],
                 result["size"] / 1048576, "" if result["audio"] else "  (no audio)"))
             return 0
+        if args.command == "fresh":
+            book = Path(args.used) if args.used else USED_LEDGER
+            if args.forget:
+                data = _used_ledger(book)
+                spans = [s for s in data["spans"] if s[0] != args.forget]
+                dropped = len(data["spans"]) - len(spans)
+                data["spans"] = spans
+                data["sources"].pop(args.forget, None)
+                book.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
+                                encoding="utf-8")
+                print("forgot %s — %d shot%s of it are available again"
+                      % (args.forget, dropped, "" if dropped == 1 else "s"))
+                return 0
+            ok, findings = unused_report(args.plan, used_path=book)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            if args.remember:
+                if not ok:
+                    print("\nNot recording footage that did not pass.", file=sys.stderr)
+                    return 1
+                kept = remember_used(args.plan, used_path=book)
+                print("\nrecorded %d shots of %s"
+                      % (kept["shots"], ", ".join(kept["sources"])))
+            return 0 if ok else 1
+
         if args.command == "describe":
             hook = hook_line(args.script) if args.script else ""
             text = description(args.plan, hook=hook, extra=args.extra)

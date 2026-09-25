@@ -156,6 +156,7 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
     for name, check in (("narration", R.narration_report),
                         ("retention", R.retention_report),
                         ("rights", R.rights_report),
+                        ("fresh", R.unused_report),
                         ("monetize", R.monetize_report)):
         ok, findings = check(plan_path)
         bad = [h for level, h, _ in findings if level == "fail"]
@@ -168,6 +169,12 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
                          "detail." % (" and ".join(failed), failed[0], plan_path))
 
     result = R.build(plan_path, progress=lambda *a: None)
+    # Recorded only once the render exists. A plan that failed a gate has not
+    # used anything, and burning its footage would leave the channel unable to
+    # make the video it was trying to make.
+    kept = R.remember_used(plan_path, name=out.name)
+    progress("  recorded  %d shots of %s — no later video may reuse them"
+             % (kept["shots"], ", ".join(kept["sources"])))
     ok, why = S.shorts_verdict(result["duration"], look["format"]["width"],
                                look["format"]["height"])
     progress("  built     %s  %.1fs  %.1f MB%s"

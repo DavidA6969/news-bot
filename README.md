@@ -1205,6 +1205,51 @@ bold claim, a contradiction — each with its closing line echoing its own hook 
 the loop still closes, and let the numbers pick. `retention` will reject a hook
 that runs long before you spend a slot on it.
 
+### Footage is used once
+
+A channel that mines the same film over and over is the shape the Inauthentic
+Content policy is actually looking for, and it is also just boring. So it is a
+gate, not a note:
+
+```bash
+python3 render.py fresh render.json
+```
+
+Two rules, because they are different problems:
+
+- **The same seconds of the same source, twice, is refused.** No override. A
+  span is compared in the *source's* timeline -- a beat's `in` is an offset
+  into its clip file, and `origins.json` says where that clip starts in the
+  film, so two different clip files holding the same seconds are caught.
+- **A source this channel has already made a video from is refused too**,
+  unless the plan says `"reuse_source": true`. A fifteen-minute film may
+  genuinely hold a second Short; it should be a decision, not an accident.
+
+**The ledger is local state**, like the niche and the performance history, so a
+run in a fresh checkout starts with no memory. `fresh` warns when it is empty
+rather than passing quietly — correct for a first video, a warning sign on any
+other. Keep the working directory between runs, or carry `clips_used.json` with
+it.
+
+`short.py` runs the check with the other gates and records the footage **after**
+a successful build, never before -- a plan that failed a gate has not used
+anything, and burning its footage would leave you unable to make the video you
+were trying to make. `render.py fresh render.json --forget <source>` releases
+one deliberately.
+
+### The reference cut
+
+`reference/` holds the build every later video copies -- the real script, the
+real shot list, the real description, and `reference/README.md` recording the
+measured shape of it: 65.6s over 35 beats, shots at a 1.87s median, 3.50 words
+a second, four `beat` pauses and six `hold`s. The scriptwriting and rendering
+agents are told to read it before they start.
+
+The point is to copy the **build** and not the story. Same act shape, same
+pacing, same kinds of pause; different subject, different footage, different
+lines. Everything that should be identical between videos is in `style.json`
+instead, where it cannot be decided per video.
+
 ### The credit is not optional, so it is not left to you
 
 A CC-BY licence asks for exactly one thing in return for footage you did not
