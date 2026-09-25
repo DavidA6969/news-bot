@@ -54,11 +54,11 @@
       "loudness_lufs": -14.0,
       "video_kbps": 14000
     },
-    "version": 64,
+    "version": 65,
     "committedAt": "2026-09-25T17:16:54Z",
     "shorts": {
-      "max_seconds": 45.0,
-      "target_seconds": 45,
+      "max_seconds": 60.0,
+      "target_seconds": 60.0,
       "require_vertical": true
     },
     "voice": {
@@ -89,7 +89,7 @@
       "hook_seconds": 2.0,
       "beat_target_seconds": 2.0,
       "beat_ceiling_seconds": 2.6,
-      "total_target_seconds": 30,
+      "total_target_seconds": 52,
       "require_loop": true
     },
     "narration": {
@@ -655,6 +655,16 @@
         "captions.margin_bottom_pct",
         "captions.side_margin_pct",
         "shorts.max_seconds",
+        "retention.total_target_seconds"
+      ]
+    },
+    {
+      "at": "2026-09-25T19:03:40Z",
+      "action": "sync",
+      "version": 65,
+      "fields": [
+        "shorts.max_seconds",
+        "shorts.target_seconds",
         "retention.total_target_seconds"
       ]
     }

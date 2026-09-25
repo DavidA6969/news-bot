@@ -2152,6 +2152,14 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                      "the picture — shorten it to %d. \"%s\""
                      % (index, count, look["captions"].get("max_lines", 2),
                         text[:58] + ("..." if len(text) > 58 else "")))
+        # A clean still, before the captions are burned in. A thumbnail made
+        # from the finished file carries whatever caption was on screen, and
+        # the title lands on top of it.
+        try:
+            import compose as compose_mod
+            compose_mod.best_still(silent, Path(out).with_suffix(".still.png"))
+        except Exception as exc:
+            progress("  note: could not write a clean still (%s)" % exc)
         has_captions = build_subtitles(plan, subs)
         if has_captions:
             # The same timing as data, beside the video. The .ass is consumed
