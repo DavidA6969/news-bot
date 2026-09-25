@@ -267,6 +267,51 @@ STOCK = ("pexels", "pixabay")
 ARCHIVE = ("internetarchive", "commons")
 GROUPS = {"stock": STOCK, "archive": ARCHIVE}
 
+# The host each provider actually has to reach, and the key it needs. A
+# missing key and a blocked host fail at the same moment and read almost the
+# same, so `reachable` separates them: one is something you set, the other is
+# something only the environment's network policy can allow.
+PROVIDER_HOSTS = {
+    "pexels": ("api.pexels.com", "PEXELS_API_KEY"),
+    "pixabay": ("pixabay.com", "PIXABAY_API_KEY"),
+    "internetarchive": ("archive.org", None),
+    "commons": ("commons.wikimedia.org", None),
+}
+
+
+def reachable(timeout=12):
+    """Can each provider be reached, and is its key set?
+
+    Returns [(provider, host, ok, note)]. Nothing here downloads a video; it
+    asks the host for its head and reports what came back, so the answer to
+    "why did sourcing fail" is one command rather than a guess.
+    """
+    import http.client
+    out = []
+    for name in sorted(PROVIDER_HOSTS):
+        host, key_name = PROVIDER_HOSTS[name]
+        has_key = bool(os.environ.get(key_name)) if key_name else True
+        ok, note = False, ""
+        try:
+            conn = http.client.HTTPSConnection(host, timeout=timeout)
+            conn.request("HEAD", "/", headers={"User-Agent": UA})
+            status = conn.getresponse().status
+            conn.close()
+            # A connection that completes is not the same as a host that
+            # answered. Every one of these serves its root publicly, so a 4xx
+            # here is the gateway refusing the host rather than the host
+            # refusing us -- and reporting that as "reachable" sends someone
+            # off to find an API key for a host they cannot open.
+            ok = status < 400
+            note = ("HTTP %d" % status if ok
+                    else "HTTP %d — refused before reaching the host" % status)
+        except Exception as exc:
+            note = "unreachable: %s" % str(exc)[:70]
+        if ok and key_name and not has_key:
+            note += ", but %s is not set" % key_name
+        out.append((name, host, ok and has_key, note))
+    return out
+
 
 def search(query, count=3, provider=None, orientation="portrait", opener=None):
     """Find candidate clips. Tries each provider that has a key configured."""
@@ -479,11 +524,25 @@ def main(argv=None):
     p_auto.add_argument("--provider", choices=list(GROUPS) + list(PROVIDERS))
     p_auto.add_argument("--out", default=None)
 
+    sub.add_parser("reachable", help="can the footage sources be reached at all?")
+
     p_att = sub.add_parser("attribution", help="print the credit block for the description")
     p_att.add_argument("plan")
 
     args = parser.parse_args(argv)
     try:
+        if args.command == "reachable":
+            rows = reachable()
+            for name, host, ok, note in rows:
+                print("%s %-16s %-26s %s" % ("  ok  " if ok else " FAIL ",
+                                             name, host, note))
+            if not any(ok for _, _, ok, _ in rows):
+                print("\nNo footage source can be reached. Where every host "
+                      "fails to connect it is the environment's network "
+                      "policy, not the sources: allow these hosts, or widen "
+                      "the access level, in the environment's settings.",
+                      file=sys.stderr)
+            return 0 if any(ok for _, _, ok, _ in rows) else 1
         if args.command == "search":
             for clip in search(args.query, args.count, args.provider)[:args.count]:
                 print("%-8s %-10s %sx%s %ss  %s" % (
