@@ -27,7 +27,9 @@
       "pop_ms": 110,
       "highlight": "FFD23F",
       "highlight_outline": "1A1200",
-      "max_lines": 2
+      "max_lines": 2,
+      "align": "bottom",
+      "box": false
     },
     "motion": {
       "push_in": 0.1,
@@ -49,8 +51,8 @@
       "audio_kbps": 160,
       "loudness_lufs": -14.0
     },
-    "version": 55,
-    "committedAt": "2026-09-25T07:02:45Z",
+    "version": 56,
+    "committedAt": "2026-09-25T14:16:45Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -572,6 +574,15 @@
         "encode.loudness_lufs"
       ],
       "version": 55
+    },
+    {
+      "at": "2026-09-25T14:16:45Z",
+      "action": "upgrade",
+      "added": [
+        "captions.align",
+        "captions.box"
+      ],
+      "version": 56
     }
   ]
 }

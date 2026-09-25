@@ -87,6 +87,14 @@ DEFAULT_STYLE = {
         # A caption that wraps past this covers the picture it is captioning.
         # Two lines is the working limit for a Short.
         "max_lines": 2,
+        # Where the caption sits: "bottom", "middle" or "top". The margin is
+        # measured from whichever edge it anchors against, so a top caption
+        # clears the top by margin_bottom_pct and a centred one ignores it.
+        "align": "bottom",
+        # A solid slab behind the text instead of a stroke around it -- the
+        # native Reels and TikTok caption look. In box mode the slab takes the
+        # "outline" colour.
+        "box": False,
     },
     # a slow push on every clip: subtle, but it is what stops stock footage
     # reading as a slideshow. 0 turns it off.
@@ -294,6 +302,13 @@ def _validate(style):
                       any(c not in "0123456789abcdefABCDEF" for c in value)):
             raise StyleError("captions.%s must be 6 hex digits like FFD23F (got %r)"
                              % (hex_key, value))
+    align = style["captions"].get("align", "bottom")
+    if align not in ("bottom", "middle", "top"):
+        raise StyleError('captions.align must be "bottom", "middle" or "top" '
+                         '(got %r)' % align)
+    if not isinstance(style["captions"].get("box", False), bool):
+        raise StyleError("captions.box must be true or false (got %r)"
+                         % style["captions"].get("box"))
     fit = style["format"].get("fit", "auto")
     if fit not in ("auto", "crop", "blur"):
         raise StyleError('format.fit must be "auto", "crop" or "blur" (got %r)' % fit)
@@ -337,15 +352,66 @@ def load(path=None):
     return data
 
 
-def current(path=None):
-    """The committed style, or the default if none has been written yet."""
+# The two presentations the production spec asks for. These are NOT a second
+# style: everything that makes the channel recognisable -- the voice, the
+# encode, the pacing, the safe margins -- stays in the one committed style, and
+# a variant only moves the handful of fields that separate the two looks. A
+# variant that could change the voice would be a second channel wearing the
+# same name.
+VARIANT_FIELDS = ("captions", "format", "motion")
+VARIANTS = {
+    # "Curiosity": big centred all-caps text over a filled frame, punching in.
+    "A": {
+        "captions": {"align": "middle", "uppercase": True, "box": False,
+                     "mode": "line", "size_pct": 6.5, "max_lines": 2},
+        "format": {"fit": "crop"},
+        "motion": {"push_in": 0.1},
+    },
+    # "Story caption": a sentence-case slab at the top, the clip centred in a
+    # blurred copy of itself, and nothing moving.
+    "B": {
+        # A top caption measures its margin from the top edge, so this is how
+        # far down the slab sits -- not the bottom-safe-zone number the base
+        # style carries for a bottom-anchored caption.
+        "captions": {"align": "top", "uppercase": False, "box": True,
+                     "mode": "line", "size_pct": 3.6, "max_lines": 2,
+                     "margin_bottom_pct": 8.0},
+        "format": {"fit": "blur", "blur_zoom": 1.15},
+        "motion": {"push_in": 0.0},
+    },
+}
+
+
+def variant_names():
+    return sorted(VARIANTS)
+
+
+def current(path=None, variant=None):
+    """The committed style, or the default if none has been written yet.
+
+    With a variant name, the committed style with that look's overlay applied.
+    The overlay is deliberately narrow -- see VARIANT_FIELDS -- so choosing a
+    look per video cannot quietly change the voice or the encode.
+    """
     got = load(path).get("style")
-    if got:
+    if not got:
+        got = json.loads(json.dumps(DEFAULT_STYLE))
+        got["version"] = 0
+        got["_default"] = True
+    if variant is None:
         return got
-    fallback = json.loads(json.dumps(DEFAULT_STYLE))
-    fallback["version"] = 0
-    fallback["_default"] = True
-    return fallback
+    key = str(variant).upper()
+    if key not in VARIANTS:
+        raise StyleError('style variant must be one of %s (got %r)'
+                         % (", ".join(variant_names()), variant))
+    look = json.loads(json.dumps(got))
+    for section, fields in VARIANTS[key].items():
+        if section not in VARIANT_FIELDS:
+            raise StyleError("variant %s may not touch %s" % (key, section))
+        look.setdefault(section, {}).update(fields)
+    look["_variant"] = key
+    _validate(look)
+    return look
 
 
 def _save(data, path=None):

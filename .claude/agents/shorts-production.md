@@ -92,8 +92,29 @@ you. Record the score in `notes.txt`.
   changes when the rules are fair."*
 - No arrows, no effects. Clean and raw.
 
-Pick one per Short and say which in `notes.txt`. Do not blend them — the two
-looks exist so the feed does not see the same video twice.
+Pick one per Short and pass it to the build; `notes.txt` records it for you:
+
+```bash
+python3 short.py script.md --clips clips/ -o out/video.mp4 --style A
+```
+
+Do not blend them — the two looks exist so the feed does not see the same
+video twice. The variant moves the captions, the framing and the push-in and
+**nothing else**: the voice, the encode and the pacing are the one committed
+style in both, because those are what make a channel recognisable and a
+per-video choice is exactly how they drift.
+
+`*LIKE THIS*` is the notation for a suspense caption. The asterisks choose the
+treatment — the line takes the highlight colour — and are not burned into the
+picture, because literal asterisks on screen read as a markup mistake.
+
+**What is not built yet.** The curved red arrow, the wiggle, the subject glow,
+the whole-clip tint, the watermark and the whoosh/pop sound effects do not
+exist in `render.py`. Style A currently means centred all-caps captions on a
+filled frame with a punch-in. Do not claim the rest in `notes.txt`; say the
+Short is missing them so the reviewer knows what they are looking at. The
+rounded corners on Style B's caption slab are not available either — ASS draws
+a square box.
 
 ## 5. Hook and loop
 
@@ -107,7 +128,10 @@ looks exist so the feed does not see the same video twice.
 - Keep the original audio only if the licence covers it.
 - Otherwise the YouTube Audio Library only.
 - Whoosh or pop on caption changes and on the punch-in.
-- About **-14 LUFS** (`voice.loudness_lufs` in `style.json`).
+- About **-14 LUFS**, set by `encode.loudness_lufs` and applied to the finished
+  mix. Do not reach for `voice.loudness_lufs` — that levels each take before
+  the mix, and raising it makes the gaps between clauses proportionally louder
+  until the breath finder stops trusting them.
 
 ## 7. What a finished Short is
 

@@ -71,10 +71,16 @@ def _licences_for(folder, clips, blanket=None):
 
 
 def build(script, clips_dir, output=None, engine=None, emphasis=None,
-          blanket_licence=None, attribution=None, progress=print, recorded=None):
+          blanket_licence=None, attribution=None, progress=print, recorded=None,
+          variant=None):
     import render as R, voice as V, style as S, review as RV
 
-    look = S.current()
+    look = S.current(variant=variant)
+    if variant:
+        progress("  look      style %s — %s captions%s, %s frame"
+                 % (look["_variant"], look["captions"]["align"],
+                    " in a box" if look["captions"]["box"] else "",
+                    look["format"]["fit"]))
     lines = V.beats_from_script(script)
     clips = _clips_in(clips_dir)
     if len(clips) < len(lines):
@@ -86,6 +92,8 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
 
     out = Path(output or "out/short.mp4")
     plan = {"output": str(out), "styleVersion": look.get("version", 0), "beats": []}
+    if variant:
+        plan["styleVariant"] = look["_variant"]
     for line, clip in zip(lines, clips):
         beat = {"clip": str(clip), "license": licences[clip.name],
                 "in": 0.0, "duration": 2.0, "caption": line[:120]}
@@ -216,6 +224,8 @@ def main(argv=None):
     parser.add_argument("--engine", help="speech engine (default: the best available)")
     parser.add_argument("--recorded", help="directory of beat01.wav … you recorded "
                                            "yourself — your own voice instead of TTS")
+    parser.add_argument("--style", dest="variant", choices=["A", "B", "a", "b"],
+                        help="which of the two looks: A curiosity, B story caption")
     parser.add_argument("--license", dest="licence",
                         help="apply one licence to every clip in the folder")
     parser.add_argument("--attribution", help="credit line for the description")
@@ -225,7 +235,8 @@ def main(argv=None):
     emphasis = {int(n): 0.85 for n in args.slow.replace(" ", "").split(",") if n}
     try:
         build(args.script, args.clips, args.output, args.engine, emphasis,
-              args.licence, args.attribution, recorded=args.recorded)
+              args.licence, args.attribution, recorded=args.recorded,
+              variant=args.variant)
     except Exception as exc:
         if type(exc).__name__ not in ("ShortError", "RenderError", "VoiceError",
                                       "StyleError", "FetchError"):

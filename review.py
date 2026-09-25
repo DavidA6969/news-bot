@@ -259,17 +259,27 @@ def safe_zone_report(look=None):
     caps = look.get("captions") or {}
     bottom = float(caps.get("margin_bottom_pct", 0) or 0)
     side = float(caps.get("side_margin_pct", 0) or 0)
-    findings = [
-        ("ok" if bottom >= SAFE_BOTTOM_PCT else "fail",
-         "captions clear the bottom %g%%" % SAFE_BOTTOM_PCT,
-         "margin_bottom_pct is %g — the like and comment buttons and the title "
-         "sit over that text" % bottom if bottom < SAFE_BOTTOM_PCT
-         else "margin_bottom_pct %g" % bottom),
-        ("ok" if side >= SAFE_SIDE_PCT else "fail",
-         "captions clear the right %g%%" % SAFE_SIDE_PCT,
-         "side_margin_pct is %g — the action rail sits over that text" % side
-         if side < SAFE_SIDE_PCT else "side_margin_pct %g" % side),
-    ]
+    align = str(caps.get("align", "bottom")).lower()
+
+    # The margin is measured from whichever edge the caption anchors against,
+    # so it only answers the bottom-20% question for a caption that sits at the
+    # bottom. A top or centred caption is nowhere near the buttons, and
+    # checking its margin against this rule would refuse Style B for clearing
+    # the wrong edge.
+    if align == "bottom":
+        findings = [("ok" if bottom >= SAFE_BOTTOM_PCT else "fail",
+                     "captions clear the bottom %g%%" % SAFE_BOTTOM_PCT,
+                     "margin_bottom_pct is %g — the like and comment buttons and "
+                     "the title sit over that text" % bottom
+                     if bottom < SAFE_BOTTOM_PCT else "margin_bottom_pct %g" % bottom)]
+    else:
+        findings = [("ok", "captions clear the bottom %g%%" % SAFE_BOTTOM_PCT,
+                     "anchored %s, so the bottom of the frame is empty" % align)]
+    findings.append((
+        "ok" if side >= SAFE_SIDE_PCT else "fail",
+        "captions clear the right %g%%" % SAFE_SIDE_PCT,
+        "side_margin_pct is %g — the action rail sits over that text" % side
+        if side < SAFE_SIDE_PCT else "side_margin_pct %g" % side))
     return not any(l == "fail" for l, _, _ in findings), findings
 
 

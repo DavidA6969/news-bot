@@ -44,11 +44,17 @@ from pathlib import Path
 __all__ = ["build", "load_plan", "probe", "RenderError", "ffmpeg_bin", "the_style"]
 
 
-def the_style():
-    """The one committed editing style. Every visual decision comes from here."""
+def the_style(variant=None):
+    """The one committed editing style. Every visual decision comes from here.
+
+    A variant ("A" or "B") overlays only the handful of fields that separate
+    the two presentations the production spec asks for. The voice, the encode
+    and the pacing are the same in both, because those are what make a channel
+    recognisable and a per-video choice is exactly how they drift.
+    """
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import style as style_mod
-    return style_mod.current()
+    return style_mod.current(variant=variant)
 
 HERE = Path(__file__).resolve().parent
 DEFAULT_W, DEFAULT_H, DEFAULT_FPS = 1080, 1920, 30
@@ -931,7 +937,9 @@ def validate_plan(plan, base=None):
     if not isinstance(beats, list) or not beats:
         raise RenderError('the plan needs a non-empty "beats" array')
 
-    look = the_style()
+    # A plan may name which of the two looks it is cut in; everything else
+    # still comes from the one committed style.
+    look = the_style(plan.get("styleVariant") or None)
     for key in ("width", "height", "fps"):
         if key in plan and plan[key] != look["format"][key]:
             raise RenderError(
@@ -1756,16 +1764,34 @@ def build_subtitles(plan, path):
     outline = max(0, int(round(h * caps["outline_pct"] / 100.0)))
     margin_v = int(h * caps["margin_bottom_pct"] / 100.0)
     margin_h = int(w * caps["side_margin_pct"] / 100.0)
+    # ASS numbers the nine anchor points 1-9 from the bottom row up. MarginV is
+    # measured from whichever edge the anchor sits against, so the same number
+    # means "clear of the bottom" for a bottom caption and "clear of the top"
+    # for a top one; centred text ignores it.
+    align = {"bottom": 2, "middle": 5, "top": 8}.get(
+        str(caps.get("align", "bottom")).lower(), 2)
+    # BorderStyle 3 is an opaque box behind the text rather than an outline
+    # around it -- the solid slab the Reels and TikTok native captions use.
+    border_style = 3 if caps.get("box") else 1
+    # In box mode the outline value is the padding around the text, and an
+    # outline sized for a stroke makes a slab with enormous margins.
+    if border_style == 3:
+        outline = max(2, outline // 2)
     lines = [
         "[Script Info]", "ScriptType: v4.00+",
         "PlayResX: %d" % w, "PlayResY: %d" % h, "WrapStyle: 0", "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, "
         "Bold, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        "Style: Caption,%s,%d,%s,%s,&H80000000,%d,1,%d,1,2,%d,%d,%d,1" % (
+        "Style: Caption,%s,%d,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d,1" % (
             caps["font"], size,
             style_mod.ass_colour(caps["colour"]), style_mod.ass_colour(caps["outline"]),
-            -1 if caps.get("bold") else 0, outline, margin_h, margin_h, margin_v),
+            # In box mode the box takes its colour from BackColour, so the
+            # "outline" colour is what the slab is painted with.
+            style_mod.ass_colour(caps["outline"]) if border_style == 3
+            else "&H80000000",
+            -1 if caps.get("bold") else 0, border_style, outline,
+            0 if border_style == 3 else 1, align, margin_h, margin_h, margin_v),
         "", "[Events]",
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
     ]
@@ -1777,6 +1803,15 @@ def build_subtitles(plan, path):
     any_caption = False
     for beat in plan["beats"]:
         caption = (beat.get("caption") or "").strip()
+        # *LIKE THIS* is the spec's notation for a suspense caption. The
+        # asterisks mark the KIND of caption, so they do their job by choosing
+        # the treatment and are not themselves burned into the picture --
+        # literal asterisks on screen read as a markup mistake. The whole line
+        # takes the highlight colour instead, which is how the spec separates
+        # these from the plain ones.
+        suspense = len(caption) > 2 and caption.startswith("*") and caption.endswith("*")
+        if suspense:
+            caption = caption[1:-1].strip()
         if caps.get("uppercase"):
             caption = caption.upper()
         if caption:
@@ -1817,8 +1852,10 @@ def build_subtitles(plan, path):
                     lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
                         _ass_time(w_start), _ass_time(w_end), effect, _ass_escape(word)))
             else:
-                lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
-                    _ass_time(at), _ass_time(at + beat["duration"]), _ass_escape(caption)))
+                lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
+                    _ass_time(at), _ass_time(at + beat["duration"]),
+                    ("{%s%s}" % (hi_fill, hi_line)) if suspense else "",
+                    _ass_escape(caption)))
         at += beat["duration"]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
     return any_caption
