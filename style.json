@@ -1,0 +1,672 @@
+{
+  "style": {
+    "name": "vertical-caption",
+    "format": {
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "fit": "auto",
+      "blur_zoom": 1.4,
+      "min_coverage": 0.64,
+      "focus_keep": 0.72,
+      "max_upscale": 1.5,
+      "min_luma": 52.0,
+      "max_lift": 2.2
+    },
+    "captions": {
+      "font": "DejaVu Sans",
+      "size_pct": 4.818,
+      "bold": true,
+      "uppercase": false,
+      "colour": "FFFFFF",
+      "outline": "000000",
+      "outline_pct": 0.417,
+      "margin_bottom_pct": 21.875,
+      "side_margin_pct": 16.667,
+      "mode": "karaoke",
+      "pop_ms": 110,
+      "highlight": "FFD400",
+      "highlight_outline": "1A1200",
+      "max_lines": 2,
+      "align": "bottom",
+      "box": false,
+      "center_y_pct": 0.0,
+      "chunk_words": 3
+    },
+    "motion": {
+      "push_in": 0.1,
+      "alternate": true
+    },
+    "transition": {
+      "kind": "crossfade",
+      "seconds": 0.12
+    },
+    "pacing": {
+      "min_beat_seconds": 1.2,
+      "max_beat_seconds": 7.0
+    },
+    "encode": {
+      "crf": 20,
+      "preset": "medium",
+      "audio_rate": 48000,
+      "audio_channels": 2,
+      "audio_kbps": 320,
+      "loudness_lufs": -14.0,
+      "video_kbps": 14000
+    },
+    "version": 65,
+    "committedAt": "2026-09-25T17:16:54Z",
+    "shorts": {
+      "max_seconds": 60.0,
+      "target_seconds": 60.0,
+      "require_vertical": true
+    },
+    "voice": {
+      "engine_voice": "en-gb-x-rp",
+      "pico_language": "en-GB",
+      "words_per_minute": 160,
+      "pitch": 45,
+      "word_gap_ms": 8,
+      "highpass_hz": 60,
+      "lowpass_hz": 11000,
+      "compress": true,
+      "loudness_lufs": -16.0,
+      "elevenlabs_voice_id": "",
+      "elevenlabs_model": "eleven_multilingual_v2",
+      "elevenlabs_stability": 0.45,
+      "elevenlabs_similarity": 0.75,
+      "kokoro_voice": "am_michael",
+      "kokoro_language": "en-us",
+      "kokoro_speed": 1.28,
+      "silence_floor_db": -45,
+      "keep_head_ms": 25,
+      "gap_seconds": 0.26,
+      "sentence_pause_seconds": 0.5,
+      "comma_pause_seconds": 0.13,
+      "keep_tail_ms": 140
+    },
+    "retention": {
+      "hook_seconds": 2.0,
+      "beat_target_seconds": 2.0,
+      "beat_ceiling_seconds": 2.6,
+      "total_target_seconds": 52,
+      "require_loop": true
+    },
+    "narration": {
+      "max_same_opening": 3,
+      "min_word_variety": 0.55,
+      "repeat_lines_allowed": 1,
+      "min_flow": 0.35
+    },
+    "music": {
+      "enabled": true,
+      "mood": "grief",
+      "gain_db": -19,
+      "duck_db": -7.0
+    }
+  },
+  "history": [
+    {
+      "at": "2026-09-20T18:01:24Z",
+      "action": "init",
+      "version": 1
+    },
+    {
+      "at": "2026-09-20T18:01:24Z",
+      "action": "set",
+      "field": "shorts",
+      "from": null,
+      "to": {
+        "max_seconds": 180,
+        "target_seconds": 45,
+        "require_vertical": true
+      },
+      "version": 2
+    },
+    {
+      "at": "2026-09-22T04:05:49Z",
+      "action": "upgrade",
+      "added": [
+        "voice.engine_voice",
+        "voice.pico_language",
+        "voice.words_per_minute",
+        "voice.pitch",
+        "voice.word_gap_ms",
+        "voice.highpass_hz",
+        "voice.lowpass_hz",
+        "voice.compress",
+        "voice.loudness_lufs"
+      ],
+      "version": 3
+    },
+    {
+      "at": "2026-09-22T04:19:06Z",
+      "action": "upgrade",
+      "added": [
+        "format.fit",
+        "encode.audio_rate",
+        "encode.audio_channels",
+        "encode.audio_kbps"
+      ],
+      "version": 4
+    },
+    {
+      "at": "2026-09-22T04:20:30Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 3.6,
+      "to": 4.6,
+      "version": 5
+    },
+    {
+      "at": "2026-09-22T04:20:30Z",
+      "action": "set",
+      "field": "pacing.min_beat_seconds",
+      "from": 1.5,
+      "to": 1.2,
+      "version": 6
+    },
+    {
+      "at": "2026-09-22T04:22:42Z",
+      "action": "upgrade",
+      "added": [
+        "format.blur_zoom"
+      ],
+      "version": 7
+    },
+    {
+      "at": "2026-09-22T04:23:10Z",
+      "action": "set",
+      "field": "format.blur_zoom",
+      "from": 1.2,
+      "to": 1.4,
+      "version": 8
+    },
+    {
+      "at": "2026-09-22T04:45:10Z",
+      "action": "upgrade",
+      "added": [
+        "captions.mode",
+        "captions.pop_ms"
+      ],
+      "version": 9
+    },
+    {
+      "at": "2026-09-22T04:45:10Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 4.6,
+      "to": 7.0,
+      "version": 10
+    },
+    {
+      "at": "2026-09-22T04:46:48Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 7.0,
+      "to": 10.0,
+      "version": 11
+    },
+    {
+      "at": "2026-09-22T04:46:48Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 14.0,
+      "to": 18.0,
+      "version": 12
+    },
+    {
+      "at": "2026-09-22T04:48:36Z",
+      "action": "upgrade",
+      "added": [
+        "voice.elevenlabs_voice_id",
+        "voice.elevenlabs_model",
+        "voice.elevenlabs_stability",
+        "voice.elevenlabs_similarity"
+      ],
+      "version": 13
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "upgrade",
+      "added": [
+        "captions.highlight",
+        "captions.highlight_outline"
+      ],
+      "version": 14
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 10.0,
+      "to": 5.4,
+      "version": 15
+    },
+    {
+      "at": "2026-09-22T04:55:58Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 18.0,
+      "to": 15.0,
+      "version": 16
+    },
+    {
+      "at": "2026-09-22T04:56:10Z",
+      "action": "set",
+      "field": "captions.mode",
+      "from": "word",
+      "to": "karaoke",
+      "version": 17
+    },
+    {
+      "at": "2026-09-22T04:58:29Z",
+      "action": "upgrade",
+      "added": [
+        "captions.max_lines"
+      ],
+      "version": 18
+    },
+    {
+      "at": "2026-09-22T04:59:58Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 5.4,
+      "to": 5.0,
+      "version": 19
+    },
+    {
+      "at": "2026-09-22T14:40:42Z",
+      "action": "upgrade",
+      "added": [
+        "voice.kokoro_voice",
+        "voice.kokoro_language",
+        "voice.kokoro_speed"
+      ],
+      "version": 20
+    },
+    {
+      "at": "2026-09-22T16:14:54Z",
+      "action": "upgrade",
+      "added": [
+        "voice.silence_floor_db",
+        "voice.keep_head_ms",
+        "voice.gap_seconds"
+      ],
+      "version": 21
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "captions.size_pct",
+      "from": 5.0,
+      "to": 4.0,
+      "version": 22
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 15.0,
+      "to": 12.0,
+      "version": 23
+    },
+    {
+      "at": "2026-09-22T16:15:47Z",
+      "action": "set",
+      "field": "voice.kokoro_speed",
+      "from": 1.0,
+      "to": 1.08,
+      "version": 24
+    },
+    {
+      "at": "2026-09-22T16:16:21Z",
+      "action": "upgrade",
+      "added": [
+        "motion.alternate"
+      ],
+      "version": 25
+    },
+    {
+      "at": "2026-09-22T17:12:29Z",
+      "action": "upgrade",
+      "added": [
+        "retention.hook_seconds",
+        "retention.beat_target_seconds",
+        "retention.beat_ceiling_seconds",
+        "retention.total_target_seconds",
+        "retention.require_loop"
+      ],
+      "version": 26
+    },
+    {
+      "at": "2026-09-22T20:37:06Z",
+      "action": "upgrade",
+      "added": [
+        "format.min_coverage",
+        "format.focus_keep"
+      ],
+      "version": 27
+    },
+    {
+      "at": "2026-09-22T20:41:18Z",
+      "action": "upgrade",
+      "added": [
+        "format.max_upscale"
+      ],
+      "version": 28
+    },
+    {
+      "at": "2026-09-22T21:18:17Z",
+      "action": "set",
+      "field": "transition.seconds",
+      "from": 0.0,
+      "to": 0.12,
+      "version": 29
+    },
+    {
+      "at": "2026-09-22T21:18:25Z",
+      "action": "set",
+      "field": "transition.kind",
+      "from": "cut",
+      "to": "crossfade",
+      "version": 30
+    },
+    {
+      "at": "2026-09-22T21:41:24Z",
+      "action": "upgrade",
+      "added": [
+        "narration.max_same_opening",
+        "narration.min_word_variety",
+        "narration.repeat_lines_allowed"
+      ],
+      "version": 31
+    },
+    {
+      "at": "2026-09-22T21:43:04Z",
+      "action": "set",
+      "field": "retention.total_target_seconds",
+      "from": 30.0,
+      "to": 60,
+      "version": 32
+    },
+    {
+      "at": "2026-09-22T23:07:35Z",
+      "action": "upgrade",
+      "added": [
+        "music.enabled",
+        "music.mood",
+        "music.gain_db",
+        "music.duck_db"
+      ],
+      "version": 33
+    },
+    {
+      "at": "2026-09-23T02:06:37Z",
+      "action": "set",
+      "field": "music.gain_db",
+      "from": -21.0,
+      "to": -19,
+      "version": 34
+    },
+    {
+      "at": "2026-09-23T04:49:36Z",
+      "action": "upgrade",
+      "added": [
+        "narration.min_flow"
+      ],
+      "version": 35
+    },
+    {
+      "at": "2026-09-23T06:14:39Z",
+      "action": "set",
+      "field": "voice.gap_seconds",
+      "from": 0.09,
+      "to": 0.04,
+      "version": 36
+    },
+    {
+      "at": "2026-09-23T16:50:08Z",
+      "action": "set",
+      "field": "voice.gap_seconds",
+      "from": 0.04,
+      "to": 0.14,
+      "version": 37
+    },
+    {
+      "at": "2026-09-23T17:29:34Z",
+      "action": "upgrade",
+      "added": [
+        "voice.sentence_pause_seconds"
+      ],
+      "version": 38
+    },
+    {
+      "at": "2026-09-23T17:29:34Z",
+      "action": "set",
+      "field": "voice.kokoro_speed",
+      "from": 1.08,
+      "to": 1.16,
+      "version": 39
+    },
+    {
+      "at": "2026-09-23T17:34:07Z",
+      "action": "upgrade",
+      "added": [
+        "format.min_luma",
+        "format.max_lift"
+      ],
+      "version": 40
+    },
+    {
+      "at": "2026-09-23T17:50:37Z",
+      "action": "set",
+      "field": "voice.kokoro_speed",
+      "from": 1.16,
+      "to": 1.2,
+      "version": 41
+    },
+    {
+      "at": "2026-09-23T18:38:02Z",
+      "action": "upgrade",
+      "added": [
+        "voice.comma_pause_seconds"
+      ],
+      "version": 42
+    },
+    {
+      "at": "2026-09-23T20:30:13Z",
+      "action": "upgrade",
+      "added": [
+        "voice.keep_tail_ms"
+      ],
+      "version": 43
+    },
+    {
+      "at": "2026-09-23T20:30:13Z",
+      "action": "set",
+      "field": "voice.gap_seconds",
+      "from": 0.14,
+      "to": 0.26,
+      "version": 44
+    },
+    {
+      "at": "2026-09-23T20:30:13Z",
+      "action": "set",
+      "field": "voice.sentence_pause_seconds",
+      "from": 0.3,
+      "to": 0.5,
+      "version": 45
+    },
+    {
+      "at": "2026-09-23T21:37:15Z",
+      "action": "set",
+      "field": "voice.kokoro_voice",
+      "from": "am_michael",
+      "to": "am_onyx",
+      "version": 46
+    },
+    {
+      "at": "2026-09-23T21:37:15Z",
+      "action": "set",
+      "field": "voice.highpass_hz",
+      "from": 85,
+      "to": 60,
+      "version": 47
+    },
+    {
+      "at": "2026-09-23T21:37:15Z",
+      "action": "set",
+      "field": "voice.lowpass_hz",
+      "from": 8500,
+      "to": 11000,
+      "version": 48
+    },
+    {
+      "at": "2026-09-23T22:50:59Z",
+      "action": "set",
+      "field": "voice.kokoro_voice",
+      "from": "am_onyx",
+      "to": "am_michael",
+      "version": 49
+    },
+    {
+      "at": "2026-09-23T23:43:10Z",
+      "action": "set",
+      "field": "voice.kokoro_speed",
+      "from": 1.2,
+      "to": 1.28,
+      "version": 50
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 12.0,
+      "to": 21.0,
+      "version": 51
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "captions.side_margin_pct",
+      "from": 8.0,
+      "to": 16.0,
+      "version": 52
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "voice.loudness_lufs",
+      "from": -16.0,
+      "to": -14.0,
+      "version": 53
+    },
+    {
+      "at": "2026-09-25T07:00:56Z",
+      "action": "set",
+      "field": "voice.loudness_lufs",
+      "from": -14.0,
+      "to": -16.0,
+      "version": 54
+    },
+    {
+      "at": "2026-09-25T07:02:45Z",
+      "action": "upgrade",
+      "added": [
+        "encode.loudness_lufs"
+      ],
+      "version": 55
+    },
+    {
+      "at": "2026-09-25T14:16:45Z",
+      "action": "upgrade",
+      "added": [
+        "captions.align",
+        "captions.box"
+      ],
+      "version": 56
+    },
+    {
+      "at": "2026-09-25T17:16:47Z",
+      "action": "upgrade",
+      "added": [
+        "captions.center_y_pct",
+        "captions.chunk_words",
+        "encode.video_kbps"
+      ],
+      "version": 57
+    },
+    {
+      "at": "2026-09-25T17:16:53Z",
+      "action": "set",
+      "field": "captions.outline_pct",
+      "from": 0.28,
+      "to": 0.45,
+      "version": 58
+    },
+    {
+      "at": "2026-09-25T17:16:53Z",
+      "action": "set",
+      "field": "captions.highlight",
+      "from": "FFD23F",
+      "to": "FFD400",
+      "version": 59
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 21.0,
+      "to": 22.0,
+      "version": 60
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "captions.side_margin_pct",
+      "from": 16.0,
+      "to": 16.7,
+      "version": 61
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "format.max_upscale",
+      "from": 1.9,
+      "to": 1.5,
+      "version": 62
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "encode.audio_kbps",
+      "from": 160,
+      "to": 320,
+      "version": 63
+    },
+    {
+      "at": "2026-09-25T17:46:04Z",
+      "action": "sync",
+      "version": 64,
+      "fields": [
+        "captions.size_pct",
+        "captions.outline_pct",
+        "captions.margin_bottom_pct",
+        "captions.side_margin_pct",
+        "shorts.max_seconds",
+        "retention.total_target_seconds"
+      ]
+    },
+    {
+      "at": "2026-09-25T19:03:40Z",
+      "action": "sync",
+      "version": 65,
+      "fields": [
+        "shorts.max_seconds",
+        "shorts.target_seconds",
+        "retention.total_target_seconds"
+      ]
+    }
+  ]
+}

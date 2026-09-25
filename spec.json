@@ -1,0 +1,171 @@
+{
+  "_comment": "The single source of truth for every production value. Nothing in the pipeline may hard-code a number that appears here; spec.py reads it and style.py/render.py/review.py/qc.py take their limits from it. Ranges are [min, max] inclusive.",
+  "version": 2,
+  "video": {
+    "width": 1080,
+    "height": 1920,
+    "fps_allowed": [
+      30,
+      60
+    ],
+    "codec": "h264",
+    "profile": "high",
+    "bitrate_kbps": [
+      12000,
+      16000
+    ],
+    "bitrate_target_kbps": 14000,
+    "maxrate_kbps": 16000,
+    "bufsize_kbps": 28000,
+    "max_upscale": 1.5,
+    "black_bars_allowed": false,
+    "black_bar_row_tolerance_pct": 1.0
+  },
+  "audio": {
+    "codec": "aac",
+    "bitrate_kbps": 320,
+    "bitrate_kbps_min": 256,
+    "sample_rate": 48000,
+    "channels": 2,
+    "loudness_lufs": -14.0,
+    "loudness_tolerance_db": 1.5,
+    "true_peak_dbtp": -1.0,
+    "music_duck_db": [
+      -26,
+      -22
+    ]
+  },
+  "duration_seconds": [
+    45,
+    60
+  ],
+  "voiceover": {
+    "required": true,
+    "words": [
+      112,
+      185
+    ],
+    "words_per_minute": [
+      150,
+      185
+    ],
+    "starts_by_seconds": 0.3,
+    "sentence_words": [
+      3,
+      10
+    ],
+    "hook_options": 3
+  },
+  "captions": {
+    "font_px": [
+      85,
+      100
+    ],
+    "stroke_px_min": 8,
+    "words_per_group": [
+      1,
+      3
+    ],
+    "max_lines": 2,
+    "first_caption_by_seconds": 0.5,
+    "sync_drift_seconds": 0.15,
+    "safe_zone": {
+      "x": [
+        90,
+        900
+      ],
+      "y": [
+        300,
+        1500
+      ]
+    },
+    "center_y": 1250,
+    "center_y_face_alternate": 500,
+    "highlight_hex": [
+      "FFD400",
+      "39FF14"
+    ]
+  },
+  "sources": {
+    "footage_type": "live_action",
+    "licenses_allowed": [
+      "jukin",
+      "viralhog",
+      "newsflare",
+      "storyful",
+      "caters",
+      "creator_permission",
+      "pexels",
+      "pixabay",
+      "mixkit",
+      "cc-by",
+      "cc-by-sa",
+      "own",
+      "youtube-cc"
+    ],
+    "licenses_needing_proof": [
+      "jukin",
+      "viralhog",
+      "newsflare",
+      "storyful",
+      "caters",
+      "creator_permission"
+    ],
+    "banned_keywords": [
+      "sintel",
+      "blender",
+      "animation",
+      "animated",
+      "3d",
+      "cgi",
+      "ai_generated",
+      "anime",
+      "cartoon",
+      "cartoons",
+      "manga",
+      "motion graphics",
+      "render"
+    ],
+    "inbox": "inbox",
+    "domains_needed": [
+      "www.jukinmedia.com",
+      "www.viralhog.com",
+      "www.newsflare.com",
+      "www.storyful.com",
+      "www.catersnews.com",
+      "api.pexels.com",
+      "pixabay.com",
+      "mixkit.co"
+    ],
+    "platforms_never_scraped": [
+      "tiktok.com",
+      "instagram.com",
+      "youtube.com",
+      "youtu.be",
+      "facebook.com"
+    ]
+  },
+  "metadata": {
+    "title_max_chars": 60,
+    "hashtags": [
+      3,
+      5
+    ],
+    "attribution_in_description": true
+  },
+  "required_files": [
+    "final.mp4",
+    "script.txt",
+    "title.txt",
+    "description.txt",
+    "notes.txt",
+    "sources.csv",
+    "captions.json"
+  ],
+  "thumbnail": {
+    "width": 1080,
+    "height": 1920,
+    "title_max_chars": 40,
+    "pick_from_first_seconds": 3.0
+  }
+}
