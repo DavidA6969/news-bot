@@ -698,17 +698,20 @@ def unused_report(plan_path, used_path=None):
                 clashes.append((source, start, end, was_start, was_end))
                 break
     # An empty ledger passes everything, which is right on the first video and
-    # a silent failure on the fiftieth. `clips_used.json` is local state, like
-    # the niche and the performance history, so a run in a fresh checkout
-    # starts with no memory -- and the one thing worse than repeating footage
-    # is repeating it while a check says it did not.
+    # a silent failure on the fiftieth. `clips_used.json` is committed to the
+    # repository for exactly this reason -- the one thing worse than repeating
+    # footage is repeating it while a check says it did not -- so an empty one
+    # here means either a genuine first video or a ledger that was never
+    # pushed after the last upload.
     if not seen and not ledger.get("sources"):
         findings.append((
             "warn", "the channel remembers what it has used",
             "clips_used.json is empty, so nothing can be refused. That is "
-            "correct for a first video and a warning sign on any other: the "
-            "ledger is local state and does not survive a fresh checkout. Keep "
-            "the working directory between runs, or carry the file with it."))
+            "correct for a first video and a warning sign on any other. The "
+            "ledger is committed to the repository: if this is not the first "
+            "video, the last run's ledger was never committed -- recover it "
+            "with `git checkout origin/<branch> -- clips_used.json` rather "
+            "than publishing blind."))
     findings.append((
         "fail" if clashes else "ok",
         "no shot has been used in an earlier video",
@@ -828,12 +831,6 @@ def monetize_report(plan_path, history_path=None, used_path=None):
 
     # 3. footage recycled from earlier videos is what mass production looks like
     ledger = Path(used_path) if used_path else (HERE / "clips_used.json")
-    seen = set()
-    if ledger.exists():
-        try:
-            seen = set(json.loads(ledger.read_text(encoding="utf-8")).get("clips", []))
-        except (json.JSONDecodeError, OSError):
-            seen = set()
     # A shot is a file AND a position in it: fourteen segments of one film are
     # fourteen different shots, and counting filenames calls them one.
     shots = [(Path(b.get("clip") or "").stem, round(float(b.get("in") or 0), 1))
@@ -854,13 +851,25 @@ def monetize_report(plan_path, history_path=None, used_path=None):
         "channel whose videos each mine a single source looks like a format "
         "rather than a body of work"))
 
-    already = [s for s in shots
-               if any(str(s[0]) in key for key in seen)] if seen else []
+    # Against the ledger, the same comparison `fresh` makes -- source plus
+    # position. A clip's NAME cannot answer this: every render writes
+    # clip01.mp4, clip02.mp4 ... so basenames collide across videos that share
+    # no footage at all, and matching on them warned about every video the
+    # channel would ever make.
+    try:
+        was_used = [(s[0], float(s[1]), float(s[2]))
+                    for s in (_used_ledger(ledger).get("spans") or [])]
+    except (ValueError, TypeError, IndexError):
+        was_used = []
+    already = [(source, start) for source, start, end in plan_spans(path)
+               if any(seen_source == source and start < seen_end and seen_start < end
+                      for seen_source, seen_start, seen_end in was_used)]
     if already:
         findings.append((
             "warn", "footage has not appeared in an earlier video",
-            "%d shot%s drawn from footage the ledger has seen before"
-            % (len(already), "" if len(already) == 1 else "s")))
+            "%d shot%s already published: %s" % (
+                len(already), "" if len(already) == 1 else "s",
+                ", ".join("%s at %.1fs" % a for a in already[:3]))))
 
     # 4. the credit the licence requires, where a viewer can actually read it
     due = credits_due(plan)
@@ -2141,7 +2150,10 @@ def main(argv=None):
     p_mon.add_argument("plan")
 
     p_fresh = sub.add_parser("fresh", help="is this footage new to the channel?")
-    p_fresh.add_argument("plan")
+    # --forget works on the ledger alone and never opens a plan, so do not make
+    # the caller invent one to release a source.
+    p_fresh.add_argument("plan", nargs="?",
+                         help="the render plan to check (not needed with --forget)")
     p_fresh.add_argument("--remember", action="store_true",
                          help="record it as used, so no later video may repeat it")
     p_fresh.add_argument("--forget", metavar="SOURCE",
@@ -2183,9 +2195,14 @@ def main(argv=None):
                 data["sources"].pop(args.forget, None)
                 book.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n",
                                 encoding="utf-8")
-                print("forgot %s — %d shot%s of it are available again"
-                      % (args.forget, dropped, "" if dropped == 1 else "s"))
+                print("forgot %s — %d shot%s of it %s available again"
+                      % (args.forget, dropped, "" if dropped == 1 else "s",
+                         "is" if dropped == 1 else "are"))
                 return 0
+            if not args.plan:
+                print("render.py fresh: which plan? pass a render plan, or "
+                      "--forget <source> to release one.", file=sys.stderr)
+                return 1
             ok, findings = unused_report(args.plan, used_path=book)
             for level, headline, detail in findings:
                 print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",

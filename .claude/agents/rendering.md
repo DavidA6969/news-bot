@@ -247,6 +247,13 @@ Your plan supplies clips, timings and words. Nothing else.
    output anyway, and a commentary video with no commentary in it is not the
    thing that was asked for. Report the missing engine as the blocker.
 
+   If the operator has recorded the narration themselves, `short.py
+   --recorded <dir>` takes a folder of `beat01.wav`, `beat02.wav` … one per
+   numbered beat, and no engine is used at all. Their voice gets the same
+   trimming and levelling as a synthesised one, so the channel still sounds
+   like one channel. Never substitute a synthesised take for a missing
+   recording: a gap in the folder is an error and is reported, not filled.
+
    The voice itself is **not yours to choose** either: rate, pitch, and the
    mastering chain come from `style.json`'s `voice` section, exactly like the
    captions. If narration sounds wrong, it is wrong for every video — say so
@@ -330,10 +337,14 @@ Two rules, and they are different problems:
   the film genuinely has a second Short in it, set `"reuse_source": true` in
   the plan — deliberately, and say why when you report.
 
-`clips_used.json` is local state and does not survive a fresh checkout. If
-`fresh` says the ledger is empty and this is not the channel's first video, stop
-and say so — the check is passing because it has no memory, not because the
-footage is new.
+`clips_used.json` is **committed to the repository**, because a ledger that
+only exists on one machine cannot stop the channel repeating itself. Commit and
+push it as part of the same change as the video you just published — that is
+what carries the memory to the next run. If `fresh` says the ledger is empty
+and this is not the channel's first video, stop and say so: the check is
+passing because it has no memory, not because the footage is new. Recover it
+with `git checkout origin/<branch> -- clips_used.json` rather than publishing
+blind.
 
 `short.py` runs the check with the other gates and records the footage *after*
 a successful build, so a plan that failed a gate has not burned anything. The

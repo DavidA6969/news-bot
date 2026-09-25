@@ -1,0 +1,49 @@
+{
+  "niches": {
+    "youtube": {
+      "name": "Open-source animation history",
+      "audience": "People who have seen these films used as test footage their whole lives and never knew where they came from",
+      "format": "60-70s vertical Shorts: one character's arc cut from a Creative Commons film, karaoke captions, ~3.5 words a second, ~35 shots of median 1.9s",
+      "why": "Committed on a false premise, not on bad numbers — zero videos published, so there is nothing to be impatient about. Space programme history assumed NASA's public-domain archive was reachable; nasa.gov, archive.org, Wikimedia and fourteen stock hosts are all blocked at this environment's egress gateway, so it fails on supply. What IS obtainable and cleanly licensed is the Blender open-movie catalogue: Elephants Dream (2006, CC BY 2.5) and Big Buck Bunny (2008, CC BY 3.0), both cleared for commercial reuse with attribution, visually distinct, with documented production histories. Demand holds: history and science-explained are among the strongest faceless Shorts categories.",
+      "keywords": [
+        "sintel",
+        "elephants dream",
+        "big buck bunny",
+        "blender",
+        "open movie",
+        "creative commons",
+        "3d animation"
+      ],
+      "committedAt": "2026-09-22T20:20:19Z"
+    }
+  },
+  "history": [
+    {
+      "at": "2026-09-22T17:00:38Z",
+      "action": "set",
+      "scope": "youtube",
+      "name": "Space programme history",
+      "reason": "Two constraints have to hold at once and this is where they intersect. Demand: history performs unusually well on Shorts because one surprising fact is a natural hook, and it is a strong faceless niche. Supply: NASA-produced footage is not subject to copyright in the US and may be reused commercially, so the archive is both enormous and genuinely clear to use - which almost no other visually-rich niche can say."
+    },
+    {
+      "at": "2026-09-22T20:20:19Z",
+      "action": "switch",
+      "scope": "youtube",
+      "from": "Space programme history",
+      "name": "Open-source animation history",
+      "reason": "Committed on a false premise, not on bad numbers — zero videos published, so there is nothing to be impatient about. Space programme history assumed NASA's public-domain archive was reachable; nasa.gov, archive.org, Wikimedia and fourteen stock hosts are all blocked at this environment's egress gateway, so it fails on supply. What IS obtainable and cleanly licensed is the Blender open-movie catalogue: Elephants Dream (2006, CC BY 2.5) and Big Buck Bunny (2008, CC BY 3.0), both cleared for commercial reuse with attribution, visually distinct, with documented production histories. Demand holds: history and science-explained are among the strongest faceless Shorts categories.",
+      "heldForDays": 0.1
+    },
+    {
+      "at": "2026-09-25T04:54:11Z",
+      "action": "amend",
+      "scope": "youtube",
+      "name": "Open-source animation history",
+      "changed": [
+        "format",
+        "keywords"
+      ],
+      "reason": "The format was written before a single video existed and describes a shape the pipeline no longer makes: it said 18-25s and 'one surprising claim per video', while the reference cut that every agent is now told to copy is 65.6s and tells one character's arc across 35 beats. Keywords listed only the two films assumed at commit time; the film actually cut was Sintel, so trend-research would have scored its own catalogue off-niche. The niche itself is unchanged."
+    }
+  ]
+}

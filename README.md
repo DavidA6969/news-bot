@@ -44,6 +44,10 @@ dashboard is wired to the right file, and **no credential is committed**.
 `FAIL` means broken. `WARN` means a step you have not done yet (credentials, a
 first upload) and is expected on a fresh clone.
 
+**Starting the channel from nothing: [START.md](START.md).** Three one-time
+steps (the voice weights, YouTube credentials, a schedule), the per-video loop,
+and the one thing you must commit after every upload.
+
 ## Run it
 
 ```bash
@@ -330,14 +334,27 @@ the same category as the others: given the same line, an offline speech
 recogniser transcribed Kokoro's output word-perfect and heard pico2wave's
 "rabbit" as "thread".
 
+The weights are not in this repo and HuggingFace is blocked from some
+networks, so fetch them from npm, which carries the same files. One package has
+all three pieces — the model, the `tokenizer.json` that must sit beside it, and
+59 voice vectors:
+
 ```bash
-export KOKORO_MODEL=/path/to/kokoro-quantized.onnx     # ~92MB
-export KOKORO_VOICES=/path/to/voices                   # one .bin per voice
+npm pack expo-kokoro@1.1.9                     # ~92MB tarball
+tar -xzf expo-kokoro-1.1.9.tgz -C ~/kokoro     # creates ~/kokoro/package/build
+pip install numpy onnxruntime
+sudo apt install espeak-ng                     # phonemiser only; the voice is Kokoro's
+
+export KOKORO_MODEL=~/kokoro/package/build/kokoro-quantized.onnx
+export KOKORO_VOICES=~/kokoro/package/build/voices
 python3 style.py set voice.kokoro_voice am_michael
+python3 voice.py engines                       # kokoro should now say "ok"
 ```
 
-The weights are a download, not part of this repo, and `voice.py engines` says
-plainly when they are missing rather than failing at render time. Voices run
+Put those two exports in your shell profile. They are the single most common
+reason a render fails on a new machine: everything else is in the repo, and
+these are not. `voice.py engines` says plainly when they are missing rather
+than failing at render time. Voices run
 `af_*`/`am_*` American, `bf_*`/`bm_*` British; `tokenizer.json` must sit beside
 the `.onnx`. espeak-ng does the phonemising — the voice you hear is Kokoro's.
 

@@ -188,6 +188,59 @@ def switch(name, reason, audience="", video_format="", keywords=None,
     return data["niches"][scope]
 
 
+def amend(reason, name=None, audience=None, video_format=None, keywords=None,
+          path=None, scope=None):
+    """Correct how a committed niche is described, without changing the niche.
+
+    The name is the commitment. Audience, format and keywords are only the
+    record of how that commitment is being executed, and they drift as the
+    work teaches you what it actually is — a format written before the first
+    video is a guess, and leaving a wrong one in place quietly misleads every
+    agent that reads it. Refuses to touch the name: that is switch().
+
+    committedAt is deliberately left alone. It is the clock the switch guard
+    reads, and an amend that reset it would be a way around that guard.
+    """
+    scope = _scope(scope)
+    if not (reason or "").strip():
+        raise NicheError("an amend needs --reason: say what was wrong with the "
+                         "old description")
+    data = load(path)
+    old = data["niches"].get(scope)
+    if not old:
+        raise NicheError("no %s niche committed yet — there is nothing to amend. "
+                         "python3 niche.py set --scope %s --name ..." % (scope, scope))
+    if name is not None and name.strip().lower() != old["name"].strip().lower():
+        raise NicheError(
+            'amend cannot rename a niche. "%s" is the commitment; changing it is a '
+            "switch, with everything that costs: python3 niche.py switch --scope %s "
+            "--name ... --reason ..." % (old["name"], scope)
+        )
+
+    fresh = dict(old)
+    changed = []
+    if audience is not None and audience.strip() != old.get("audience", ""):
+        fresh["audience"] = audience.strip()
+        changed.append("audience")
+    if video_format is not None and video_format.strip() != old.get("format", ""):
+        fresh["format"] = video_format.strip()
+        changed.append("format")
+    if keywords is not None:
+        words = [k.strip().lower() for k in keywords if k.strip()]
+        if words != (old.get("keywords") or []):
+            fresh["keywords"] = words
+            changed.append("keywords")
+    if not changed:
+        raise NicheError("nothing to amend — every field given already says that")
+
+    data["niches"][scope] = fresh
+    data["history"].append({"at": _iso(_now()), "action": "amend", "scope": scope,
+                            "name": fresh["name"], "changed": changed,
+                            "reason": reason.strip()})
+    _save(data, path)
+    return fresh
+
+
 def check(topic, path=None, scope=None):
     """Does a candidate plausibly sit in that scope's committed niche?
 
@@ -235,6 +288,15 @@ def main(argv=None):
     p_chk = sub.add_parser("check", parents=[common], help="is a candidate in the niche?")
     p_chk.add_argument("topic")
 
+    p_am = sub.add_parser("amend", parents=[common],
+                          help="correct how the committed niche is described")
+    p_am.add_argument("--reason", required=True)
+    p_am.add_argument("--name", default=None,
+                      help="optional guard: must match the committed name")
+    p_am.add_argument("--audience", default=None)
+    p_am.add_argument("--format", dest="video_format", default=None)
+    p_am.add_argument("--keywords", nargs="*", default=None)
+
     p_sw = sub.add_parser("switch", parents=[common], help="change niche, deliberately")
     p_sw.add_argument("--name", required=True)
     p_sw.add_argument("--reason", required=True)
@@ -267,6 +329,10 @@ def main(argv=None):
                     print("%s  [%s] switched from %s to %s after %s days — %s" % (
                         row["at"], scope, row.get("from"), row.get("name"),
                         row.get("heldForDays"), row.get("reason")))
+                elif row.get("action") == "amend":
+                    print("%s  [%s] amended %s of %s — %s" % (
+                        row["at"], scope, "/".join(row.get("changed") or []),
+                        row.get("name"), row.get("reason")))
                 else:
                     print("%s  [%s] committed to %s" % (row["at"], scope, row.get("name")))
             for scope in SCOPES:
@@ -277,6 +343,10 @@ def main(argv=None):
                     print("\n%s has switched %d times. Each one restarts the audience "
                           "from nothing — that pattern, not the niche, is usually what "
                           "stops a business growing." % (scope, switches))
+        elif args.command == "amend":
+            got = amend(args.reason, args.name, args.audience, args.video_format,
+                        args.keywords, scope=args.scope)
+            print('%s: amended the description of "%s"' % (args.scope, got["name"]))
         elif args.command == "check":
             got = check(args.topic, scope=args.scope)
             print("%s: %s" % (got["verdict"].upper(), got["detail"]))

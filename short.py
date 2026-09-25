@@ -71,7 +71,7 @@ def _licences_for(folder, clips, blanket=None):
 
 
 def build(script, clips_dir, output=None, engine=None, emphasis=None,
-          blanket_licence=None, attribution=None, progress=print):
+          blanket_licence=None, attribution=None, progress=print, recorded=None):
     import render as R, voice as V, style as S
 
     look = S.current()
@@ -113,9 +113,14 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
         progress("  note      beat %d's caption wraps to %d lines: %s"
                  % (index, count, text[:44]))
 
-    engine = engine or (V.usable_engines() or [(None, "")])[0][0]
-    if not engine:
-        raise ShortError("no speech engine available — run: python3 voice.py engines")
+    if recorded:
+        # Your own voice needs no engine, and it is the one thing that takes
+        # the synthetic-narration risk off the channel entirely.
+        engine = "recorded"
+    else:
+        engine = engine or (V.usable_engines() or [(None, "")])[0][0]
+        if not engine:
+            raise ShortError("no speech engine available — run: python3 voice.py engines")
     voice_dir = Path(clips_dir).parent / "voice"
     delivery = V.delivery_from_script(script)
     if delivery:
@@ -126,9 +131,19 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
     # Measure the words BEFORE narrating: those durations are what decide
     # where inside a continuous sentence each picture cuts, and they are
     # needed by fit_plan rather than after it.
-    measured = V.measure_words(script, out_dir=voice_dir, engine=engine)
-    spoken = V.speak(script, voice_dir, engine=engine, emphasis=emphasis,
-                     delivery=delivery, weights=measured)
+    # A recording cannot be asked to say one word at a time, so when the voice
+    # is yours the word weights come from whichever synthesiser is installed.
+    # They are only ever used as relative weights inside a beat whose real
+    # length is measured from the recording, so the voice they came from does
+    # not reach the video -- and with no synthesiser at all this is None and
+    # the caller estimates.
+    weigh_with = engine
+    if recorded:
+        weigh_with = (V.usable_engines() or [(None, "")])[0][0]
+    measured = (V.measure_words(script, out_dir=voice_dir, engine=weigh_with)
+                if weigh_with else None)
+    spoken = V.speak(script, voice_dir, engine=engine, recorded=recorded,
+                     emphasis=emphasis, delivery=delivery, weights=measured)
     fitted = V.fit_plan(plan_path, spoken, delivery=delivery)
     if measured:
         V.annotate_plan(plan_path, measured)
@@ -189,6 +204,8 @@ def main(argv=None):
     parser.add_argument("--clips", required=True, help="folder of video files")
     parser.add_argument("-o", "--output", help="where to write the Short")
     parser.add_argument("--engine", help="speech engine (default: the best available)")
+    parser.add_argument("--recorded", help="directory of beat01.wav … you recorded "
+                                           "yourself — your own voice instead of TTS")
     parser.add_argument("--license", dest="licence",
                         help="apply one licence to every clip in the folder")
     parser.add_argument("--attribution", help="credit line for the description")
@@ -198,7 +215,7 @@ def main(argv=None):
     emphasis = {int(n): 0.85 for n in args.slow.replace(" ", "").split(",") if n}
     try:
         build(args.script, args.clips, args.output, args.engine, emphasis,
-              args.licence, args.attribution)
+              args.licence, args.attribution, recorded=args.recorded)
     except Exception as exc:
         if type(exc).__name__ not in ("ShortError", "RenderError", "VoiceError",
                                       "StyleError", "FetchError"):
