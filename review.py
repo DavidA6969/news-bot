@@ -33,6 +33,8 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import spec                                   # noqa: E402  the source of truth
 SOURCES = HERE / "sources.csv"
 REVIEW = HERE / "review"
 
@@ -43,15 +45,14 @@ REVIEW = HERE / "review"
 # Keyed on the name alone, logging a new video's clip01.mp4 would silently
 # replace the last video's, and sources.csv would only ever hold the most
 # recent Short -- an audit log that quietly forgets is worse than none.
-COLUMNS = ["clip", "source", "url", "creator", "license", "proof", "checked",
-           "attribution", "release", "notes"]
+COLUMNS = ["clip", "source", "url", "creator", "license", "footage_type",
+           "proof", "checked", "attribution", "release", "notes"]
 
 # Section 1: a licence you cannot produce is not a licence. A marketplace
 # receipt, or the screenshot of the DM or email the creator sent. The path is
 # recorded rather than the file so the log stays small, and the gate checks the
-# file is actually there -- a path to nothing is the same as no proof.
-LICENCES_NEEDING_PROOF = ("jukin", "viralhog", "newsflare", "storyful", "caters",
-                          "licensed", "permission", "direct", "exclusive")
+# file is actually there -- a path to nothing is the same as no proof. The list
+# of which licences need one is in spec.json.
 
 # Section 1: these are refused unless a signed release exists, and the refusal
 # is recorded rather than assumed.
@@ -63,19 +64,30 @@ SENSITIVE = ("minor", "minors", "child", "children", "kid", "kids", "baby",
 MIN_SCORE = 7.0          # a clip's mean, below which it is not worth editing
 FLOOR_ANY = 5            # and no single axis may sit under this
 
-# Section 5: the app's own furniture sits here, so our text must not. The spec
-# gives pixels on a 1080x1920 canvas rather than shares, because that is what
-# the players actually draw over -- 420px of title and buttons at the bottom,
-# 180px of action rail on the right. Percentages are how the style stores it,
-# so the check converts and compares in pixels: 21% of 1920 is 403px, which
-# looks like a pass and is seventeen pixels inside the like button.
-SAFE_BOTTOM_PX = 420
-SAFE_RIGHT_PX = 180
-SAFE_TOP_PX = 300
-SAFE_LEFT_PX = 90
+# Everything below is the spec's, read from spec.json rather than restated
+# here. A second copy of a number is a second thing to forget to change, and
+# the whole point of spec.json is that there is one place to look.
+_V = spec.get("video")
+SAFE_BOTTOM_PX = _V["height"] - spec.get("captions.safe_zone.y")[1]
+SAFE_RIGHT_PX = _V["width"] - spec.get("captions.safe_zone.x")[1]
+SAFE_TOP_PX = spec.get("captions.safe_zone.y")[0]
+SAFE_LEFT_PX = spec.get("captions.safe_zone.x")[0]
 
-TITLE_MAX = 60           # section 7
-MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
+TITLE_MAX = spec.get("metadata.title_max_chars")
+MIN_HASHTAGS, MAX_HASHTAGS = spec.get("metadata.hashtags")
+REQUIRED_FILES = tuple(spec.get("required_files"))
+
+LICENCES_NEEDING_PROOF = tuple(spec.get("sources.licenses_needing_proof"))
+LICENCES_ALLOWED = tuple(spec.get("sources.licenses_allowed"))
+BANNED_KEYWORDS = tuple(spec.get("sources.banned_keywords"))
+FOOTAGE_TYPE = spec.get("sources.footage_type")
+INBOX = HERE / spec.get("sources.inbox")
+
+# The safe zone is derived above from spec.json's x/y box. It is kept in pixels
+# because that is what the players actually draw over -- 420px of title and
+# buttons at the bottom, 180px of action rail on the right. Percentages are how
+# the style stores it, so the check converts before comparing: 21% of 1920 is
+# 403px, which looks like a pass and is seventeen pixels inside the like button.
 
 
 class ReviewError(Exception):
@@ -84,6 +96,11 @@ class ReviewError(Exception):
 
 def _today():
     return date.today().isoformat()
+
+
+def _flatten(text):
+    """Lower-case with the separators taken out, so cc-by == CC BY == cc_by."""
+    return re.sub(r"[\s._-]+", "", str(text or "").lower())
 
 
 # ---------------------------------------------------------------- sources.csv
@@ -108,7 +125,7 @@ def _write(rows, path=None):
 
 
 def log_source(clip, url, creator, licence, attribution, source="", release="",
-               notes="", checked=None, path=None, proof=""):
+               notes="", checked=None, path=None, proof="", footage_type=None):
     """Record where one clip came from. Re-logging the same clip replaces it.
 
     "The same clip" means the same name cut from the same source, not the same
@@ -126,6 +143,7 @@ def log_source(clip, url, creator, licence, attribution, source="", release="",
     row = {"clip": Path(str(clip)).name,
            "source": Path(str(source or "")).name, "url": str(url).strip(),
            "creator": str(creator).strip(), "license": str(licence).strip(),
+           "footage_type": str(footage_type or FOOTAGE_TYPE).strip(),
            "proof": str(proof or "").strip(),
            "checked": str(checked or _today()).strip(),
            "attribution": str(attribution).strip(),
@@ -207,6 +225,7 @@ def sources_report(plan_path, path=None):
 
     origins = _origins(plan)
     missing, undated, unsigned, unproven = [], [], [], []
+    wrong_type, not_allowed, banned = [], [], []
     for clip_path in clips:
         name = Path(clip_path).name
         row = source_for(name, path, origins.get(clip_path))
@@ -219,7 +238,26 @@ def sources_report(plan_path, path=None):
         if any(word in blob for word in SENSITIVE) and not row.get("release"):
             unsigned.append(name)
         licence = str(row.get("license", "")).lower()
-        if any(word in licence for word in LICENCES_NEEDING_PROOF):
+        # "CC BY 4.0", "cc-by" and "cc_by" are the same licence written three
+        # ways, and only one of them matches the spec's spelling. Flattening
+        # the separators is the difference between a rule and a spelling test.
+        flat = _flatten(licence)
+        # The spec names which licences the channel may use at all. A licence
+        # that is not on that list is not a judgement call -- it is footage we
+        # have not agreed terms for.
+        if not any(_flatten(word) in flat for word in LICENCES_ALLOWED):
+            not_allowed.append("%s (%s)" % (name, row.get("license") or "blank"))
+        kind = str(row.get("footage_type") or "").strip().lower()
+        if kind != FOOTAGE_TYPE:
+            wrong_type.append("%s (%s)" % (name, kind or "not recorded"))
+        # Banned words are checked across everything the row says about the
+        # clip, not just its licence: "Sintel" turns up in a URL or a creator
+        # long before it turns up in a licence name.
+        haystack = " ".join(str(row.get(c, "")) for c in COLUMNS).lower()
+        hits = sorted({b for b in BANNED_KEYWORDS if b in haystack})
+        if hits:
+            banned.append("%s (%s)" % (name, ", ".join(hits)))
+        if any(_flatten(word) in flat for word in LICENCES_NEEDING_PROOF):
             kept = str(row.get("proof") or "").strip()
             if not kept or not (HERE / kept).exists() and not Path(kept).exists():
                 unproven.append("%s (%s)" % (name, kept or "no file recorded"))
@@ -238,6 +276,21 @@ def sources_report(plan_path, path=None):
             "fail", "sensitive footage has a signed release",
             "%s are flagged sensitive with no release recorded. Section 1 refuses "
             "these outright unless a release exists." % ", ".join(unsigned[:4])))
+    if wrong_type:
+        findings.append((
+            "fail", "every clip is %s" % FOOTAGE_TYPE,
+            "%s. The spec takes live action only: no animation, no 3D, no "
+            "AI-generated people." % "; ".join(wrong_type[:3])))
+    if not_allowed:
+        findings.append((
+            "fail", "every licence is one the channel may use",
+            "%s. Allowed: %s." % ("; ".join(not_allowed[:3]),
+                                  ", ".join(LICENCES_ALLOWED))))
+    if banned:
+        findings.append((
+            "fail", "no clip is from a banned source",
+            "%s. These are refused outright by the spec, whatever else the "
+            "row says." % "; ".join(banned[:3])))
     if unproven:
         findings.append((
             "fail", "a licensed clip can show its licence",
@@ -281,10 +334,10 @@ def score(hook, payoff, rewatch):
 # Section 3. The word count and the reading rate are the same constraint said
 # twice -- 60-110 words at 160-175 a minute is 20-40 seconds -- so the check
 # reports the seconds it implies rather than making someone divide.
-SCRIPT_WORDS = (60, 110)
-SENTENCE_WORDS = (3, 10)
-WORDS_PER_MINUTE = (160, 175)
-HOOK_OPTIONS = 3
+SCRIPT_WORDS = tuple(spec.get("voiceover.words"))
+SENTENCE_WORDS = tuple(spec.get("voiceover.sentence_words"))
+WORDS_PER_MINUTE = tuple(spec.get("voiceover.words_per_minute"))
+HOOK_OPTIONS = spec.get("voiceover.hook_options")
 
 
 def _sentences(text):
@@ -416,6 +469,87 @@ def safe_zone_report(look=None):
     return not any(l == "fail" for l, _, _ in findings), findings
 
 
+# --------------------------------------------------------------- footage intake
+
+def intake(folder=None):
+    """What is in the inbox, and which of it may actually be used.
+
+    While the licensing sites are unreachable the owner drops clips here by
+    hand, each with the file that proves the licence beside it. A clip without
+    proof is not a clip we have -- so this reports it rather than quietly
+    building from it.
+    """
+    root = Path(folder or INBOX)
+    out = {"folder": str(root), "usable": [], "unusable": []}
+    if not root.exists():
+        return out
+    video = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
+    for item in sorted(root.iterdir()):
+        if not item.is_file() or item.suffix.lower() not in video:
+            continue
+        # The proof sits beside the clip under the same stem: clip.mp4 and
+        # clip.pdf / clip.png / clip.txt. Same name, so nobody has to maintain
+        # a mapping that can go stale.
+        proof = [q for q in root.iterdir()
+                 if q.is_file() and q.stem == item.stem and q != item]
+        row = source_for(item.name)
+        why = []
+        if not proof:
+            why.append("no licence proof beside it")
+        if not row:
+            why.append("no row in sources.csv")
+        elif not any(_flatten(w) in _flatten(row.get("license", ""))
+                     for w in LICENCES_ALLOWED):
+            why.append("licence %r is not one the spec allows"
+                       % row.get("license"))
+        elif str(row.get("footage_type") or "").lower() != FOOTAGE_TYPE:
+            why.append("footage_type is %r, not %s"
+                       % (row.get("footage_type"), FOOTAGE_TYPE))
+        (out["usable"] if not why else out["unusable"]).append(
+            {"clip": str(item), "proof": [str(q) for q in proof], "why": why})
+    return out
+
+
+# ------------------------------------------------------------------- captions
+
+def captions_json(plan_path, subtitles_path, out_path):
+    """The caption track as data, beside the video.
+
+    The .ass file is what ffmpeg burns in; this is the same timing in a form
+    anything else can read -- a QC check measuring drift against the voice, or
+    a human diffing what was said against what was shown. Written from the
+    .ass rather than from the plan, because the .ass is what actually reached
+    the picture.
+    """
+    import re as _re
+    rows = []
+    for line in Path(subtitles_path).read_text(encoding="utf-8").splitlines():
+        if not line.startswith("Dialogue:"):
+            continue
+        fields = line.split(",", 9)
+        if len(fields) < 10:
+            continue
+        text = _re.sub(r"\{[^}]*\}", "", fields[9]).replace("\\N", " ").strip()
+        if not text:
+            continue
+        rows.append({"start": _ass_seconds(fields[1]),
+                     "end": _ass_seconds(fields[2]),
+                     "text": text,
+                     "words": len(text.split())})
+    rows.sort(key=lambda r: r["start"])
+    payload = {"source": str(Path(plan_path).name), "groups": rows,
+               "count": len(rows),
+               "first_at": rows[0]["start"] if rows else None}
+    Path(out_path).write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n",
+                              encoding="utf-8")
+    return payload
+
+
+def _ass_seconds(stamp):
+    hours, minutes, seconds = str(stamp).strip().split(":")
+    return round(int(hours) * 3600 + int(minutes) * 60 + float(seconds), 3)
+
+
 # ----------------------------------------------------------------- the handoff
 
 def _slug(text, limit=48):
@@ -452,7 +586,7 @@ def check_description(text, required_credits=()):
 
 
 def handoff(video, title, description, notes, dest=None, style="A", scored=None,
-            script="", hooks=()):
+            script="", hooks=(), captions=None, sources_csv=None, qc=True):
     """Put one finished Short where a human will find it. Uploads nothing.
 
     Returns the folder. Refuses rather than writing a folder that would fail
@@ -484,7 +618,12 @@ def handoff(video, title, description, notes, dest=None, style="A", scored=None,
     if str(style).upper() not in ("A", "B"):
         raise ReviewError('style must be "A" (curiosity) or "B" (story caption)')
 
-    folder = Path(dest or REVIEW) / _slug(title)
+    # Assembled in a staging folder and measured there. A Short that fails QC
+    # must never appear in review/ at all -- a reviewer who finds a folder
+    # there is entitled to assume it passed, and a half-finished one that
+    # merely carries a bad report is the same mistake as no gate.
+    root = Path(dest or REVIEW)
+    folder = root / (_slug(title) + ".staging")
     folder.mkdir(parents=True, exist_ok=True)
     shutil.copy2(video, folder / "final.mp4")
     (folder / "title.txt").write_text(title + "\n", encoding="utf-8")
@@ -510,7 +649,33 @@ def handoff(video, title, description, notes, dest=None, style="A", scored=None,
             page += ["  %d. %s" % (i, h) for i, h in enumerate(hooks, 1)]
         (folder / "script.txt").write_text("\n".join(page).rstrip() + "\n",
                                            encoding="utf-8")
-    return folder
+    if captions and Path(captions).exists():
+        shutil.copy2(captions, folder / "captions.json")
+    # The Short carries the provenance of its own clips, not the channel's
+    # whole history: a reviewer answering a claim about THIS video should not
+    # have to find the rows among every clip ever logged.
+    rows = _rows(sources_csv) if sources_csv else []
+    if rows:
+        _write(rows, folder / "sources.csv")
+    for row in rows:
+        kept = str(row.get("proof") or "").strip()
+        if kept and Path(kept).exists():
+            shutil.copy2(kept, folder / Path(kept).name)
+
+    if qc:
+        import qc as qc_mod                    # imported here: qc imports this
+        report = qc_mod.run(folder, folder / "qc_report.json")
+        if not report["ship"]:
+            bad = [r["check"] for r in report["checks"] if r["status"] != "pass"]
+            raise ReviewError(
+                "QC failed, so this is not in review/: %s. The staged folder and "
+                "its qc_report.json are at %s — fix those and hand off again."
+                % (", ".join(bad[:6]), folder))
+    final = root / _slug(title)
+    if final.exists():
+        shutil.rmtree(final)
+    folder.rename(final)
+    return final
 
 
 def pending(dest=None):
@@ -544,6 +709,8 @@ def main(argv=None):
     p_log.add_argument("--creator", required=True)
     p_log.add_argument("--license", dest="licence", required=True)
     p_log.add_argument("--attribution", required=True)
+    p_log.add_argument("--footage-type", default=None,
+                       help="spec requires %s" % "live_action")
     p_log.add_argument("--proof", default="",
                        help="path to the receipt, DM screenshot or email that "
                             "proves the licence")
@@ -579,6 +746,11 @@ def main(argv=None):
                      help="a hook option that was considered; pass it %d times"
                           % HOOK_OPTIONS)
     p_h.add_argument("--style", default="A", choices=["A", "B", "a", "b"])
+    p_h.add_argument("--captions", default="", help="captions.json for this Short")
+    p_h.add_argument("--sources", default="",
+                     help="the sources.csv rows covering this Short's clips")
+    p_h.add_argument("--no-qc", action="store_true",
+                     help="assemble without measuring — staging only, never ships")
     p_h.add_argument("--dest", default="")
 
     sub.add_parser("pending", help="what is waiting for a human")
@@ -588,7 +760,8 @@ def main(argv=None):
         if args.command == "log":
             row = log_source(args.clip, args.url, args.creator, args.licence,
                              args.attribution, args.source, args.release,
-                             args.notes, args.checked or None, proof=args.proof)
+                             args.notes, args.checked or None, proof=args.proof,
+                             footage_type=args.footage_type)
             print("logged %s%s — %s, %s, checked %s"
                   % (row["clip"], " from " + row["source"] if row["source"] else "",
                      row["creator"], row["license"], row["checked"]))
@@ -628,7 +801,10 @@ def main(argv=None):
                              args.notes, args.dest or None, args.style,
                              script=(Path(args.script_file).read_text(encoding="utf-8")
                                      if args.script_file else ""),
-                             hooks=args.hook)
+                             hooks=args.hook,
+                             captions=args.captions or None,
+                             sources_csv=args.sources or None,
+                             qc=not args.no_qc)
             print("%s — waiting for a human. Nothing was uploaded." % folder)
             return 0
         rows = pending()

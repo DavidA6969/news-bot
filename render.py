@@ -57,7 +57,12 @@ def the_style(variant=None):
     return style_mod.current(variant=variant)
 
 HERE = Path(__file__).resolve().parent
-DEFAULT_W, DEFAULT_H, DEFAULT_FPS = 1080, 1920, 30
+sys.path.insert(0, str(HERE))
+import spec                                   # noqa: E402  the source of truth
+
+DEFAULT_W = spec.get("video.width")
+DEFAULT_H = spec.get("video.height")
+DEFAULT_FPS = spec.get("video.fps_allowed")[0]
 PLATFORMS = ("youtube.com", "youtu.be", "tiktok.com", "instagram.com",
              "facebook.com", "twitter.com", "x.com")
 
@@ -1643,7 +1648,7 @@ def measured_loudness(path):
     return float(found[-1]) if found else None
 
 
-def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print,
+def _hit_loudness(path, target, ceiling=None, tolerance=0.3, progress=print,
                   enc=None):
     """Correct a finished file onto its loudness target.
 
@@ -1653,6 +1658,8 @@ def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print,
     one-for-one with a linear gain -- and it costs one audio re-encode rather
     than a second pass over the video, which is copied through untouched.
     """
+    if ceiling is None:
+        ceiling = float(spec.get("audio.true_peak_dbtp"))
     got = measured_loudness(path)
     if got is None or not target:
         return got
@@ -1674,8 +1681,10 @@ def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print,
           "-af", "volume=%.2fdB,alimiter=limit=%.4f:level=disabled"
                  % (delta, 10 ** (ceiling / 20.0)),
           "-c:v", "copy", "-c:a", "aac",
-          "-b:a", "%dk" % int(enc.get("audio_kbps", 160) or 160),
-          "-ar", str(int(enc.get("audio_rate", 48000) or 48000)),
+          "-b:a", "%dk" % int(enc.get("audio_kbps")
+                              or spec.get("audio.bitrate_kbps")),
+          "-ar", str(int(enc.get("audio_rate")
+                            or spec.get("audio.sample_rate"))),
           "-ac", str(int(enc.get("audio_channels", 2) or 2)), str(fixed)],
          "correcting loudness")
     os.replace(fixed, path)
@@ -2144,6 +2153,17 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                      % (index, count, look["captions"].get("max_lines", 2),
                         text[:58] + ("..." if len(text) > 58 else "")))
         has_captions = build_subtitles(plan, subs)
+        if has_captions:
+            # The same timing as data, beside the video. The .ass is consumed
+            # by ffmpeg and thrown away with the temp directory; this is what
+            # the QC gate measures drift against and what a human reads to
+            # check the captions say what was spoken.
+            try:
+                import review as review_mod
+                review_mod.captions_json(plan_path, subs,
+                                         Path(out).with_suffix(".captions.json"))
+            except Exception as exc:                 # never fail a render for it
+                progress("  note: could not write captions.json (%s)" % exc)
         args = [ff, "-hide_banner", "-loglevel", "error", "-y", "-i", str(silent)]
         audio = plan.get("audio")
         if audio:
@@ -2157,12 +2177,17 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             args += ["-vf", "subtitles='%s'" % escaped]
             progress("  burning in captions")
         # A delivery spec that names megabits wants megabits, not a quality
-        # target that happens to land near them. High profile because that is
-        # what the spec asks for and what every phone decodes.
+        # target that happens to land near them. Every number here comes from
+        # spec.json: maxrate is its own value rather than the target repeated,
+        # because a ceiling equal to the average leaves the encoder no room on
+        # a hard shot and it lands under the band instead of inside it.
         rate = int(enc.get("video_kbps", 0) or 0)
-        args += ["-c:v", "libx264", "-preset", preset, "-profile:v", "high"]
-        args += (["-b:v", "%dk" % rate, "-maxrate", "%dk" % rate,
-                  "-bufsize", "%dk" % (rate * 2)] if rate else ["-crf", crf])
+        args += ["-c:v", "libx264", "-preset", preset,
+                 "-profile:v", str(spec.get("video.profile"))]
+        args += (["-b:v", "%dk" % rate,
+                  "-maxrate", "%dk" % int(spec.get("video.maxrate_kbps")),
+                  "-bufsize", "%dk" % int(spec.get("video.bufsize_kbps"))]
+                 if rate else ["-crf", crf])
         args += ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if audio:
             # The video is the reference length; pad the track and cut the whole
@@ -2173,7 +2198,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             # surfaced the moment they were tightened. An explicit -t cannot
             # drift.
             args += ["-c:a", "aac",
-                     "-b:a", "%dk" % int(enc.get("audio_kbps", 160)),
+                     "-b:a", "%dk" % int(enc.get("audio_kbps")
+                                 or spec.get("audio.bitrate_kbps")),
                      "-ar", str(int(enc.get("audio_rate", 48000))),
                      "-ac", str(int(enc.get("audio_channels", 2)))]
             # Section 6 of the production spec: the DELIVERED Short sits at
@@ -2184,7 +2210,9 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             # the thing anyone actually hears belongs at the end, on the
             # finished continuous mix, which is the case loudnorm is built for.
             target = float(enc.get("loudness_lufs", 0) or 0)
-            norm = (",loudnorm=I=%.1f:TP=-1.5:LRA=11" % target) if target else ""
+            norm = ((",loudnorm=I=%.1f:TP=%.1f:LRA=11"
+                     % (target, float(spec.get("audio.true_peak_dbtp"))))
+                    if target else "")
             if bed:
                 # The bed ducks itself out of the way: the narration is the
                 # sidechain key, so the music drops while a line is running and

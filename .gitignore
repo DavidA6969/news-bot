@@ -35,3 +35,7 @@ etsy_token.json
 node_modules/
 __pycache__/
 *.pyc
+
+# licensed footage and its proof — never committed
+inbox/*
+!inbox/README.md

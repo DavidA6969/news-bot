@@ -15,14 +15,14 @@
     },
     "captions": {
       "font": "DejaVu Sans",
-      "size_pct": 4.0,
+      "size_pct": 4.818,
       "bold": true,
       "uppercase": false,
       "colour": "FFFFFF",
       "outline": "000000",
-      "outline_pct": 0.45,
-      "margin_bottom_pct": 22.0,
-      "side_margin_pct": 16.7,
+      "outline_pct": 0.417,
+      "margin_bottom_pct": 21.875,
+      "side_margin_pct": 16.667,
       "mode": "karaoke",
       "pop_ms": 110,
       "highlight": "FFD400",
@@ -54,10 +54,10 @@
       "loudness_lufs": -14.0,
       "video_kbps": 14000
     },
-    "version": 63,
+    "version": 64,
     "committedAt": "2026-09-25T17:16:54Z",
     "shorts": {
-      "max_seconds": 180,
+      "max_seconds": 45.0,
       "target_seconds": 45,
       "require_vertical": true
     },
@@ -89,7 +89,7 @@
       "hook_seconds": 2.0,
       "beat_target_seconds": 2.0,
       "beat_ceiling_seconds": 2.6,
-      "total_target_seconds": 60,
+      "total_target_seconds": 30,
       "require_loop": true
     },
     "narration": {
@@ -644,6 +644,19 @@
       "from": 160,
       "to": 320,
       "version": 63
+    },
+    {
+      "at": "2026-09-25T17:46:04Z",
+      "action": "sync",
+      "version": 64,
+      "fields": [
+        "captions.size_pct",
+        "captions.outline_pct",
+        "captions.margin_bottom_pct",
+        "captions.side_margin_pct",
+        "shorts.max_seconds",
+        "retention.total_target_seconds"
+      ]
     }
   ]
 }

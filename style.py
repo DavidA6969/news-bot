@@ -419,6 +419,74 @@ def variant_names():
     return sorted(VARIANTS)
 
 
+def spec_fields():
+    """Every style field the production spec has an opinion about.
+
+    The spec is written in the units a delivery spec uses -- pixels, kilobits,
+    seconds -- and the style stores several of them as shares of the frame, so
+    the conversion happens here, once, rather than at each place that reads
+    one. A field absent from this map is a genuine style choice; a field in it
+    is the spec's and `sync` will overwrite it.
+    """
+    sys.path.insert(0, str(HERE))
+    import spec
+    h = float(spec.get("video.height"))
+    w = float(spec.get("video.width"))
+    font_lo, font_hi = spec.band("captions.font_px")
+    dur_lo, dur_hi = spec.band("duration_seconds")
+    zone_x = spec.get("captions.safe_zone.x")
+    zone_y = spec.get("captions.safe_zone.y")
+    return {
+        "format.width": int(w),
+        "format.height": int(h),
+        "format.fps": int(spec.get("video.fps_allowed")[0]),
+        "format.max_upscale": float(spec.get("video.max_upscale")),
+        "encode.video_kbps": int(spec.get("video.bitrate_target_kbps")),
+        "encode.audio_kbps": int(spec.get("audio.bitrate_kbps")),
+        "encode.audio_rate": int(spec.get("audio.sample_rate")),
+        "encode.audio_channels": int(spec.get("audio.channels")),
+        "encode.loudness_lufs": float(spec.get("audio.loudness_lufs")),
+        # Mid-band, so a caption has room to be a little larger or smaller
+        # without leaving the band the spec allows.
+        "captions.size_pct": round(100.0 * (font_lo + font_hi) / 2.0 / h, 3),
+        "captions.outline_pct": round(
+            100.0 * float(spec.get("captions.stroke_px_min")) / h, 3),
+        "captions.max_lines": int(spec.get("captions.max_lines")),
+        "captions.chunk_words": int(spec.band("captions.words_per_group")[1]),
+        "captions.highlight": str(spec.get("captions.highlight_hex")[0]),
+        # The margins have to clear the zone the spec draws, so they come from
+        # its edges rather than from a number chosen to look about right.
+        "captions.margin_bottom_pct": round(100.0 * (h - zone_y[1]) / h, 3),
+        "captions.side_margin_pct": round(100.0 * (w - zone_x[1]) / w, 3),
+        "shorts.max_seconds": float(dur_hi),
+        "shorts.target_seconds": float(dur_hi),
+        "retention.total_target_seconds": int(round((dur_lo + dur_hi) / 2.0)),
+    }
+
+
+def sync_spec(path=None):
+    """Bring the committed style in line with spec.json. Returns what changed."""
+    data = load(path)
+    look = data.get("style")
+    if not look:
+        raise StyleError("no style committed yet — run: python3 style.py init")
+    changed = []
+    for dotted, want in spec_fields().items():
+        section, key = dotted.split(".", 1)
+        got = (look.get(section) or {}).get(key)
+        if got == want:
+            continue
+        look.setdefault(section, {})[key] = want
+        changed.append((dotted, got, want))
+    if changed:
+        look["version"] = int(look.get("version", 0)) + 1
+        data.setdefault("history", []).append({
+            "at": _now(), "action": "sync", "version": look["version"],
+            "fields": [c[0] for c in changed]})
+        _save(data, path)
+    return changed
+
+
 def current(path=None, variant=None):
     """The committed style, or the default if none has been written yet.
 
@@ -664,6 +732,8 @@ def main(argv=None):
     p_set.add_argument("field", help="section.key, e.g. captions.uppercase")
     p_set.add_argument("value")
 
+    sub.add_parser("sync", help="bring the style in line with spec.json")
+
     args = parser.parse_args(argv)
     try:
         if args.command == "init":
@@ -676,6 +746,15 @@ def main(argv=None):
                 print("no style committed; showing the default. "
                       "Run: python3 style.py init", file=sys.stderr)
             print(json.dumps({k: v for k, v in got.items() if not k.startswith("_")}, indent=2))
+        elif args.command == "sync":
+            changed = sync_spec()
+            if not changed:
+                print("the style already matches spec.json")
+                return 0
+            print("synced %d field(s) from spec.json:" % len(changed))
+            for dotted, was, now in changed:
+                print("  %-34s %s -> %s" % (dotted, was, now))
+            return 0
         elif args.command == "upgrade":
             added = upgrade()
             if not added:

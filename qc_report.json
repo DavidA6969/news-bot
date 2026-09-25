@@ -1,0 +1,136 @@
+{
+  "target": "review/she-crossed-a-frozen-desert-someone-was-waiting",
+  "video": "review/she-crossed-a-frozen-desert-someone-was-waiting/final.mp4",
+  "spec_version": 1,
+  "passed": 14,
+  "failed": 7,
+  "ship": false,
+  "checks": [
+    {
+      "check": "video stream",
+      "measured": "present",
+      "expected": "present",
+      "status": "pass"
+    },
+    {
+      "check": "width",
+      "measured": 1080,
+      "expected": 1080,
+      "status": "pass"
+    },
+    {
+      "check": "height",
+      "measured": 1920,
+      "expected": 1920,
+      "status": "pass"
+    },
+    {
+      "check": "fps",
+      "measured": 30.0,
+      "expected": "one of [30, 60]",
+      "status": "pass"
+    },
+    {
+      "check": "video codec",
+      "measured": "h264",
+      "expected": "h264",
+      "status": "pass"
+    },
+    {
+      "check": "video profile",
+      "measured": "high",
+      "expected": "high",
+      "status": "pass"
+    },
+    {
+      "check": "video bitrate",
+      "measured": "3542.7 kbps",
+      "expected": "12000-16000 kbps",
+      "status": "FAIL"
+    },
+    {
+      "check": "audio stream",
+      "measured": "present",
+      "expected": "present",
+      "status": "pass"
+    },
+    {
+      "check": "audio codec",
+      "measured": "aac",
+      "expected": "aac",
+      "status": "pass"
+    },
+    {
+      "check": "audio bitrate",
+      "measured": "160.4 kbps",
+      "expected": ">= 256 kbps (target 320)",
+      "status": "FAIL"
+    },
+    {
+      "check": "sample rate",
+      "measured": 48000,
+      "expected": 48000,
+      "status": "pass"
+    },
+    {
+      "check": "channels",
+      "measured": 2,
+      "expected": 2,
+      "status": "pass"
+    },
+    {
+      "check": "loudness",
+      "measured": "-14.3 LUFS",
+      "expected": "-14.0 +/- 1.5 LUFS",
+      "status": "pass"
+    },
+    {
+      "check": "true peak",
+      "measured": "-0.4 dBTP",
+      "expected": "<= -1.0 dBTP",
+      "status": "FAIL"
+    },
+    {
+      "check": "voice starts",
+      "measured": "0.00 s",
+      "expected": "<= 0.3 s",
+      "status": "pass"
+    },
+    {
+      "check": "duration",
+      "measured": "19.8 s",
+      "expected": "15-45 s",
+      "status": "pass"
+    },
+    {
+      "check": "no black bars",
+      "measured": "0 top / 0 bottom flat-black rows",
+      "expected": "<= 19.2 rows either edge",
+      "status": "pass"
+    },
+    {
+      "check": "required files",
+      "measured": "missing script.txt, sources.csv, captions.json",
+      "expected": "final.mp4, script.txt, title.txt, description.txt, notes.txt, sources.csv, captions.json",
+      "status": "FAIL"
+    },
+    {
+      "check": "captions.json",
+      "measured": "missing",
+      "expected": "present and readable",
+      "status": "FAIL"
+    },
+    {
+      "check": "script.txt",
+      "measured": "missing",
+      "expected": "present",
+      "status": "FAIL"
+    },
+    {
+      "check": "sources.csv",
+      "measured": "missing",
+      "expected": "present",
+      "status": "FAIL"
+    }
+  ]
+}
