@@ -1643,7 +1643,8 @@ def measured_loudness(path):
     return float(found[-1]) if found else None
 
 
-def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print):
+def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print,
+                  enc=None):
     """Correct a finished file onto its loudness target.
 
     One pass of loudnorm is a moving estimate: on a 20s Short it landed 1.8dB
@@ -1664,10 +1665,18 @@ def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print):
     # applies a gain of its own on top of this one and overshot the target by
     # more than the correction was worth. level=disabled makes it do only the
     # one job it is here for.
+    # The audio is re-encoded here, so it has to be re-encoded to the settings
+    # the style asks for. Hardcoding a bitrate made this pass quietly undo the
+    # committed one: a 320k delivery came out of the encoder at 320k and left
+    # this function at 160.
+    enc = enc or {}
     _run([ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(path),
           "-af", "volume=%.2fdB,alimiter=limit=%.4f:level=disabled"
                  % (delta, 10 ** (ceiling / 20.0)),
-          "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", str(fixed)],
+          "-c:v", "copy", "-c:a", "aac",
+          "-b:a", "%dk" % int(enc.get("audio_kbps", 160) or 160),
+          "-ar", str(int(enc.get("audio_rate", 48000) or 48000)),
+          "-ac", str(int(enc.get("audio_channels", 2) or 2)), str(fixed)],
          "correcting loudness")
     os.replace(fixed, path)
     after = measured_loudness(path)
@@ -1876,6 +1885,14 @@ def build_subtitles(plan, path):
     ]
     mode = caps.get("mode", "line")
     pop = int(caps.get("pop_ms", 110) or 0)
+    # An explicit centre beats an anchor plus a margin. The spec puts the
+    # middle of the block at a fixed y, which no combination of alignment and
+    # margin expresses -- a margin is measured from an edge and the block's own
+    # height moves it. \an5 with \pos anchors the block's centre exactly there
+    # whatever it ends up containing.
+    centre_pct = float(caps.get("center_y_pct", 0) or 0)
+    place = ("{\\an5\\pos(%d,%d)}" % (w // 2, round(h * centre_pct / 100.0))
+             if centre_pct else "")
     hi_fill = style_mod.ass_override_colour(caps.get("highlight") or caps["colour"])
     hi_line = style_mod.ass_override_colour(caps.get("highlight_outline") or caps["outline"])
     at = 0.0
@@ -1912,8 +1929,53 @@ def build_subtitles(plan, path):
                                          % (hi_fill, hi_line, _ass_escape(other)))
                         else:
                             parts.append(_ass_escape(other))
-                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s" % (
-                        _ass_time(w_start), _ass_time(w_end), " ".join(parts)))
+                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
+                        _ass_time(w_start), _ass_time(w_end), place,
+                        " ".join(parts)))
+            elif mode == "chunk":
+                # A short group, not a whole line and not one word. The eye
+                # takes a group in at a glance, while a whole line invites
+                # reading ahead of the voice and a single word gives it nothing
+                # to land on. The word being spoken carries the highlight, and
+                # only it pops -- scaling the group would re-flow it on every
+                # word.
+                timings = word_timings(caption, at, beat["duration"],
+                                       measured=beat.get("words"))
+                size = max(1, int(caps.get("chunk_words", 3) or 3))
+                # Even groups rather than fixed ones. Slicing by a fixed width
+                # leaves whatever is left over alone on screen -- four words at
+                # a width of three is a group of three and then one word by
+                # itself, which reads as a mistake. The same four split 2 and 2.
+                count = max(1, -(-len(timings) // size))
+                groups, taken = [], 0
+                for slot in range(count):
+                    take = -(-(len(timings) - taken) // (count - slot))
+                    groups.append(timings[taken:taken + take])
+                    taken += take
+                for group in groups:
+                    words = [w for w, _, _ in group]
+                    # A lone word carrying a full stop reads as a typo rather
+                    # than as punctuation -- the same reason `word` mode strips
+                    # it. ? and ! stay: they carry tone.
+                    if len(words) == 1:
+                        words = [re.sub(r"[.,;:]+$", "", words[0]) or words[0]]
+                    for index, (_unused, w_start, w_end) in enumerate(group):
+                        parts = []
+                        for j, other in enumerate(words):
+                            if j != index:
+                                parts.append(_ass_escape(other))
+                                continue
+                            grow = ""
+                            if pop > 0:
+                                grow = ("\\fscx100\\fscy100\\t(0,%d,\\fscx105"
+                                        "\\fscy105)\\t(%d,%d,\\fscx100\\fscy100)"
+                                        % (pop, pop, pop * 2))
+                            parts.append("{\\c%s\\3c%s%s}%s{\\r}"
+                                         % (hi_fill, hi_line, grow,
+                                            _ass_escape(other)))
+                        lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
+                            _ass_time(w_start), _ass_time(w_end), place,
+                            " ".join(parts)))
             elif mode == "word":
                 # one word at a time, each snapping up to full size as it is
                 # said. Nothing to read ahead of the voice, which is what makes
@@ -1928,16 +1990,17 @@ def build_subtitles(plan, path):
                     if pop > 0:
                         effect = ("{\\fscx74\\fscy74\\t(0,%d,\\fscx106\\fscy106)"
                                   "\\t(%d,%d,\\fscx100\\fscy100)}" % (pop, pop, pop * 2))
-                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
-                        _ass_time(w_start), _ass_time(w_end), effect, _ass_escape(word)))
+                    lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s%s" % (
+                        _ass_time(w_start), _ass_time(w_end), place, effect,
+                        _ass_escape(word)))
             else:
                 # ass_override_colour returns the VALUE; \c and \3c are the
                 # tags that apply it. Without them the block is not an override
                 # at all, libass drops it, and the caption renders in the plain
                 # colour -- which is what a suspense caption did until it was
                 # looked at rather than assumed.
-                lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
-                    _ass_time(at), _ass_time(at + beat["duration"]),
+                lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s%s" % (
+                    _ass_time(at), _ass_time(at + beat["duration"]), place,
                     ("{\\c%s\\3c%s}" % (hi_fill, hi_line)) if suspense else "",
                     _ass_escape(caption)))
         at += beat["duration"]
@@ -2093,8 +2156,14 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             escaped = str(subs).replace("\\", "/").replace(":", r"\:")
             args += ["-vf", "subtitles='%s'" % escaped]
             progress("  burning in captions")
-        args += ["-c:v", "libx264", "-preset", preset, "-crf", crf,
-                 "-pix_fmt", "yuv420p", "-movflags", "+faststart"]
+        # A delivery spec that names megabits wants megabits, not a quality
+        # target that happens to land near them. High profile because that is
+        # what the spec asks for and what every phone decodes.
+        rate = int(enc.get("video_kbps", 0) or 0)
+        args += ["-c:v", "libx264", "-preset", preset, "-profile:v", "high"]
+        args += (["-b:v", "%dk" % rate, "-maxrate", "%dk" % rate,
+                  "-bufsize", "%dk" % (rate * 2)] if rate else ["-crf", crf])
+        args += ["-pix_fmt", "yuv420p", "-movflags", "+faststart"]
         if audio:
             # The video is the reference length; pad the track and cut the whole
             # output to it. Not -shortest: with apad feeding it unbounded audio
@@ -2169,7 +2238,7 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
 
         if audio:
             _hit_loudness(out, float(enc.get("loudness_lufs", 0) or 0),
-                          progress=progress)
+                          progress=progress, enc=enc)
             got = probe(out)
 
         result = {"output": str(out), "duration": round(got["duration"], 2),

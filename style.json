@@ -9,7 +9,7 @@
       "blur_zoom": 1.4,
       "min_coverage": 0.64,
       "focus_keep": 0.72,
-      "max_upscale": 1.9,
+      "max_upscale": 1.5,
       "min_luma": 52.0,
       "max_lift": 2.2
     },
@@ -20,16 +20,18 @@
       "uppercase": false,
       "colour": "FFFFFF",
       "outline": "000000",
-      "outline_pct": 0.28,
-      "margin_bottom_pct": 21.0,
-      "side_margin_pct": 16.0,
+      "outline_pct": 0.45,
+      "margin_bottom_pct": 22.0,
+      "side_margin_pct": 16.7,
       "mode": "karaoke",
       "pop_ms": 110,
-      "highlight": "FFD23F",
+      "highlight": "FFD400",
       "highlight_outline": "1A1200",
       "max_lines": 2,
       "align": "bottom",
-      "box": false
+      "box": false,
+      "center_y_pct": 0.0,
+      "chunk_words": 3
     },
     "motion": {
       "push_in": 0.1,
@@ -48,11 +50,12 @@
       "preset": "medium",
       "audio_rate": 48000,
       "audio_channels": 2,
-      "audio_kbps": 160,
-      "loudness_lufs": -14.0
+      "audio_kbps": 320,
+      "loudness_lufs": -14.0,
+      "video_kbps": 14000
     },
-    "version": 56,
-    "committedAt": "2026-09-25T14:16:45Z",
+    "version": 63,
+    "committedAt": "2026-09-25T17:16:54Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -583,6 +586,64 @@
         "captions.box"
       ],
       "version": 56
+    },
+    {
+      "at": "2026-09-25T17:16:47Z",
+      "action": "upgrade",
+      "added": [
+        "captions.center_y_pct",
+        "captions.chunk_words",
+        "encode.video_kbps"
+      ],
+      "version": 57
+    },
+    {
+      "at": "2026-09-25T17:16:53Z",
+      "action": "set",
+      "field": "captions.outline_pct",
+      "from": 0.28,
+      "to": 0.45,
+      "version": 58
+    },
+    {
+      "at": "2026-09-25T17:16:53Z",
+      "action": "set",
+      "field": "captions.highlight",
+      "from": "FFD23F",
+      "to": "FFD400",
+      "version": 59
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 21.0,
+      "to": 22.0,
+      "version": 60
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "captions.side_margin_pct",
+      "from": 16.0,
+      "to": 16.7,
+      "version": 61
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "format.max_upscale",
+      "from": 1.9,
+      "to": 1.5,
+      "version": 62
+    },
+    {
+      "at": "2026-09-25T17:16:54Z",
+      "action": "set",
+      "field": "encode.audio_kbps",
+      "from": 160,
+      "to": 320,
+      "version": 63
     }
   ]
 }

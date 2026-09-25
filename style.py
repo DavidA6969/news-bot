@@ -95,6 +95,16 @@ DEFAULT_STYLE = {
         # native Reels and TikTok caption look. In box mode the slab takes the
         # "outline" colour.
         "box": False,
+        # Where the MIDDLE of the caption block sits, as a share of frame
+        # height. The spec puts it at y=1250 of 1920, which is neither the
+        # middle nor a margin from an edge, so a percentage of the height is
+        # the only way to say it that survives a change of canvas. 0 falls back
+        # to `align` and its margin.
+        "center_y_pct": 0.0,
+        # "chunk" mode only: how many words are on screen at once. The eye
+        # reads a short group faster than it reads one word at a time, and a
+        # whole line invites reading ahead of the voice.
+        "chunk_words": 3,
     },
     # a slow push on every clip: subtle, but it is what stops stock footage
     # reading as a slideshow. 0 turns it off.
@@ -153,8 +163,12 @@ DEFAULT_STYLE = {
     # sees a gap; this one runs last, on the continuous mix, and changes only
     # how loud the video plays. 0 turns it off.
     "encode": {"crf": 20, "preset": "medium",
-               "audio_rate": 48000, "audio_channels": 2, "audio_kbps": 160,
-               "loudness_lufs": -14.0},
+               "audio_rate": 48000, "audio_channels": 2, "audio_kbps": 320,
+               "loudness_lufs": -14.0,
+               # A target bitrate rather than a quality target. CRF gives a
+               # better file for the same size, but a delivery spec that names
+               # megabits wants megabits. 0 keeps CRF.
+               "video_kbps": 14000},
     # How the narration is spoken and treated. This lives in the style for the
     # same reason the captions do: a channel is recognised by its voice before
     # it is recognised by its edit, and a voice that changes level or timbre
@@ -219,7 +233,8 @@ _NUMERIC = {
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34), "encode.audio_rate": (8000, 48000),
     "encode.audio_channels": (1, 2), "encode.audio_kbps": (48, 320),
-    "encode.loudness_lufs": (-30.0, 0.0),
+    "encode.loudness_lufs": (-30.0, 0.0), "encode.video_kbps": (0, 60000),
+    "captions.center_y_pct": (0.0, 100.0),
     "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),
@@ -293,15 +308,24 @@ def _validate(style):
         if not low <= value <= high:
             raise StyleError("%s is %g; it must be between %g and %g" % (dotted, value, low, high))
     mode = style["captions"].get("mode", "line")
-    if mode not in ("line", "word", "karaoke"):
-        raise StyleError('captions.mode must be "karaoke", "word" or "line" '
-                         '(got %r)' % mode)
+    if mode not in ("line", "word", "karaoke", "chunk"):
+        raise StyleError('captions.mode must be "chunk", "karaoke", "word" or '
+                         '"line" (got %r)' % mode)
     for hex_key in ("highlight", "highlight_outline"):
         value = str(style["captions"].get(hex_key, "") or "")
         if value and (len(value) != 6 or
                       any(c not in "0123456789abcdefABCDEF" for c in value)):
             raise StyleError("captions.%s must be 6 hex digits like FFD23F (got %r)"
                              % (hex_key, value))
+    centre = float(style["captions"].get("center_y_pct", 0) or 0)
+    if centre and not 0 < centre < 100:
+        raise StyleError("captions.center_y_pct is a share of frame height "
+                         "between 0 and 100, or 0 to use captions.align "
+                         "(got %r)" % centre)
+    chunk = style["captions"].get("chunk_words", 3)
+    if not isinstance(chunk, int) or isinstance(chunk, bool) or not 1 <= chunk <= 6:
+        raise StyleError("captions.chunk_words must be a whole number 1-6 "
+                         "(got %r)" % chunk)
     align = style["captions"].get("align", "bottom")
     if align not in ("bottom", "middle", "top"):
         raise StyleError('captions.align must be "bottom", "middle" or "top" '
@@ -362,8 +386,11 @@ VARIANT_FIELDS = ("captions", "format", "motion", "transition")
 VARIANTS = {
     # "Curiosity": big centred all-caps text over a filled frame, punching in.
     "A": {
+        # 95px of 1920 is 4.95%; the spec's band is 85-100px. center_y_pct
+        # 65.1 puts the middle of the block at y=1250.
         "captions": {"align": "middle", "uppercase": True, "box": False,
-                     "mode": "line", "size_pct": 6.5, "max_lines": 2},
+                     "mode": "chunk", "size_pct": 4.95, "max_lines": 2,
+                     "center_y_pct": 65.1, "chunk_words": 3},
         "format": {"fit": "crop"},
         "motion": {"push_in": 0.1},
         # Hard cuts. A crossfade needs the clip to carry material beyond its

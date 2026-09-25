@@ -43,20 +43,36 @@ REVIEW = HERE / "review"
 # Keyed on the name alone, logging a new video's clip01.mp4 would silently
 # replace the last video's, and sources.csv would only ever hold the most
 # recent Short -- an audit log that quietly forgets is worse than none.
-COLUMNS = ["clip", "source", "url", "creator", "license", "checked",
+COLUMNS = ["clip", "source", "url", "creator", "license", "proof", "checked",
            "attribution", "release", "notes"]
+
+# Section 1: a licence you cannot produce is not a licence. A marketplace
+# receipt, or the screenshot of the DM or email the creator sent. The path is
+# recorded rather than the file so the log stays small, and the gate checks the
+# file is actually there -- a path to nothing is the same as no proof.
+LICENCES_NEEDING_PROOF = ("jukin", "viralhog", "newsflare", "storyful", "caters",
+                          "licensed", "permission", "direct", "exclusive")
 
 # Section 1: these are refused unless a signed release exists, and the refusal
 # is recorded rather than assumed.
-SENSITIVE = ("minor", "minors", "child", "children", "medical", "injury",
-             "injured", "accident", "hospital", "funeral", "vulnerable")
+SENSITIVE = ("minor", "minors", "child", "children", "kid", "kids", "baby",
+             "medical", "illness", "ill", "sick", "injury", "injured", "hurt",
+             "accident", "hospital", "funeral", "vulnerable", "distress",
+             "distressed", "crying", "mocked", "humiliated", "prank")
 
 MIN_SCORE = 7.0          # a clip's mean, below which it is not worth editing
 FLOOR_ANY = 5            # and no single axis may sit under this
 
-# Section 8: the app's own furniture sits here, so our text must not.
-SAFE_BOTTOM_PCT = 20.0
-SAFE_SIDE_PCT = 15.0
+# Section 5: the app's own furniture sits here, so our text must not. The spec
+# gives pixels on a 1080x1920 canvas rather than shares, because that is what
+# the players actually draw over -- 420px of title and buttons at the bottom,
+# 180px of action rail on the right. Percentages are how the style stores it,
+# so the check converts and compares in pixels: 21% of 1920 is 403px, which
+# looks like a pass and is seventeen pixels inside the like button.
+SAFE_BOTTOM_PX = 420
+SAFE_RIGHT_PX = 180
+SAFE_TOP_PX = 300
+SAFE_LEFT_PX = 90
 
 TITLE_MAX = 60           # section 7
 MIN_HASHTAGS, MAX_HASHTAGS = 3, 5
@@ -92,7 +108,7 @@ def _write(rows, path=None):
 
 
 def log_source(clip, url, creator, licence, attribution, source="", release="",
-               notes="", checked=None, path=None):
+               notes="", checked=None, path=None, proof=""):
     """Record where one clip came from. Re-logging the same clip replaces it.
 
     "The same clip" means the same name cut from the same source, not the same
@@ -110,6 +126,7 @@ def log_source(clip, url, creator, licence, attribution, source="", release="",
     row = {"clip": Path(str(clip)).name,
            "source": Path(str(source or "")).name, "url": str(url).strip(),
            "creator": str(creator).strip(), "license": str(licence).strip(),
+           "proof": str(proof or "").strip(),
            "checked": str(checked or _today()).strip(),
            "attribution": str(attribution).strip(),
            "release": str(release or "").strip(), "notes": str(notes or "").strip()}
@@ -189,7 +206,7 @@ def sources_report(plan_path, path=None):
             clips.append(path_text)
 
     origins = _origins(plan)
-    missing, undated, unsigned = [], [], []
+    missing, undated, unsigned, unproven = [], [], [], []
     for clip_path in clips:
         name = Path(clip_path).name
         row = source_for(name, path, origins.get(clip_path))
@@ -201,6 +218,11 @@ def sources_report(plan_path, path=None):
         blob = " ".join((row.get("notes", ""), row.get("creator", ""))).lower()
         if any(word in blob for word in SENSITIVE) and not row.get("release"):
             unsigned.append(name)
+        licence = str(row.get("license", "")).lower()
+        if any(word in licence for word in LICENCES_NEEDING_PROOF):
+            kept = str(row.get("proof") or "").strip()
+            if not kept or not (HERE / kept).exists() and not Path(kept).exists():
+                unproven.append("%s (%s)" % (name, kept or "no file recorded"))
 
     findings.append((
         "fail" if missing else "ok", "every clip has a row in sources.csv",
@@ -216,6 +238,12 @@ def sources_report(plan_path, path=None):
             "fail", "sensitive footage has a signed release",
             "%s are flagged sensitive with no release recorded. Section 1 refuses "
             "these outright unless a release exists." % ", ".join(unsigned[:4])))
+    if unproven:
+        findings.append((
+            "fail", "a licensed clip can show its licence",
+            "%s. A marketplace receipt or the creator's written permission has "
+            "to be a file on disk: a licence you cannot produce is the same as "
+            "none when a claim arrives." % "; ".join(unproven[:3])))
     ok = not any(level == "fail" for level, _, _ in findings)
     return ok, findings
 
@@ -248,24 +276,123 @@ def score(hook, payoff, rewatch):
     }
 
 
+# --------------------------------------------------------------- the narration
+
+# Section 3. The word count and the reading rate are the same constraint said
+# twice -- 60-110 words at 160-175 a minute is 20-40 seconds -- so the check
+# reports the seconds it implies rather than making someone divide.
+SCRIPT_WORDS = (60, 110)
+SENTENCE_WORDS = (3, 10)
+WORDS_PER_MINUTE = (160, 175)
+HOOK_OPTIONS = 3
+
+
+def _sentences(text):
+    parts = re.split(r"(?<=[.!?…])\s+", str(text or "").strip())
+    return [s.strip() for s in parts if s.strip()]
+
+
+def script_report(text, hooks=()):
+    """Gate: is this narration the shape the channel commits to?
+
+    Shape only. Whether the hook actually earns the swipe is a judgement and
+    stays one -- this refuses the things that are not judgements: a script too
+    long to fit a Short, sentences too long to read aloud in a breath, a first
+    line that closes rather than opens, and a hook chosen without alternatives
+    to reject.
+    """
+    words = str(text or "").split()
+    sentences = _sentences(text)
+    findings = []
+
+    low, high = SCRIPT_WORDS
+    seconds = (len(words) / (sum(WORDS_PER_MINUTE) / 2.0)) * 60.0
+    findings.append((
+        "ok" if low <= len(words) <= high else "fail",
+        "the script fits a Short",
+        "%d words, about %.0fs — the band is %d-%d (%.0f-%.0fs)"
+        % (len(words), seconds, low, high,
+           low / (WORDS_PER_MINUTE[1] / 60.0), high / (WORDS_PER_MINUTE[0] / 60.0))))
+
+    slow, shigh = SENTENCE_WORDS
+    longest = max((len(s.split()) for s in sentences), default=0)
+    over = [s for s in sentences if not slow <= len(s.split()) <= shigh]
+    findings.append((
+        "ok" if not over else "fail",
+        "every line is short enough to land",
+        "%d of %d outside %d-%d words, longest %d: %r"
+        % (len(over), len(sentences), slow, shigh, longest, over[0][:60])
+        if over else "%d lines, longest %d words" % (len(sentences), longest)))
+
+    first = sentences[0] if sentences else ""
+    # A hook that answers itself has nothing to keep watching for. This cannot
+    # tell a good question from a bad one; it can tell that the line does not
+    # close the loop it is supposed to open.
+    opens = bool(first) and (
+        first.rstrip().endswith("?")
+        or any(w in first.lower().split() for w in
+               ("thought", "didn't", "never", "about", "nobody", "everyone",
+                "almost", "until", "seconds", "wrong", "last")))
+    findings.append((
+        "ok" if opens else "warn", "the first line opens a question",
+        "%r does not obviously leave anything unanswered" % first[:60]
+        if not opens else first[:70]))
+
+    findings.append((
+        "ok" if len(hooks) >= HOOK_OPTIONS else "fail",
+        "the hook was chosen, not settled for",
+        "%d option%s written, the rule is %d — the first line you think of is "
+        "rarely the strongest" % (len(hooks), "" if len(hooks) == 1 else "s",
+                                  HOOK_OPTIONS)
+        if len(hooks) < HOOK_OPTIONS else "%d options" % len(hooks)))
+    return not any(l == "fail" for l, _, _ in findings), findings
+
+
 # ----------------------------------------------------------------- safe zones
 
 def safe_zone_report(look=None):
     """Gate: captions clear the furniture the apps draw over the video.
 
-    Bottom 20% and right 15%, per section 8. These are style settings rather
-    than per-video ones, so this checks the committed style: if it is wrong it
-    is wrong for every video, and finding that out one video at a time is the
-    expensive way.
+    These are style settings rather than per-video ones, so this checks the
+    committed style: if it is wrong it is wrong for every video, and finding
+    that out one upload at a time is the expensive way.
     """
     if look is None:
         sys.path.insert(0, str(HERE))
         import style as style_mod
         look = style_mod.current()
     caps = look.get("captions") or {}
-    bottom = float(caps.get("margin_bottom_pct", 0) or 0)
-    side = float(caps.get("side_margin_pct", 0) or 0)
+    fmt = look.get("format") or {}
+    width = float(fmt.get("width", 1080) or 1080)
+    height = float(fmt.get("height", 1920) or 1920)
+    bottom = float(caps.get("margin_bottom_pct", 0) or 0) * height / 100.0
+    side = float(caps.get("side_margin_pct", 0) or 0) * width / 100.0
     align = str(caps.get("align", "bottom")).lower()
+    centre_pct = float(caps.get("center_y_pct", 0) or 0)
+    # An explicit centre overrides the anchor, so it is the thing to judge:
+    # half the block sits either side of it, and two lines of the committed
+    # size is what has to fit between the edges.
+    if centre_pct:
+        line_px = height * float(caps.get("size_pct", 4.0) or 4.0) / 100.0
+        half = line_px * float(caps.get("max_lines", 2) or 2) / 2.0
+        centre_y = height * centre_pct / 100.0
+        bottom = height - (centre_y + half)
+        top = centre_y - half
+        findings = [
+            ("ok" if bottom >= SAFE_BOTTOM_PX else "fail",
+             "captions clear the bottom %dpx" % SAFE_BOTTOM_PX,
+             "the block reaches %dpx from the bottom" % round(bottom)
+             if bottom < SAFE_BOTTOM_PX else "%dpx clear" % round(bottom)),
+            ("ok" if top >= SAFE_TOP_PX else "fail",
+             "captions clear the top %dpx" % SAFE_TOP_PX,
+             "the block reaches %dpx from the top" % round(top)
+             if top < SAFE_TOP_PX else "%dpx clear" % round(top)),
+            ("ok" if side >= SAFE_RIGHT_PX else "fail",
+             "captions clear the right %dpx" % SAFE_RIGHT_PX,
+             "side margin is %dpx — the action rail sits over that text"
+             % round(side) if side < SAFE_RIGHT_PX else "%dpx clear" % round(side)),
+        ]
+        return not any(l == "fail" for l, _, _ in findings), findings
 
     # The margin is measured from whichever edge the caption anchors against,
     # so it only answers the bottom-20% question for a caption that sits at the
@@ -273,19 +400,19 @@ def safe_zone_report(look=None):
     # checking its margin against this rule would refuse Style B for clearing
     # the wrong edge.
     if align == "bottom":
-        findings = [("ok" if bottom >= SAFE_BOTTOM_PCT else "fail",
-                     "captions clear the bottom %g%%" % SAFE_BOTTOM_PCT,
-                     "margin_bottom_pct is %g — the like and comment buttons and "
-                     "the title sit over that text" % bottom
-                     if bottom < SAFE_BOTTOM_PCT else "margin_bottom_pct %g" % bottom)]
+        findings = [("ok" if bottom >= SAFE_BOTTOM_PX else "fail",
+                     "captions clear the bottom %dpx" % SAFE_BOTTOM_PX,
+                     "the margin is %dpx — the title and the buttons sit over "
+                     "that text" % round(bottom) if bottom < SAFE_BOTTOM_PX
+                     else "%dpx clear" % round(bottom))]
     else:
-        findings = [("ok", "captions clear the bottom %g%%" % SAFE_BOTTOM_PCT,
+        findings = [("ok", "captions clear the bottom %dpx" % SAFE_BOTTOM_PX,
                      "anchored %s, so the bottom of the frame is empty" % align)]
     findings.append((
-        "ok" if side >= SAFE_SIDE_PCT else "fail",
-        "captions clear the right %g%%" % SAFE_SIDE_PCT,
-        "side_margin_pct is %g — the action rail sits over that text" % side
-        if side < SAFE_SIDE_PCT else "side_margin_pct %g" % side))
+        "ok" if side >= SAFE_RIGHT_PX else "fail",
+        "captions clear the right %dpx" % SAFE_RIGHT_PX,
+        "side margin is %dpx — the action rail sits over that text" % round(side)
+        if side < SAFE_RIGHT_PX else "%dpx clear" % round(side)))
     return not any(l == "fail" for l, _, _ in findings), findings
 
 
@@ -324,7 +451,8 @@ def check_description(text, required_credits=()):
     return tags, problems
 
 
-def handoff(video, title, description, notes, dest=None, style="A", scored=None):
+def handoff(video, title, description, notes, dest=None, style="A", scored=None,
+            script="", hooks=()):
     """Put one finished Short where a human will find it. Uploads nothing.
 
     Returns the folder. Refuses rather than writing a folder that would fail
@@ -344,6 +472,13 @@ def handoff(video, title, description, notes, dest=None, style="A", scored=None)
             credits = []
     _, bad_desc = check_description(description, credits)
     problems = bad_title + bad_desc
+    # A narrated Short hands over its narration. Checking it here rather than
+    # only at write time means a script that drifted after the gate ran cannot
+    # reach a reviewer unnoticed.
+    if script:
+        ok_script, script_findings = script_report(script, hooks)
+        if not ok_script:
+            problems += [d for level, _, d in script_findings if level == "fail"]
     if problems:
         raise ReviewError("not handing this over: " + "; ".join(problems))
     if str(style).upper() not in ("A", "B"):
@@ -365,6 +500,16 @@ def handoff(video, title, description, notes, dest=None, style="A", scored=None)
     body.append("A human approves this before it is uploaded. Nothing here "
                 "posts, schedules or publishes on its own.")
     (folder / "notes.txt").write_text("\n".join(body) + "\n", encoding="utf-8")
+    if script:
+        # The hooks that were rejected are part of the record: the next script
+        # is written by someone reading this one, and knowing which openings
+        # were tried is worth more than knowing only which one won.
+        page = [script.strip(), ""]
+        if hooks:
+            page.append("Hook options considered:")
+            page += ["  %d. %s" % (i, h) for i, h in enumerate(hooks, 1)]
+        (folder / "script.txt").write_text("\n".join(page).rstrip() + "\n",
+                                           encoding="utf-8")
     return folder
 
 
@@ -399,6 +544,9 @@ def main(argv=None):
     p_log.add_argument("--creator", required=True)
     p_log.add_argument("--license", dest="licence", required=True)
     p_log.add_argument("--attribution", required=True)
+    p_log.add_argument("--proof", default="",
+                       help="path to the receipt, DM screenshot or email that "
+                            "proves the licence")
     p_log.add_argument("--source", default="",
                        help="the film or file this clip was cut out of — clip "
                             "names repeat between videos, sources do not")
@@ -408,6 +556,10 @@ def main(argv=None):
 
     p_src = sub.add_parser("sources", help="check a plan's clips against sources.csv")
     p_src.add_argument("plan")
+
+    p_scr = sub.add_parser("script", help="is the narration the right shape?")
+    p_scr.add_argument("script_file")
+    p_scr.add_argument("--hook", action="append", default=[])
 
     p_sc = sub.add_parser("score", help="is this clip worth editing?")
     p_sc.add_argument("--hook", type=float, required=True)
@@ -421,6 +573,11 @@ def main(argv=None):
     p_h.add_argument("--title", required=True)
     p_h.add_argument("--description-file", required=True)
     p_h.add_argument("--notes", default="")
+    p_h.add_argument("--script-file", default="",
+                     help="the narration as spoken — written out as script.txt")
+    p_h.add_argument("--hook", action="append", default=[],
+                     help="a hook option that was considered; pass it %d times"
+                          % HOOK_OPTIONS)
     p_h.add_argument("--style", default="A", choices=["A", "B", "a", "b"])
     p_h.add_argument("--dest", default="")
 
@@ -431,13 +588,22 @@ def main(argv=None):
         if args.command == "log":
             row = log_source(args.clip, args.url, args.creator, args.licence,
                              args.attribution, args.source, args.release,
-                             args.notes, args.checked or None)
+                             args.notes, args.checked or None, proof=args.proof)
             print("logged %s%s — %s, %s, checked %s"
                   % (row["clip"], " from " + row["source"] if row["source"] else "",
                      row["creator"], row["license"], row["checked"]))
             return 0
         if args.command == "sources":
             ok, findings = sources_report(args.plan)
+            for level, headline, detail in findings:
+                print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
+                                  "fail": " FAIL "}[level], headline))
+                if detail:
+                    print("         %s" % detail)
+            return 0 if ok else 1
+        if args.command == "script":
+            ok, findings = script_report(
+                Path(args.script_file).read_text(encoding="utf-8"), args.hook)
             for level, headline, detail in findings:
                 print("%s %s" % ({"ok": "  ok  ", "warn": " warn ",
                                   "fail": " FAIL "}[level], headline))
@@ -459,7 +625,10 @@ def main(argv=None):
         if args.command == "handoff":
             folder = handoff(args.video, args.title,
                              Path(args.description_file).read_text(encoding="utf-8"),
-                             args.notes, args.dest or None, args.style)
+                             args.notes, args.dest or None, args.style,
+                             script=(Path(args.script_file).read_text(encoding="utf-8")
+                                     if args.script_file else ""),
+                             hooks=args.hook)
             print("%s — waiting for a human. Nothing was uploaded." % folder)
             return 0
         rows = pending()
