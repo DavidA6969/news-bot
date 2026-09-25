@@ -526,11 +526,50 @@ def main(argv=None):
 
     sub.add_parser("reachable", help="can the footage sources be reached at all?")
 
+    p_in = sub.add_parser("into-inbox",
+                          help="download one clip you have the rights to into inbox/")
+    p_in.add_argument("url")
+    p_in.add_argument("--creator", required=True)
+    p_in.add_argument("--license", dest="licence", required=True,
+                      help="must be one the spec allows")
+    p_in.add_argument("--attribution", required=True)
+    p_in.add_argument("--proof", default="",
+                      help="the receipt, DM screenshot or licence page, saved locally")
+    p_in.add_argument("--name", default="", help="filename to save as")
+    p_in.add_argument("--notes", default="")
+
     p_att = sub.add_parser("attribution", help="print the credit block for the description")
     p_att.add_argument("plan")
 
     args = parser.parse_args(argv)
     try:
+        if args.command == "into-inbox":
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import review as review_mod, spec as spec_mod
+            box = Path(__file__).resolve().parent / spec_mod.get("sources.inbox")
+            box.mkdir(parents=True, exist_ok=True)
+            name = args.name or Path(urllib.parse.urlsplit(args.url).path).name
+            if not name:
+                raise FetchError("no filename in %s — pass --name" % args.url)
+            target = box / name
+            blob = _get(args.url)
+            if len(blob) < 100000:
+                raise FetchError("%s returned only %d bytes — not a usable clip"
+                                 % (args.url, len(blob)))
+            target.write_bytes(blob)
+            # Logged as what it is, at the moment it arrives. A clip that sits
+            # in the inbox without a row is a clip nobody can vouch for later.
+            review_mod.log_source(
+                target.name, url=args.url, creator=args.creator,
+                licence=args.licence, attribution=args.attribution,
+                proof=args.proof, footage_type=spec_mod.get("sources.footage_type"),
+                notes=args.notes)
+            print("saved %s (%.1f MB) and logged it" % (target, len(blob) / 1048576.0))
+            report = review_mod.intake(box)
+            for row in report["unusable"]:
+                if Path(row["clip"]).name == target.name:
+                    print("  not usable yet: %s" % "; ".join(row["why"]))
+            return 0
         if args.command == "reachable":
             rows = reachable()
             for name, host, ok, note in rows:
