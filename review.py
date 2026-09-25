@@ -150,7 +150,8 @@ def _origins(plan):
     """Which source each clip in the plan was cut from, where that is recorded."""
     found = {}
     for beat in plan.get("beats") or []:
-        clip = Path(str(beat.get("clip") or ""))
+        path_text = str(beat.get("clip") or "")
+        clip = Path(path_text)
         book = clip.parent / "origins.json"
         if not book.exists():
             continue
@@ -160,7 +161,7 @@ def _origins(plan):
             continue
         entry = data.get(clip.name) or {}
         if entry.get("source"):
-            found[clip.name] = Path(str(entry["source"])).name
+            found[path_text] = Path(str(entry["source"])).name
     return found
 
 
@@ -177,16 +178,21 @@ def sources_report(plan_path, path=None):
     if not beats:
         return False, [("fail", "the plan has clips to check", "none found")]
 
+    # Distinct FILES, not distinct names: a plan can draw on two folders cut
+    # from the same film and both hold a clip01.mp4. Deduping by name reported
+    # twelve clips as six. The row that covers each is still found by name and
+    # source, because those two files do share a provenance.
     clips = []
     for beat in beats:
-        name = Path(str(beat.get("clip") or "")).name
-        if name and name not in clips:
-            clips.append(name)
+        path_text = str(beat.get("clip") or "")
+        if path_text and path_text not in clips:
+            clips.append(path_text)
 
     origins = _origins(plan)
     missing, undated, unsigned = [], [], []
-    for name in clips:
-        row = source_for(name, path, origins.get(name))
+    for clip_path in clips:
+        name = Path(clip_path).name
+        row = source_for(name, path, origins.get(clip_path))
         if not row:
             missing.append(name)
             continue

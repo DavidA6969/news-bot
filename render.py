@@ -274,9 +274,27 @@ def description(plan_path, hook="", extra=""):
     audio = plan.get("audio") or {}
     voice = str(audio.get("license") or "").strip()
     if voice:
-        parts.append("Narration and edit: %s." % voice)
-    music = str((plan.get("music") or {}).get("license") or "").strip()
-    parts.append("Music: %s" % (music or "original, synthesised for this video."))
+        # What the audio IS, rather than an assumption about it. A clip-led
+        # Short keeps the source's own soundtrack; a narrated one carries a
+        # voice track. Calling someone else's audio "narration" misdescribes
+        # the one thing a Content ID dispute turns on.
+        role = str(audio.get("role") or "narration").strip().lower()
+        parts.append("%s: %s." % (
+            "Audio" if role == "source" else "Narration and edit", voice))
+    # Only claim a bed when there will be one. This line used to be
+    # unconditional, so every description asserted synthesised music --
+    # including a video whose style has music off, and one whose bed failed to
+    # generate, which is a quiet render rather than a failed one. A false
+    # statement about where audio came from is the opposite of useful in a
+    # dispute.
+    music_plan = plan.get("music") or {}
+    music = str(music_plan.get("license") or "").strip()
+    wants_bed = dict((plan.get("_style") or the_style()).get("music") or {})
+    wants_bed.update(music_plan)
+    if music:
+        parts.append("Music: %s" % music)
+    elif wants_bed.get("enabled"):
+        parts.append("Music: original, synthesised for this video.")
     if extra:
         parts.append(extra.strip())
     return "\n\n".join(p for p in parts if p).strip() + "\n"
@@ -837,10 +855,15 @@ def monetize_report(plan_path, history_path=None, used_path=None):
 
     # 3. footage recycled from earlier videos is what mass production looks like
     ledger = Path(used_path) if used_path else (HERE / "clips_used.json")
-    # A shot is a file AND a position in it: fourteen segments of one film are
-    # fourteen different shots, and counting filenames calls them one.
-    shots = [(Path(b.get("clip") or "").stem, round(float(b.get("in") or 0), 1))
-             for b in beats]
+    # A shot is a source AND a position in it: fourteen segments of one film
+    # are fourteen different shots, and counting filenames calls them one.
+    # Filenames cannot answer either question below -- a plan can draw on two
+    # folders of clips cut from the same film, and both hold a clip01.mp4, so
+    # matching on the name called twelve distinct shots six and one film six
+    # sources. `plan_spans` resolves each beat through origins.json to where
+    # it actually sits in the film it came from.
+    spans = plan_spans(path)
+    shots = [(source, round(start, 1)) for source, start, _ in spans]
     repeats = len(shots) - len(set(shots))
     findings.append((
         "ok" if not repeats else "warn",
@@ -848,7 +871,7 @@ def monetize_report(plan_path, history_path=None, used_path=None):
         "%d beat%s repeat a shot" % (repeats, "" if repeats == 1 else "s")
         if repeats else "%d distinct shots" % len(set(shots))))
 
-    sources = {name for name, _ in shots}
+    sources = {source for source, _, _ in spans}
     findings.append((
         "ok" if len(sources) > 1 else "warn",
         "the video draws on more than one source",
@@ -867,7 +890,7 @@ def monetize_report(plan_path, history_path=None, used_path=None):
                     for s in (_used_ledger(ledger).get("spans") or [])]
     except (ValueError, TypeError, IndexError):
         was_used = []
-    already = [(source, start) for source, start, end in plan_spans(path)
+    already = [(source, start) for source, start, end in spans
                if any(seen_source == source and start < seen_end and seen_start < end
                       for seen_source, seen_start, seen_end in was_used)]
     if already:
@@ -1514,10 +1537,17 @@ def _push(w, h, fps, push, duration, out=False):
     # right while every part file was nonsense. Rebuilding the timestamps from
     # the frame number makes a pushed beat measure exactly what an unpushed one
     # does.
-    return (",scale=%d:%d,zoompan=z='%s':d=1"
+    # The rate conversion has to happen BEFORE zoompan, not after it. zoompan
+    # with d=1 emits one frame per frame it is GIVEN while labelling the result
+    # with the output rate, so a 24fps source handed straight to it produced
+    # 24 frames for every 30 asked: the beat came out short and, because the
+    # frames were relabelled rather than resampled, the picture inside it ran
+    # a quarter too fast. A crossfade hid this -- tpad cloned the last frame
+    # until the part was long enough -- so it only surfaced on a hard cut.
+    return (",fps=%d,scale=%d:%d,zoompan=z='%s':d=1"
             ":x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
             ":s=%dx%d:fps=%d,setpts=N/FRAME_RATE/TB"
-            % (big_w, big_h, zoom, w, h, fps))
+            % (fps, big_w, big_h, zoom, w, h, fps))
 
 
 def _reframe(w, h, mode, zoom=1.0):
@@ -1603,9 +1633,58 @@ def _duck_ratio(duck_db):
     return max(1.5, min(20.0, 1.0 + abs(float(duck_db)) / 3.0))
 
 
-def _make_bed(look, seconds, tmp, progress):
-    """A music bed for this render, or None if the style does not want one."""
-    want = look.get("music") or {}
+def measured_loudness(path):
+    """Integrated LUFS of a finished file, or None if it cannot be read."""
+    proc = subprocess.run(
+        [ffmpeg_bin(), "-hide_banner", "-nostats", "-i", str(path),
+         "-af", "ebur128=framelog=quiet", "-f", "null", "-"],
+        capture_output=True, text=True)
+    found = re.findall(r"I:\s*(-?\d+(?:\.\d+)?)\s*LUFS", proc.stderr or "")
+    return float(found[-1]) if found else None
+
+
+def _hit_loudness(path, target, ceiling=-1.5, tolerance=0.3, progress=print):
+    """Correct a finished file onto its loudness target.
+
+    One pass of loudnorm is a moving estimate: on a 20s Short it landed 1.8dB
+    under, which in a feed is audibly quiet. Measuring what actually came out
+    and shifting by the difference is exact, because integrated loudness moves
+    one-for-one with a linear gain -- and it costs one audio re-encode rather
+    than a second pass over the video, which is copied through untouched.
+    """
+    got = measured_loudness(path)
+    if got is None or not target:
+        return got
+    delta = float(target) - got
+    if abs(delta) <= tolerance:
+        return got
+    fixed = Path(path).with_name(Path(path).stem + ".lvl.mp4")
+    # The lift can push peaks past the ceiling loudnorm was holding, so the
+    # limiter is not optional -- but alimiter auto-levels by default, which
+    # applies a gain of its own on top of this one and overshot the target by
+    # more than the correction was worth. level=disabled makes it do only the
+    # one job it is here for.
+    _run([ffmpeg_bin(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(path),
+          "-af", "volume=%.2fdB,alimiter=limit=%.4f:level=disabled"
+                 % (delta, 10 ** (ceiling / 20.0)),
+          "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", str(fixed)],
+         "correcting loudness")
+    os.replace(fixed, path)
+    after = measured_loudness(path)
+    progress("  levelled  %.1f -> %.1f LUFS (target %.1f)"
+             % (got, after if after is not None else target, target))
+    return after
+
+
+def _make_bed(look, seconds, tmp, progress, override=None):
+    """A music bed for this render, or None if it is not wanted.
+
+    The style decides for the channel; a plan can still say no. A Short that
+    keeps its source's own soundtrack must not get a second, synthesised one
+    laid under it.
+    """
+    want = dict(look.get("music") or {})
+    want.update(override or {})
     if not want.get("enabled"):
         return None
     try:
@@ -1852,9 +1931,14 @@ def build_subtitles(plan, path):
                     lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
                         _ass_time(w_start), _ass_time(w_end), effect, _ass_escape(word)))
             else:
+                # ass_override_colour returns the VALUE; \c and \3c are the
+                # tags that apply it. Without them the block is not an override
+                # at all, libass drops it, and the caption renders in the plain
+                # colour -- which is what a suspense caption did until it was
+                # looked at rather than assumed.
                 lines.append("Dialogue: 0,%s,%s,Caption,,0,0,0,,%s%s" % (
                     _ass_time(at), _ass_time(at + beat["duration"]),
-                    ("{%s%s}" % (hi_fill, hi_line)) if suspense else "",
+                    ("{\\c%s\\3c%s}" % (hi_fill, hi_line)) if suspense else "",
                     _ass_escape(caption)))
         at += beat["duration"]
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -2001,7 +2085,8 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
         audio = plan.get("audio")
         if audio:
             args += ["-i", audio["_path"]]
-        bed = _make_bed(look, probe(silent)["duration"], tmp, progress) if audio else None
+        bed = (_make_bed(look, probe(silent)["duration"], tmp, progress,
+                         plan.get("music")) if audio else None)
         if bed:
             args += ["-i", str(bed)]
         if has_captions:
@@ -2081,6 +2166,11 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
             out.unlink(missing_ok=True)
             raise RenderError("the render came out wrong, so it was deleted rather "
                               "than passed on: " + "; ".join(problems))
+
+        if audio:
+            _hit_loudness(out, float(enc.get("loudness_lufs", 0) or 0),
+                          progress=progress)
+            got = probe(out)
 
         result = {"output": str(out), "duration": round(got["duration"], 2),
                   "beats": len(parts), "size": got["size"],

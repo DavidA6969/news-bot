@@ -358,7 +358,7 @@ def load(path=None):
 # a variant only moves the handful of fields that separate the two looks. A
 # variant that could change the voice would be a second channel wearing the
 # same name.
-VARIANT_FIELDS = ("captions", "format", "motion")
+VARIANT_FIELDS = ("captions", "format", "motion", "transition")
 VARIANTS = {
     # "Curiosity": big centred all-caps text over a filled frame, punching in.
     "A": {
@@ -366,6 +366,11 @@ VARIANTS = {
                      "mode": "line", "size_pct": 6.5, "max_lines": 2},
         "format": {"fit": "crop"},
         "motion": {"push_in": 0.1},
+        # Hard cuts. A crossfade needs the clip to carry material beyond its
+        # beat, and the shots worth using in a fast sequence are often barely
+        # longer than the beat itself -- so the dissolve is what stops you
+        # using them. It is also wrong for the look: this edit is punchy.
+        "transition": {"kind": "cut", "seconds": 0.0},
     },
     # "Story caption": a sentence-case slab at the top, the clip centred in a
     # blurred copy of itself, and nothing moving.
@@ -378,6 +383,7 @@ VARIANTS = {
                      "margin_bottom_pct": 8.0},
         "format": {"fit": "blur", "blur_zoom": 1.15},
         "motion": {"push_in": 0.0},
+        "transition": {"kind": "cut", "seconds": 0.0},
     },
 }
 
