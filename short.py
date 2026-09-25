@@ -72,7 +72,7 @@ def _licences_for(folder, clips, blanket=None):
 
 def build(script, clips_dir, output=None, engine=None, emphasis=None,
           blanket_licence=None, attribution=None, progress=print, recorded=None):
-    import render as R, voice as V, style as S
+    import render as R, voice as V, style as S, review as RV
 
     look = S.current()
     lines = V.beats_from_script(script)
@@ -168,9 +168,17 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
              % (desc_path.name, rights_path.name))
 
     failed = []
+    # `rights` asks whether a licence is recorded beside each clip; `sources`
+    # asks whether anyone could verify that claim -- the URL it came from and
+    # the day it was checked. `safe` is about the committed style rather than
+    # this plan, but a caption sitting under the app's own buttons is wrong in
+    # every video, so it is cheaper to refuse here than to find out one upload
+    # at a time.
     for name, check in (("narration", R.narration_report),
                         ("retention", R.retention_report),
                         ("rights", R.rights_report),
+                        ("sources", RV.sources_report),
+                        ("safe", lambda _plan: RV.safe_zone_report(look)),
                         ("fresh", R.unused_report),
                         ("monetize", R.monetize_report)):
         ok, findings = check(plan_path)
@@ -180,8 +188,10 @@ def build(script, clips_dir, output=None, engine=None, emphasis=None,
         if not ok:
             failed.append(name)
     if failed:
-        raise ShortError("%s did not pass. Run `python3 render.py %s %s` for the "
-                         "detail." % (" and ".join(failed), failed[0], plan_path))
+        tool = "review.py" if failed[0] in ("sources", "safe") else "render.py"
+        arg = "" if failed[0] == "safe" else " %s" % plan_path
+        raise ShortError("%s did not pass. Run `python3 %s %s%s` for the detail."
+                         % (" and ".join(failed), tool, failed[0], arg))
 
     result = R.build(plan_path, progress=lambda *a: None)
     # Recorded only once the render exists. A plan that failed a gate has not

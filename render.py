@@ -1985,6 +1985,15 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                      "-b:a", "%dk" % int(enc.get("audio_kbps", 160)),
                      "-ar", str(int(enc.get("audio_rate", 48000))),
                      "-ac", str(int(enc.get("audio_channels", 2)))]
+            # Section 6 of the production spec: the DELIVERED Short sits at
+            # about -14 LUFS. This is not `voice.loudness_lufs`, which is the
+            # per-take levelling target the breath placement is tuned against;
+            # raising that one makes the gaps between clauses proportionally
+            # louder and the splice finder stops trusting them. Loudness of
+            # the thing anyone actually hears belongs at the end, on the
+            # finished continuous mix, which is the case loudnorm is built for.
+            target = float(enc.get("loudness_lufs", 0) or 0)
+            norm = (",loudnorm=I=%.1f:TP=-1.5:LRA=11" % target) if target else ""
             if bed:
                 # The bed ducks itself out of the way: the narration is the
                 # sidechain key, so the music drops while a line is running and
@@ -1996,18 +2005,20 @@ def build(plan_path, output=None, agent=None, keep_temp=False, progress=print):
                          "[2:a]volume=%.1fdB[bedq];"
                          "[bedq][vk]sidechaincompress=threshold=%.3f:ratio=%.2f"
                          ":attack=12:release=420[duck];"
-                         "[vv][duck]amix=inputs=2:duration=first:normalize=0[aout]"
+                         "[vv][duck]amix=inputs=2:duration=first:normalize=0"
+                         "%s[aout]"
                          % (probe(silent)["duration"],
                             float(music.get("gain_db", -19.0)),
                             DUCK_THRESHOLD,
-                            _duck_ratio(float(music.get("duck_db", -7.0)))),
+                            _duck_ratio(float(music.get("duck_db", -7.0))), norm),
                          "-map", "0:v:0", "-map", "[aout]",
                          "-t", "%.3f" % probe(silent)["duration"]]
                 progress("  laying the voice over a %s bed"
                          % (music.get("mood") or "grief"))
             else:
                 args += ["-map", "0:v:0", "-map", "1:a:0",
-                         "-af", "apad", "-t", "%.3f" % probe(silent)["duration"]]
+                         "-af", "apad" + norm,
+                         "-t", "%.3f" % probe(silent)["duration"]]
                 progress("  laying the voice track")
         else:
             args += ["-an"]

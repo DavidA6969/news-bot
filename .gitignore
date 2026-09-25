@@ -8,9 +8,12 @@ agents.json.tmp.*
 # the record of which footage has already been published, and an agent that
 # cannot see it will re-cut the same film. performance.json is what actually
 # worked. All three have to survive a fresh checkout or the agents start blind:
-#   niche.json  clips_used.json  performance.json
+#   niche.json  clips_used.json  performance.json  sources.csv
 
 # local run state — regenerable from the inputs, so not worth committing
+# review/ holds finished Shorts waiting for a human: the text files are small
+# but final.mp4 is not, and a repository is the wrong place to queue video.
+review/
 schedule_state.json
 performance.md
 performance-etsy.md

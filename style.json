@@ -21,8 +21,8 @@
       "colour": "FFFFFF",
       "outline": "000000",
       "outline_pct": 0.28,
-      "margin_bottom_pct": 12.0,
-      "side_margin_pct": 8.0,
+      "margin_bottom_pct": 21.0,
+      "side_margin_pct": 16.0,
       "mode": "karaoke",
       "pop_ms": 110,
       "highlight": "FFD23F",
@@ -46,10 +46,11 @@
       "preset": "medium",
       "audio_rate": 48000,
       "audio_channels": 2,
-      "audio_kbps": 160
+      "audio_kbps": 160,
+      "loudness_lufs": -14.0
     },
-    "version": 50,
-    "committedAt": "2026-09-23T23:43:10Z",
+    "version": 55,
+    "committedAt": "2026-09-25T07:02:45Z",
     "shorts": {
       "max_seconds": 180,
       "target_seconds": 45,
@@ -531,6 +532,46 @@
       "from": 1.2,
       "to": 1.28,
       "version": 50
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "captions.margin_bottom_pct",
+      "from": 12.0,
+      "to": 21.0,
+      "version": 51
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "captions.side_margin_pct",
+      "from": 8.0,
+      "to": 16.0,
+      "version": 52
+    },
+    {
+      "at": "2026-09-25T06:51:46Z",
+      "action": "set",
+      "field": "voice.loudness_lufs",
+      "from": -16.0,
+      "to": -14.0,
+      "version": 53
+    },
+    {
+      "at": "2026-09-25T07:00:56Z",
+      "action": "set",
+      "field": "voice.loudness_lufs",
+      "from": -14.0,
+      "to": -16.0,
+      "version": 54
+    },
+    {
+      "at": "2026-09-25T07:02:45Z",
+      "action": "upgrade",
+      "added": [
+        "encode.loudness_lufs"
+      ],
+      "version": 55
     }
   ]
 }

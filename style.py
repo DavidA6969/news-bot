@@ -139,8 +139,14 @@ DEFAULT_STYLE = {
     # 48kHz stereo AAC is what YouTube asks for, and low-rate mono is worse
     # than non-standard: plenty of players and inline previews simply play
     # nothing, which looks exactly like a video with no voice on it.
+    # `loudness_lufs` here is what the FINISHED Short is normalised to, and it
+    # is a different thing from `voice.loudness_lufs`, which levels each take
+    # before the mix. Raising the take target changes where the breath finder
+    # sees a gap; this one runs last, on the continuous mix, and changes only
+    # how loud the video plays. 0 turns it off.
     "encode": {"crf": 20, "preset": "medium",
-               "audio_rate": 48000, "audio_channels": 2, "audio_kbps": 160},
+               "audio_rate": 48000, "audio_channels": 2, "audio_kbps": 160,
+               "loudness_lufs": -14.0},
     # How the narration is spoken and treated. This lives in the style for the
     # same reason the captions do: a channel is recognised by its voice before
     # it is recognised by its edit, and a voice that changes level or timbre
@@ -205,6 +211,7 @@ _NUMERIC = {
     "pacing.min_beat_seconds": (0.3, 30.0), "pacing.max_beat_seconds": (1.0, 120.0),
     "encode.crf": (14, 34), "encode.audio_rate": (8000, 48000),
     "encode.audio_channels": (1, 2), "encode.audio_kbps": (48, 320),
+    "encode.loudness_lufs": (-30.0, 0.0),
     "shorts.max_seconds": (1.0, 180.0), "shorts.target_seconds": (1.0, 180.0),
     "voice.words_per_minute": (80, 300), "voice.pitch": (0, 99),
     "voice.word_gap_ms": (0, 200), "voice.highpass_hz": (20, 300),

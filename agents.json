@@ -68,6 +68,23 @@
       ]
     },
     {
+      "id": "shorts-production",
+      "name": "CUTTER",
+      "role": "Cuts licensed footage into Shorts and hands them to a human",
+      "status": "idle",
+      "currentTask": null,
+      "startedAt": null,
+      "lastRun": null,
+      "lastOutput": null,
+      "runCount": 0,
+      "failCount": 0,
+      "avgDurationSec": null,
+      "recentRuns": [],
+      "dependsOn": [
+        "trend-research"
+      ]
+    },
+    {
       "id": "publishing",
       "name": "HERALD",
       "role": "Uploads, captions and schedules the finished video",
